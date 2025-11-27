@@ -1,9 +1,12 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
 import DashboardView from "../views/DashboardView.vue";
 import MachinesView from "../views/MachinesView.vue";
-import MachineDetailView from "../views/MachineDetailView.vue";
 import EmployeesView from "../views/EmployeesView.vue";
 import LoginPage from "../views/LoginPage.vue";
+import MachineDetailLayout from "../views/MachineDetailLayout.vue";
+import MachineResumenView from "../views/MachineResumenView.vue";
+import MachineHistorialView from "../views/MachineHistorialView.vue";
+import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -25,10 +28,33 @@ const routes: Array<RouteRecordRaw> = [
   },
   {
     path: "/machines/:id",
-    name: "machine-detail",
-    component: MachineDetailView,
+    component: MachineDetailLayout,
     meta: { requiresAuth: true },
     props: true,
+    children: [
+      {
+        path: "",
+        redirect: { name: "machine-resumen" },
+      },
+      {
+        path: "resumen",
+        name: "machine-resumen",
+        component: MachineResumenView,
+        props: true,
+      },
+      {
+        path: "historial",
+        name: "machine-historial",
+        component: MachineHistorialView,
+        props: true,
+      },
+      {
+        path: "estadisticas",
+        name: "machine-estadisticas",
+        component: MachineEstadisticasView,
+        props: true,
+      },
+    ],
   },
   {
     path: "/employees",

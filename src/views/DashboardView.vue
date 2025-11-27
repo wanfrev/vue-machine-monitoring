@@ -358,7 +358,7 @@ function handleNewMachine(machine: { name: string; location: string }) {
         <div class="mt-1 flex justify-end">
           <RouterLink
             :to="{
-              name: 'machine-detail',
+              name: 'machine-resumen',
               params: { id: machine.name },
               query: { location: machine.location, status: 'Activa' },
             }"
