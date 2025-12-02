@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { inject, type Ref } from "vue";
+import { inject, type Ref, onMounted, ref } from "vue";
+import { getMachines } from "../api/client";
 
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 
@@ -7,6 +8,21 @@ const isDark = () => {
   if (typeof injectedDark === "boolean") return injectedDark;
   return !!injectedDark?.value;
 };
+
+type Machine = { id: string; name: string; status: string; location?: string };
+const loading = ref(false);
+const machines = ref<Machine[]>([]);
+
+onMounted(async () => {
+  loading.value = true;
+  try {
+    machines.value = await getMachines();
+  } catch (e) {
+    // Podríamos mostrar un toast
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
@@ -64,44 +80,12 @@ const isDark = () => {
           </tr>
         </thead>
         <tbody>
-          <tr
-            class="border-t"
-            :class="
-              isDark()
-                ? 'border-slate-800 hover:bg-slate-800'
-                : 'border-slate-200 hover:bg-slate-50'
-            "
-          >
-            <td class="px-4 py-2 whitespace-nowrap">A-001</td>
-            <td class="px-4 py-2 whitespace-nowrap">Máquina de boxeo</td>
-            <td class="px-4 py-2 whitespace-nowrap">
-              <span
-                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
-                :class="
-                  isDark()
-                    ? 'bg-green-900 text-green-200'
-                    : 'bg-green-100 text-green-700'
-                "
-              >
-                Activa
-              </span>
-            </td>
-            <td class="px-4 py-2 whitespace-nowrap">92%</td>
-            <td
-              class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
-            >
-              <button class="text-red-500 hover:underline" type="button">
-                Ver
-              </button>
-              <button class="text-amber-500 hover:underline" type="button">
-                Editar
-              </button>
-              <button class="text-slate-400 hover:underline" type="button">
-                Eliminar
-              </button>
-            </td>
+          <tr v-if="loading">
+            <td class="px-4 py-3" colspan="5">Cargando...</td>
           </tr>
           <tr
+            v-for="m in machines"
+            :key="m.id"
             class="border-t"
             :class="
               isDark()
@@ -109,21 +93,25 @@ const isDark = () => {
                 : 'border-slate-200 hover:bg-slate-50'
             "
           >
-            <td class="px-4 py-2 whitespace-nowrap">B-001</td>
-            <td class="px-4 py-2 whitespace-nowrap">Máquina de agilidad</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ m.id }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ m.name }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
               <span
                 class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
                 :class="
-                  isDark()
-                    ? 'bg-amber-900 text-amber-200'
-                    : 'bg-amber-100 text-amber-700'
+                  m.status === 'active'
+                    ? isDark()
+                      ? 'bg-green-900 text-green-200'
+                      : 'bg-green-100 text-green-700'
+                    : isDark()
+                    ? 'bg-slate-800 text-slate-200'
+                    : 'bg-slate-100 text-slate-700'
                 "
               >
-                En espera
+                {{ m.status === "active" ? "Activa" : "Inactiva" }}
               </span>
             </td>
-            <td class="px-4 py-2 whitespace-nowrap">81%</td>
+            <td class="px-4 py-2 whitespace-nowrap">—</td>
             <td
               class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
             >

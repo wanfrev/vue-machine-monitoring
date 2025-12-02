@@ -1,21 +1,22 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { login as apiLogin } from "../api/client";
 
 const username = ref("");
 const password = ref("");
 const error = ref("");
 
-function login() {
+async function login() {
+  error.value = "";
   if (!username.value || !password.value) {
-    error.value = "Please enter username and password.";
+    error.value = "Por favor ingresa usuario y contraseña.";
     return;
   }
-  // Simulate login (replace with real auth if needed)
-  if (username.value === "admin" && password.value === "admin") {
-    localStorage.setItem("auth", "true");
+  try {
+    await apiLogin(username.value, password.value);
     window.location.href = "/";
-  } else {
-    error.value = "Invalid credentials.";
+  } catch (e: any) {
+    error.value = e?.response?.data?.message || "Credenciales inválidas.";
   }
 }
 </script>
