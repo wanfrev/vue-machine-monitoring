@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, defineEmits, defineProps, watch } from "vue";
+import { useRouter } from "vue-router";
+import { setAuthToken } from "../api/client";
 // Multi-word component name to satisfy eslint vue/multi-word-component-names
 // (Implicit from filename AppSidebar.vue)
 
@@ -24,9 +26,10 @@ function close() {
   emit("close");
 }
 
+const router = useRouter();
 function logout() {
-  localStorage.removeItem("auth");
-  window.location.href = "/login";
+  setAuthToken(null);
+  router.push({ name: "login" });
 }
 </script>
 
@@ -81,6 +84,10 @@ function logout() {
               ? 'hover:bg-slate-800 text-slate-200'
               : 'hover:bg-slate-100 text-slate-700'
           "
+          @click="
+            $emit('close');
+            router.push({ name: 'dashboard' });
+          "
         >
           <span>Dashboard</span>
           <span>›</span>
@@ -91,6 +98,10 @@ function logout() {
             isDark
               ? 'hover:bg-slate-800 text-slate-200'
               : 'hover:bg-slate-100 text-slate-700'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'machines' });
           "
         >
           <span>Máquinas</span>
@@ -103,6 +114,10 @@ function logout() {
               ? 'hover:bg-slate-800 text-slate-200'
               : 'hover:bg-slate-100 text-slate-700'
           "
+          @click="
+            $emit('close');
+            router.push({ name: 'employees' });
+          "
         >
           <span>Empleados</span>
           <span>›</span>
@@ -113,6 +128,13 @@ function logout() {
             isDark
               ? 'hover:bg-slate-800 text-slate-200'
               : 'hover:bg-slate-100 text-slate-700'
+          "
+          @click="
+            $emit('close');
+            router.push({
+              name: 'machine-resumen',
+              params: { id: machines?.[0]?.name || '' },
+            });
           "
         >
           <span>Reportes</span>
