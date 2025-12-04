@@ -8,6 +8,7 @@ import {
   getMachines,
   createMachine as apiCreateMachine,
   getTotalCoins,
+  getCoinsByMachine,
 } from "../api/client";
 
 const router = useRouter();
@@ -21,8 +22,32 @@ type Machine = {
   name: string;
   status: string;
   location?: string;
+  type?: string;
 };
 const machines = ref<Machine[]>([]);
+
+const stateFilters = [
+  "todas",
+  "activas",
+  "inactivas",
+  "mantenimiento",
+] as const;
+type Filter = (typeof stateFilters)[number];
+const selectedFilter = ref<Filter>("todas");
+
+const filteredMachines = computed(() => {
+  if (selectedFilter.value === "todas") return machines.value;
+  if (selectedFilter.value === "activas")
+    return machines.value.filter((m) => m.status === "active");
+  if (selectedFilter.value === "inactivas")
+    return machines.value.filter((m) => m.status === "inactive");
+  if (selectedFilter.value === "mantenimiento")
+    return machines.value.filter((m) => m.status === "maintenance");
+  return machines.value;
+});
+
+// monedas por máquina: { [machineId]: total_coins }
+const coinsByMachine = ref<Record<string, number>>({});
 
 const totalMachines = computed(() => machines.value.length);
 const activeMachines = computed(
@@ -39,9 +64,20 @@ const isDark = () => {
   return !!injectedDark?.value;
 };
 
+function getMachineCoins(machineId: string): number {
+  return coinsByMachine.value[machineId] || 0;
+}
+
+function getMachineIncome(machine: Machine): number {
+  const coins = getMachineCoins(machine.id);
+  const valuePerCoin = machine.name.includes("Boxeo") ? 1 : 2;
+  return coins * valuePerCoin;
+}
+
 async function handleNewMachine(machine: {
   name: string;
   location: string;
+  type: string;
   id?: string;
 }) {
   try {
@@ -61,6 +97,19 @@ onMounted(async () => {
     } catch (e) {
       console.error("Error obteniendo monedas ingresadas:", e);
       totalCoins.value = 0;
+    }
+
+    // cargar monedas agrupadas por máquina para calcular ingresos por card
+    try {
+      const coinsPerMachine = await getCoinsByMachine();
+      const map: Record<string, number> = {};
+      for (const row of coinsPerMachine) {
+        map[row.machine_id] = Number(row.total_coins ?? 0);
+      }
+      coinsByMachine.value = map;
+    } catch (e) {
+      console.error("Error obteniendo monedas por máquina:", e);
+      coinsByMachine.value = {};
     }
   } catch (err: unknown) {
     const anyErr = err as { response?: { status?: number } };
@@ -83,6 +132,7 @@ onMounted(async () => {
   <NewMachine
     :open="newMachineOpen"
     :count="machines.length"
+    :machines="machines"
     :dark="isDark()"
     @close="newMachineOpen = false"
     @create="handleNewMachine"
@@ -279,58 +329,29 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-
-      <!-- Filtros de estado -->
-      <div class="flex flex-wrap gap-2 text-xs sm:text-sm">
-        <button
-          class="rounded-full px-4 py-1.5 font-medium shadow-sm cursor-pointer"
-          :class="
-            isDark()
-              ? 'bg-slate-100 text-slate-900'
-              : 'bg-slate-900 text-slate-50'
-          "
-        >
-          Todas
-        </button>
-        <button
-          class="rounded-full border px-4 py-1.5 font-medium text-slate-500 cursor-pointer"
-          :class="
-            isDark()
-              ? 'border-slate-700 bg-slate-900/60'
-              : 'border-slate-200 bg-white'
-          "
-        >
-          Activas
-        </button>
-        <button
-          class="rounded-full border px-4 py-1.5 font-medium text-slate-500 cursor-pointer"
-          :class="
-            isDark()
-              ? 'border-slate-700 bg-slate-900/60'
-              : 'border-slate-200 bg-white'
-          "
-        >
-          Inactivas
-        </button>
-        <button
-          class="rounded-full border px-4 py-1.5 font-medium text-slate-500 cursor-pointer"
-          :class="
-            isDark()
-              ? 'border-slate-700 bg-slate-900/60'
-              : 'border-slate-200 bg-white'
-          "
-        >
-          Mantenimiento
-        </button>
-      </div>
     </section>
 
     <!-- Grid de tarjetas de máquinas -->
+    <div class="flex gap-2 mb-4">
+      <button
+        v-for="filter in stateFilters"
+        :key="filter"
+        @click="selectedFilter = filter"
+        :class="[
+          'px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
+          selectedFilter === filter
+            ? 'bg-slate-900 text-white hover:bg-slate-800'
+            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50',
+        ]"
+      >
+        {{ filter.charAt(0).toUpperCase() + filter.slice(1) }}
+      </button>
+    </div>
     <section
       class="grid gap-4 pb-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3"
     >
       <article
-        v-for="machine in machines"
+        v-for="machine in filteredMachines"
         :key="machine.name"
         class="flex flex-col justify-between rounded-2xl border bg-white p-4 text-sm shadow-sm"
         :class="
@@ -386,14 +407,21 @@ onMounted(async () => {
             class="text-right font-semibold text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >
-            $ 0
+            $ {{ getMachineIncome(machine) }}
           </p>
           <p class="font-medium text-slate-400">Total ingresos</p>
           <p
             class="text-right text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >
-            $ 0
+            $ {{ getMachineIncome(machine) }}
+          </p>
+          <p class="font-medium text-slate-400">Monedas</p>
+          <p
+            class="text-right text-slate-800"
+            :class="isDark() ? 'text-slate-100' : ''"
+          >
+            {{ getMachineCoins(machine.id) }}
           </p>
           <p class="font-medium text-slate-400">Tiempo activo</p>
           <p

@@ -46,3 +46,8 @@ export async function getTotalCoins() {
   const res = await api.get("/api/machines/coins/total");
   return res.data as { totalCoins: number };
 }
+
+export async function getCoinsByMachine() {
+  const res = await api.get("/api/machines/coins/by-machine");
+  return res.data as { machine_id: string; total_coins: number }[];
+}
