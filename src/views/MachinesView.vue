@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { inject, type Ref, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import AppSidebar from "@/components/AppSidebar.vue";
 import { getMachines } from "../api/client";
 
-const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
+const router = useRouter();
+const sidebarOpen = ref(false);
 
+const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 const isDark = () => {
   if (typeof injectedDark === "boolean") return injectedDark;
   return !!injectedDark?.value;
@@ -26,6 +30,12 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AppSidebar
+    :open="sidebarOpen"
+    :dark="isDark()"
+    @close="sidebarOpen = false"
+    @open="() => {}"
+  />
   <div
     :class="[
       'px-2 py-4 sm:p-6',
@@ -35,12 +45,39 @@ onMounted(async () => {
     <div
       class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4"
     >
-      <h1
-        class="text-3xl font-bold"
-        :class="isDark() ? 'text-white' : 'text-slate-900'"
-      >
-        Máquinas
-      </h1>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-slate-500 transition cursor-pointer"
+          :class="
+            isDark()
+              ? 'border-red-300 bg-red-700 hover:bg-red-600 hover:text-white'
+              : 'border-red-200 bg-red-100 hover:bg-red-200 hover:text-red-700'
+          "
+          aria-label="Abrir menú lateral"
+          @click="sidebarOpen = true"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 512 512"
+            fill="none"
+          >
+            <path
+              d="M315.27,33,96,304H224L192.49,477.23a2.36,2.36,0,0,0,2.33,2.77h0a2.36,2.36,0,0,0,1.89-.95L416,208H288L319.66,34.75A2.45,2.45,0,0,0,317.22,32h0A2.42,2.42,0,0,0,315.27,33Z"
+              :stroke="isDark() ? '#ffffff' : '#000000'"
+              stroke-width="28"
+            />
+          </svg>
+        </button>
+        <h1
+          class="text-3xl font-bold"
+          :class="isDark() ? 'text-white' : 'text-slate-900'"
+        >
+          Máquinas
+        </h1>
+      </div>
       <button
         type="button"
         class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"

@@ -1,15 +1,32 @@
 <script setup lang="ts">
 import { inject, type Ref, ref } from "vue";
+import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import FilterPanel from "@/components/FilterPanel.vue";
 import { getMachines, createMachine as apiCreateMachine } from "../api/client";
 
+const router = useRouter();
+
 const sidebarOpen = ref(false);
 const newMachineOpen = ref(false);
 const filterOpen = ref(false);
 
-const machines = ref([]);
+type Machine = {
+  id: string;
+  name: string;
+  status: string;
+  location?: string;
+};
+const machines = ref<Machine[]>([]);
+
+const totalMachines = computed(() => machines.value.length);
+const activeMachines = computed(
+  () => machines.value.filter((m) => m.status === "active").length
+);
+const inactiveMachines = computed(
+  () => totalMachines.value - activeMachines.value
+);
 
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 const isDark = () => {
@@ -22,13 +39,26 @@ async function handleNewMachine(machine: {
   location: string;
   id?: string;
 }) {
-  await apiCreateMachine(machine);
-  machines.value = await getMachines();
+  try {
+    await apiCreateMachine(machine);
+    machines.value = await getMachines();
+  } catch (err: unknown) {
+    console.error("Error al crear máquina:", err);
+  }
 }
 // Cargar máquinas al montar
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 onMounted(async () => {
-  machines.value = await getMachines();
+  try {
+    machines.value = await getMachines();
+  } catch (err: unknown) {
+    const anyErr = err as { response?: { status?: number } };
+    if (anyErr.response?.status === 401 || anyErr.response?.status === 403) {
+      router.push({ name: "Login" });
+    } else {
+      console.error("Error al cargar máquinas:", err);
+    }
+  }
 });
 </script>
 
@@ -123,7 +153,25 @@ onMounted(async () => {
           >
             Total de máquinas
           </p>
-          <p class="text-2xl font-semibold">6</p>
+          <p class="text-2xl font-semibold">{{ totalMachines }}</p>
+        </div>
+
+        <div
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
+          :class="
+            isDark()
+              ? 'border-red-900/60 bg-red-950/40 text-red-200'
+              : 'border-red-100 bg-red-50 text-red-700'
+          "
+        >
+          <p
+            class="mb-1 text-xs font-medium uppercase tracking-wide text-emerald-500"
+          >
+            Máquinas activas
+          </p>
+          <p class="text-2xl font-semibold text-emerald-600">
+            {{ activeMachines }}
+          </p>
         </div>
 
         <div
@@ -137,25 +185,11 @@ onMounted(async () => {
           <p
             class="mb-1 text-xs font-medium uppercase tracking-wide text-red-400"
           >
-            Activas hoy
+            Máquinas inactivas
           </p>
-          <p class="text-2xl font-semibold">4</p>
-        </div>
-
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
-          :class="
-            isDark()
-              ? 'border-red-900/60 bg-red-950/40 text-red-200'
-              : 'border-red-100 bg-red-50 text-red-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-red-400"
-          >
-            Ingresos hoy
+          <p class="text-2xl font-semibold text-red-600">
+            {{ inactiveMachines }}
           </p>
-          <p class="text-2xl font-semibold text-red-600">$ 1440</p>
         </div>
 
         <div
@@ -169,9 +203,9 @@ onMounted(async () => {
           <p
             class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
           >
-            Puntaje hoy
+            &nbsp;
           </p>
-          <p class="text-2xl font-semibold text-slate-900">9150</p>
+          <p class="text-2xl font-semibold text-slate-900">&nbsp;</p>
         </div>
       </div>
     </header>
@@ -315,10 +349,17 @@ onMounted(async () => {
           <span
             class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
             :class="
-              isDark() ? 'bg-red-900/60 text-red-100' : 'bg-red-50 text-red-700'
+              machine.status === 'active'
+                ? isDark()
+                  ? 'bg-emerald-900/60 text-emerald-100'
+                  : 'bg-emerald-50 text-emerald-700'
+                : isDark()
+                ? 'bg-red-900/60 text-red-100'
+                : 'bg-red-50 text-red-700'
             "
-            >Activa</span
           >
+            {{ machine.status === "active" ? "Activa" : "Inactiva" }}
+          </span>
         </div>
 
         <div
@@ -335,13 +376,6 @@ onMounted(async () => {
             :class="isDark() ? 'text-slate-100' : ''"
           >
             $ 0
-          </p>
-          <p class="font-medium text-slate-400">Puntaje hoy</p>
-          <p
-            class="text-right font-semibold text-slate-800"
-            :class="isDark() ? 'text-slate-100' : ''"
-          >
-            0
           </p>
           <p class="font-medium text-slate-400">Total ingresos</p>
           <p
