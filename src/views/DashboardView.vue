@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, type Ref, ref, computed, onMounted } from "vue";
+import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
@@ -88,7 +88,7 @@ async function handleNewMachine(machine: {
   }
 }
 
-onMounted(async () => {
+async function loadDashboardData() {
   try {
     machines.value = await getMachines();
     try {
@@ -114,10 +114,27 @@ onMounted(async () => {
   } catch (err: unknown) {
     const anyErr = err as { response?: { status?: number } };
     if (anyErr.response?.status === 401 || anyErr.response?.status === 403) {
-      router.push({ name: "Login" });
+      router.push({ name: "login" });
     } else {
       console.error("Error al cargar máquinas:", err);
     }
+  }
+}
+
+let refreshTimer: number | undefined;
+
+onMounted(async () => {
+  await loadDashboardData();
+
+  // Recarga automática del dashboard cada 15 segundos
+  refreshTimer = window.setInterval(() => {
+    loadDashboardData();
+  }, 15000);
+});
+
+onUnmounted(() => {
+  if (refreshTimer !== undefined) {
+    clearInterval(refreshTimer);
   }
 });
 </script>
