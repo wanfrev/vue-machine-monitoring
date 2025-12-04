@@ -129,7 +129,7 @@ onMounted(async () => {
   // Recarga automática del dashboard cada 15 segundos
   refreshTimer = window.setInterval(() => {
     loadDashboardData();
-  }, 15000);
+  }, 1000);
 });
 
 onUnmounted(() => {
