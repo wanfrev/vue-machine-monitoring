@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { inject, type Ref, ref } from "vue";
+import { inject, type Ref, ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import FilterPanel from "@/components/FilterPanel.vue";
-import { getMachines, createMachine as apiCreateMachine } from "../api/client";
+import {
+  getMachines,
+  createMachine as apiCreateMachine,
+  getTotalCoins,
+} from "../api/client";
 
 const router = useRouter();
 
@@ -27,6 +31,7 @@ const activeMachines = computed(
 const inactiveMachines = computed(
   () => totalMachines.value - activeMachines.value
 );
+const totalCoins = ref<number>(0);
 
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 const isDark = () => {
@@ -46,11 +51,17 @@ async function handleNewMachine(machine: {
     console.error("Error al crear máquina:", err);
   }
 }
-// Cargar máquinas al montar
-import { computed, onMounted } from "vue";
+
 onMounted(async () => {
   try {
     machines.value = await getMachines();
+    try {
+      const coins = await getTotalCoins();
+      totalCoins.value = Number(coins.totalCoins ?? 0);
+    } catch (e) {
+      console.error("Error obteniendo monedas ingresadas:", e);
+      totalCoins.value = 0;
+    }
   } catch (err: unknown) {
     const anyErr = err as { response?: { status?: number } };
     if (anyErr.response?.status === 401 || anyErr.response?.status === 403) {
@@ -160,8 +171,8 @@ onMounted(async () => {
           class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
           :class="
             isDark()
-              ? 'border-red-900/60 bg-red-950/40 text-red-200'
-              : 'border-red-100 bg-red-50 text-red-700'
+              ? 'border-green-900/60 bg-green-950/40 text-green-200'
+              : 'border-green-100 bg-green-50 text-green-700'
           "
         >
           <p
@@ -203,9 +214,9 @@ onMounted(async () => {
           <p
             class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
           >
-            &nbsp;
+            Monedas ingresadas
           </p>
-          <p class="text-2xl font-semibold text-slate-900">&nbsp;</p>
+          <p class="text-2xl font-semibold text-slate-900">{{ totalCoins }}</p>
         </div>
       </div>
     </header>

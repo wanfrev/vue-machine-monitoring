@@ -41,3 +41,8 @@ export async function createMachine(machine: {
   const res = await api.post("/api/machines", machine);
   return res.data;
 }
+
+export async function getTotalCoins() {
+  const res = await api.get("/api/machines/coins/total");
+  return res.data as { totalCoins: number };
+}
