@@ -33,3 +33,11 @@ export async function getMachines() {
   const res = await api.get("/api/machines");
   return res.data;
 }
+export async function createMachine(machine: {
+  name: string;
+  location: string;
+  id?: string;
+}) {
+  const res = await api.post("/api/machines", machine);
+  return res.data;
+}

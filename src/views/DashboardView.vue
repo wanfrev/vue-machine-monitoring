@@ -3,14 +3,13 @@ import { inject, type Ref, ref } from "vue";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import FilterPanel from "@/components/FilterPanel.vue";
+import { getMachines, createMachine as apiCreateMachine } from "../api/client";
 
 const sidebarOpen = ref(false);
 const newMachineOpen = ref(false);
 const filterOpen = ref(false);
 
-const machines = ref([
-  { name: "Box-001", location: "Centro comercial - Pasillo A" },
-]);
+const machines = ref([]);
 
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 const isDark = () => {
@@ -18,9 +17,19 @@ const isDark = () => {
   return !!injectedDark?.value;
 };
 
-function handleNewMachine(machine: { name: string; location: string }) {
-  machines.value.push(machine);
+async function handleNewMachine(machine: {
+  name: string;
+  location: string;
+  id?: string;
+}) {
+  await apiCreateMachine(machine);
+  machines.value = await getMachines();
 }
+// Cargar máquinas al montar
+import { onMounted } from "vue";
+onMounted(async () => {
+  machines.value = await getMachines();
+});
 </script>
 
 <template>

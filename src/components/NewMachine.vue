@@ -12,6 +12,7 @@ const name = computed(
   () => `Box-${(props.count + 1).toString().padStart(3, "0")}`
 );
 const isDark = computed(() => !!props.dark);
+const id = ref(""); // Added line for machine ID
 
 // Prevent background scroll when modal is open
 watch(
@@ -30,9 +31,15 @@ function close() {
 }
 
 function createMachine() {
-  if (!location.value.trim()) return;
-  emit("create", { name: name.value, location: location.value });
+  if (!location.value.trim() || !name.value.trim()) return; // Updated condition
+  emit("create", {
+    name: name.value,
+    location: location.value,
+    id: id.value.trim() || undefined,
+  }); // Added ID
   location.value = "";
+  name.value = ""; // Reset name
+  id.value = ""; // Reset ID
   close();
 }
 </script>
@@ -90,6 +97,23 @@ function createMachine() {
           </div>
         </div>
         <form @submit.prevent="createMachine" class="space-y-5 mt-4">
+          <div>
+            <label class="block text-sm font-medium mb-1" for="machine-id"
+              >ID de la máquina (opcional)</label
+            >
+            <input
+              id="machine-id"
+              v-model="id"
+              type="text"
+              class="w-full rounded-lg border px-3 py-2"
+              :class="
+                isDark
+                  ? 'border-slate-700 bg-slate-800 text-white'
+                  : 'border-slate-300 bg-white text-slate-900'
+              "
+              placeholder="Ejemplo: Maquina_Boxeo_02"
+            />
+          </div>
           <div>
             <label class="block text-base font-semibold mb-1"
               >Nombre de máquina<span class="text-red-500">*</span></label
