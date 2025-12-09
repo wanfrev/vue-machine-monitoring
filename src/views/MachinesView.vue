@@ -2,7 +2,13 @@
 import { inject, type Ref, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
-import { getMachines } from "../api/client";
+import NewMachine from "@/components/NewMachine.vue";
+import {
+  getMachines,
+  createMachine,
+  updateMachine,
+  deleteMachine,
+} from "../api/client";
 
 const router = useRouter();
 const sidebarOpen = ref(false);
@@ -17,16 +23,52 @@ type Machine = { id: string; name: string; status: string; location?: string };
 const loading = ref(false);
 const machines = ref<Machine[]>([]);
 
-onMounted(async () => {
+const showModal = ref(false);
+const modalMode = ref<"create" | "edit">("create");
+const machineToEdit = ref<Machine | null>(null);
+
+async function loadMachines() {
   loading.value = true;
   try {
     machines.value = await getMachines();
-  } catch (e) {
-    // Podríamos mostrar un toast
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(loadMachines);
+
+function openCreateModal() {
+  modalMode.value = "create";
+  machineToEdit.value = null;
+  showModal.value = true;
+}
+
+function openEditModal(machine: Machine) {
+  modalMode.value = "edit";
+  machineToEdit.value = machine;
+  showModal.value = true;
+}
+
+async function handleCreateMachine(payload: {
+  name: string;
+  location: string;
+}) {
+  await createMachine({ name: payload.name, location: payload.location });
+  await loadMachines();
+}
+
+async function handleUpdateMachine(payload: { id: string; location: string }) {
+  await updateMachine(payload.id, { location: payload.location });
+  await loadMachines();
+}
+
+async function handleDeleteMachine(id: string) {
+  const ok = window.confirm("¿Seguro que deseas eliminar esta máquina?");
+  if (!ok) return;
+  await deleteMachine(id);
+  await loadMachines();
+}
 </script>
 
 <template>
@@ -35,6 +77,17 @@ onMounted(async () => {
     :dark="isDark()"
     @close="sidebarOpen = false"
     @open="() => {}"
+  />
+  <NewMachine
+    :open="showModal"
+    :count="machines.length"
+    :dark="isDark()"
+    :machines="machines"
+    :mode="modalMode"
+    :machine-to-edit="machineToEdit || undefined"
+    @close="showModal = false"
+    @create="handleCreateMachine"
+    @update="handleUpdateMachine"
   />
   <div
     :class="[
@@ -81,6 +134,7 @@ onMounted(async () => {
       <button
         type="button"
         class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"
+        @click="openCreateModal"
       >
         + Nueva máquina
       </button>
@@ -155,10 +209,18 @@ onMounted(async () => {
               <button class="text-red-500 hover:underline" type="button">
                 Ver
               </button>
-              <button class="text-amber-500 hover:underline" type="button">
+              <button
+                class="text-amber-500 hover:underline"
+                type="button"
+                @click="openEditModal(m)"
+              >
                 Editar
               </button>
-              <button class="text-slate-400 hover:underline" type="button">
+              <button
+                class="text-slate-400 hover:underline"
+                type="button"
+                @click="handleDeleteMachine(m.id)"
+              >
                 Eliminar
               </button>
             </td>

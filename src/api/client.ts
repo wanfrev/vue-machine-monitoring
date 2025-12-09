@@ -42,6 +42,18 @@ export async function createMachine(machine: {
   return res.data;
 }
 
+export async function updateMachine(
+  id: string,
+  machine: { name?: string; location?: string; status?: string }
+) {
+  const res = await api.put(`/api/machines/${id}`, machine);
+  return res.data;
+}
+
+export async function deleteMachine(id: string) {
+  await api.delete(`/api/machines/${id}`);
+}
+
 export async function getTotalCoins() {
   const res = await api.get("/api/machines/coins/total");
   return res.data as { totalCoins: number };

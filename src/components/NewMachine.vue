@@ -8,13 +8,18 @@ const props = defineProps<{
   count: number;
   dark?: boolean;
   machines: { name: string }[];
+  mode?: "create" | "edit";
+  machineToEdit?: {
+    id: string;
+    name: string;
+    location?: string;
+    type?: string;
+  };
 }>();
 const emit = defineEmits<{
   (e: "close"): void;
-  (
-    e: "create",
-    machine: { name: string; location: string; type: string }
-  ): void;
+  (e: "create", machine: { name: string; location: string }): void;
+  (e: "update", machine: { id: string; location: string }): void;
 }>();
 
 const location = ref("");
@@ -23,6 +28,9 @@ const isDark = computed(() => !!props.dark);
 // Usar la prop machines directamente
 
 const name = computed(() => {
+  if (props.mode === "edit" && props.machineToEdit) {
+    return props.machineToEdit.name;
+  }
   // Buscar el mayor número usado para el tipo seleccionado
   const prefix = type.value;
   const regex = new RegExp(`^${prefix} (\\d+)$`);
@@ -38,6 +46,20 @@ const name = computed(() => {
   const nextNum = (maxNum + 1).toString().padStart(2, "0");
   return `${prefix} ${nextNum}`;
 });
+
+// Inicializar valores cuando se abre en modo edición
+watch(
+  () => props.open,
+  (open) => {
+    if (open && props.mode === "edit" && props.machineToEdit) {
+      location.value = props.machineToEdit.location || "";
+    }
+    if (open && props.mode !== "edit") {
+      location.value = "";
+      type.value = "Boxeo";
+    }
+  }
+);
 
 // Prevent background scroll when modal is open
 watch(
@@ -55,14 +77,21 @@ function close() {
   emit("close");
 }
 
-function createMachine() {
-  if (!location.value.trim() || !name.value.trim() || !type.value.trim())
-    return;
-  emit("create", {
-    name: name.value,
-    location: location.value,
-    type: type.value,
-  });
+function submit() {
+  if (!location.value.trim()) return;
+
+  if (props.mode === "edit" && props.machineToEdit) {
+    emit("update", {
+      id: props.machineToEdit.id,
+      location: location.value,
+    });
+  } else {
+    emit("create", {
+      name: name.value,
+      location: location.value,
+    });
+  }
+
   location.value = "";
   type.value = "Boxeo";
   close();
@@ -114,14 +143,20 @@ function createMachine() {
               >＋</span
             >
             <div>
-              <h2 class="text-xl font-bold text-slate-800">Nueva máquina</h2>
+              <h2 class="text-xl font-bold text-slate-800">
+                {{ props.mode === "edit" ? "Editar máquina" : "Nueva máquina" }}
+              </h2>
               <p class="text-sm text-slate-400">
-                Agrega una nueva máquina al sistema
+                {{
+                  props.mode === "edit"
+                    ? "Modifica la ubicación de la máquina"
+                    : "Agrega una nueva máquina al sistema"
+                }}
               </p>
             </div>
           </div>
         </div>
-        <form @submit.prevent="createMachine" class="space-y-4 mt-3">
+        <form @submit.prevent="submit" class="space-y-4 mt-3">
           <!-- ID ahora es totalmente automático en el backend, no se pide aquí -->
           <div>
             <label class="block text-sm font-semibold mb-1"
@@ -163,7 +198,8 @@ function createMachine() {
             >
             <select
               v-model="type"
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer"
+              :disabled="props.mode === 'edit'"
+              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
               required
             >
               <option value="Boxeo">Boxeo</option>
@@ -187,7 +223,10 @@ function createMachine() {
               type="submit"
               class="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-700 cursor-pointer"
             >
-              <span class="text-lg">＋</span> Agregar máquina
+              <span class="text-lg">＋</span>
+              {{
+                props.mode === "edit" ? "Guardar cambios" : "Agregar máquina"
+              }}
             </button>
           </div>
         </form>
