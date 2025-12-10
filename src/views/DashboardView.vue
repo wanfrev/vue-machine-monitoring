@@ -26,6 +26,11 @@ type Machine = {
 };
 const machines = ref<Machine[]>([]);
 
+// Datos del usuario autenticado desde localStorage
+const currentRole = ref(localStorage.getItem("role") || "");
+const assignedMachineId = ref(localStorage.getItem("assignedMachineId") || "");
+const currentUserName = ref(localStorage.getItem("userName") || "usuario");
+
 const stateFilters = [
   "todas",
   "activas",
@@ -35,23 +40,33 @@ const stateFilters = [
 type Filter = (typeof stateFilters)[number];
 const selectedFilter = ref<Filter>("todas");
 
-const filteredMachines = computed(() => {
-  if (selectedFilter.value === "todas") return machines.value;
-  if (selectedFilter.value === "activas")
-    return machines.value.filter((m) => m.status === "active");
-  if (selectedFilter.value === "inactivas")
-    return machines.value.filter((m) => m.status === "inactive");
-  if (selectedFilter.value === "mantenimiento")
-    return machines.value.filter((m) => m.status === "maintenance");
+function getRoleMachines() {
+  if (currentRole.value === "employee" && assignedMachineId.value) {
+    return machines.value.filter(
+      (m) => String(m.id) === String(assignedMachineId.value)
+    );
+  }
   return machines.value;
+}
+
+const filteredMachines = computed(() => {
+  const base = getRoleMachines();
+  if (selectedFilter.value === "todas") return base;
+  if (selectedFilter.value === "activas")
+    return base.filter((m) => m.status === "active");
+  if (selectedFilter.value === "inactivas")
+    return base.filter((m) => m.status === "inactive");
+  if (selectedFilter.value === "mantenimiento")
+    return base.filter((m) => m.status === "maintenance");
+  return base;
 });
 
 // monedas por máquina: { [machineId]: total_coins }
 const coinsByMachine = ref<Record<string, number>>({});
 
-const totalMachines = computed(() => machines.value.length);
+const totalMachines = computed(() => getRoleMachines().length);
 const activeMachines = computed(
-  () => machines.value.filter((m) => m.status === "active").length
+  () => getRoleMachines().filter((m) => m.status === "active").length
 );
 const inactiveMachines = computed(
   () => totalMachines.value - activeMachines.value
@@ -210,7 +225,8 @@ onUnmounted(() => {
             class="text-sm"
             :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
           >
-            Bienvenido, <span class="font-medium">prueba</span>.
+            Bienvenido, <span class="font-medium">{{ currentUserName }}</span
+            >.
           </p>
         </div>
         <!-- Botón salir movido a Sidebar -->

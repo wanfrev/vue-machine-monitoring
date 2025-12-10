@@ -10,6 +10,7 @@
   "dependencies": {
     "@vite-pwa/assets-generator": "^1.0.2",
     "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "core-js": "^3.8.3",
     "lucide-vue-next": "^0.554.0",

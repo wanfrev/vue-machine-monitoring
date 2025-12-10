@@ -31,6 +31,8 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
+// Obtener el rol del usuario desde localStorage
+const userRole = localStorage.getItem("role") || "";
 </script>
 
 <template>
@@ -108,6 +110,7 @@ function logout() {
           <span>›</span>
         </button>
         <button
+          v-if="userRole === 'admin'"
           class="flex w-full items-center justify-between rounded-lg px-3 py-2 font-medium transition cursor-pointer"
           :class="
             isDark

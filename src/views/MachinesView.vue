@@ -27,6 +27,9 @@ const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const machineToEdit = ref<Machine | null>(null);
 
+// Obtener el rol del usuario desde localStorage
+const currentRole = ref(localStorage.getItem("role") || "");
+
 async function loadMachines() {
   loading.value = true;
   try {
@@ -78,7 +81,9 @@ async function handleDeleteMachine(id: string) {
     @close="sidebarOpen = false"
     @open="() => {}"
   />
+  <!-- Modal solo visible para admins -->
   <NewMachine
+    v-if="currentRole !== 'employee'"
     :open="showModal"
     :count="machines.length"
     :dark="isDark()"
@@ -131,7 +136,9 @@ async function handleDeleteMachine(id: string) {
           Máquinas
         </h1>
       </div>
+      <!-- Botón solo visible para admins -->
       <button
+        v-if="currentRole !== 'employee'"
         type="button"
         class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"
         @click="openCreateModal"
@@ -206,23 +213,26 @@ async function handleDeleteMachine(id: string) {
             <td
               class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
             >
-              <button class="text-red-500 hover:underline" type="button">
-                Ver
-              </button>
-              <button
-                class="text-amber-500 hover:underline"
-                type="button"
-                @click="openEditModal(m)"
-              >
-                Editar
-              </button>
-              <button
-                class="text-slate-400 hover:underline"
-                type="button"
-                @click="handleDeleteMachine(m.id)"
-              >
-                Eliminar
-              </button>
+              <!-- Acciones solo para admins -->
+              <template v-if="currentRole !== 'employee'">
+                <button class="text-red-500 hover:underline" type="button">
+                  Ver
+                </button>
+                <button
+                  class="text-amber-500 hover:underline"
+                  type="button"
+                  @click="openEditModal(m)"
+                >
+                  Editar
+                </button>
+                <button
+                  class="text-slate-400 hover:underline"
+                  type="button"
+                  @click="handleDeleteMachine(m.id)"
+                >
+                  Eliminar
+                </button>
+              </template>
             </td>
           </tr>
         </tbody>

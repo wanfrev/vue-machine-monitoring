@@ -1,3 +1,28 @@
+export async function updateUser(
+  id: number,
+  payload: {
+    documentId: string;
+    name: string;
+    username: string;
+    password?: string;
+    jobRole: string;
+    shift?: string;
+    assignedMachineId?: string;
+  }
+) {
+  const body: any = {
+    name: payload.name,
+    shift: payload.shift,
+    document_id: payload.documentId,
+    job_role: payload.jobRole,
+    assigned_machine_id: payload.assignedMachineId,
+  };
+  if (payload.password) {
+    body.password = payload.password;
+  }
+  const res = await api.put(`/api/users/${id}`, body);
+  return res.data;
+}
 import axios from "axios";
 
 // Proyecto basado en Vue CLI (webpack), usar VUE_APP_* en lugar de import.meta.env
@@ -62,4 +87,45 @@ export async function getTotalCoins() {
 export async function getCoinsByMachine() {
   const res = await api.get("/api/machines/coins/by-machine");
   return res.data as { machine_id: string; total_coins: number }[];
+}
+
+// Users / Employees
+export async function getUsers() {
+  const res = await api.get("/api/users");
+  const data = res.data as any[];
+  return data.map((u) => ({
+    ...u,
+    documentId: u.documentId ?? u.document_id ?? "",
+    jobRole: u.jobRole ?? u.job_role ?? "",
+    assignedMachineId: u.assignedMachineId ?? u.assigned_machine_id ?? "",
+  }));
+}
+
+export async function createUser(payload: {
+  documentId: string;
+  name: string;
+  username: string;
+  password: string;
+  jobRole: string;
+  shift?: string;
+  assignedMachineId?: string;
+  role: "employee" | "admin";
+}) {
+  const body = {
+    username: payload.username,
+    password: payload.password,
+    name: payload.name,
+    role: payload.role,
+    shift: payload.shift,
+    // Campos en snake_case para coincidir con la API/BD
+    document_id: payload.documentId,
+    job_role: payload.jobRole,
+    assigned_machine_id: payload.assignedMachineId,
+  };
+  const res = await api.post("/api/users", body);
+  return res.data;
+}
+
+export async function deleteUser(id: string | number) {
+  await api.delete(`/api/users/${id}`);
 }

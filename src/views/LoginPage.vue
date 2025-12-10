@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { login as apiLogin } from "../api/client";
+import { login as apiLogin, getUsers } from "../api/client";
 
 const username = ref("");
 const password = ref("");
@@ -13,7 +13,43 @@ async function login() {
     return;
   }
   try {
-    await apiLogin(username.value, password.value);
+    const res = await apiLogin(username.value, password.value);
+    // Guardar datos básicos del usuario en localStorage
+    if (res && res.user) {
+      if (res.user.role) {
+        localStorage.setItem("role", res.user.role);
+      }
+
+      if (res.user.name || res.user.username) {
+        localStorage.setItem("userName", res.user.name || res.user.username);
+      }
+
+      // Intentar obtener la máquina asignada del propio login
+      let assignedId =
+        res.user.assignedMachineId ?? res.user.assigned_machine_id;
+
+      // Si no viene en el login y es empleado, buscar en /api/users
+      if (!assignedId && res.user.role === "employee") {
+        try {
+          const users = await getUsers();
+          const me = users.find(
+            (u: any) =>
+              u.username === username.value || u.name === username.value
+          );
+          if (me && me.assignedMachineId) {
+            assignedId = me.assignedMachineId;
+          }
+        } catch (err) {
+          console.error("No se pudo obtener la máquina asignada", err);
+        }
+      }
+
+      if (assignedId) {
+        localStorage.setItem("assignedMachineId", String(assignedId));
+      } else {
+        localStorage.removeItem("assignedMachineId");
+      }
+    }
     window.location.href = "/";
   } catch (e: any) {
     error.value = e?.response?.data?.message || "Credenciales inválidas.";
