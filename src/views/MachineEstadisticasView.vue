@@ -1,19 +1,134 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import {
+  getMachines,
+  getMachinePowerLogs,
+  getMachineDailyIncome,
+} from "../api/client";
 
-/* prettier-ignore */
-const powerLogs = ref([
-  { event: "Apagado",   ts: "2025-11-27 23:42", dur: null },
-  { event: "Encendido", ts: "2025-11-27 09:14", dur: 51 },
-  { event: "Apagado",   ts: "2025-11-26 23:53", dur: null },
-  { event: "Encendido", ts: "2025-11-26 23:17", dur: 469 },
-  { event: "Encendido", ts: "2025-11-25 21:35", dur: 252 },
-  { event: "Apagado",   ts: "2025-11-25 20:12", dur: null },
-  { event: "Encendido", ts: "2025-11-28 08:51", dur: 423 },
-  { event: "Apagado",   ts: "2025-11-25 19:58", dur: null },
-  { event: "Encendido", ts: "2025-11-24 22:07", dur: 365 },
-  { event: "Apagado",   ts: "2025-11-24 22:07", dur: null },
-]);
+type Machine = {
+  id: string;
+  name: string;
+  status: string;
+  location?: string;
+  type?: string;
+};
+
+type PowerLog = {
+  event: "Encendido" | "Apagado";
+  ts: string;
+  dur: number | null; // minutos
+};
+
+const route = useRoute();
+
+const machine = ref<Machine | null>(null);
+const powerLogs = ref<PowerLog[]>([]);
+const loading = ref(false);
+
+// Rango de fechas para estadísticas (por defecto últimos 30 días)
+function formatDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+const today = new Date();
+const thirtyDaysAgo = new Date();
+thirtyDaysAgo.setDate(today.getDate() - 30);
+
+const startDate = ref(formatDate(thirtyDaysAgo));
+const endDate = ref(formatDate(today));
+
+// Ingresos diarios en el rango, para métricas de ingreso/hora
+const dailyIncome = ref<{ date: string; income: number }[]>([]);
+
+const sessions = computed(() =>
+  powerLogs.value.filter((log) => log.event === "Encendido" && log.dur)
+);
+
+const totalActiveMinutes = computed(() =>
+  sessions.value.reduce((sum, log) => sum + (log.dur ?? 0), 0)
+);
+
+const totalActiveHours = computed(() => totalActiveMinutes.value / 60);
+
+const averageSessionHours = computed(() => {
+  if (!sessions.value.length) return 0;
+  return totalActiveHours.value / sessions.value.length;
+});
+
+function hoursInRange() {
+  if (!startDate.value || !endDate.value) return 0;
+  const start = new Date(startDate.value + "T00:00:00");
+  const end = new Date(endDate.value + "T23:59:59");
+  const diffMs = end.getTime() - start.getTime();
+  if (diffMs <= 0) return 0;
+  return diffMs / (1000 * 60 * 60);
+}
+
+const usageRate = computed(() => {
+  const totalRangeHours = hoursInRange();
+  if (!totalRangeHours || !totalActiveHours.value) return 0;
+  return (totalActiveHours.value / totalRangeHours) * 100;
+});
+
+const totalIncomeInRange = computed(() =>
+  dailyIncome.value.reduce((sum, d) => sum + d.income, 0)
+);
+
+const incomePerHour = computed(() => {
+  if (!totalActiveHours.value) return 0;
+  return totalIncomeInRange.value / totalActiveHours.value;
+});
+
+async function loadStats() {
+  if (!machine.value) return;
+  loading.value = true;
+  try {
+    const [logs, income] = await Promise.all([
+      getMachinePowerLogs(machine.value.id, {
+        startDate: startDate.value,
+        endDate: endDate.value,
+      }),
+      getMachineDailyIncome(machine.value.id, {
+        startDate: startDate.value,
+        endDate: endDate.value,
+      }),
+    ]);
+    powerLogs.value = logs;
+    dailyIncome.value = income;
+  } catch (e) {
+    console.error("Error cargando estadísticas de máquina:", e);
+    powerLogs.value = [];
+    dailyIncome.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(async () => {
+  try {
+    const all = await getMachines();
+    const routeId = route.params.id as string | undefined;
+    const current = all.find(
+      (m: any) => m.name === routeId || m.id === routeId
+    );
+    if (current) {
+      machine.value = current;
+      await loadStats();
+    }
+  } catch (e) {
+    console.error("Error inicializando estadísticas de máquina:", e);
+  }
+});
+
+watch([startDate, endDate, machine], async () => {
+  if (!machine.value) return;
+  if (startDate.value && endDate.value && startDate.value > endDate.value) {
+    return;
+  }
+  await loadStats();
+});
 </script>
 
 <template>
@@ -26,7 +141,9 @@ const powerLogs = ref([
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tiempo promedio activo
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">4.9h</p>
+        <p class="mt-1 text-3xl font-semibold text-slate-900">
+          {{ averageSessionHours.toFixed(1) }}h
+        </p>
         <p class="text-xs text-slate-400">Por sesión</p>
       </div>
       <div
@@ -35,7 +152,9 @@ const powerLogs = ref([
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tiempo total activo
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">336h</p>
+        <p class="mt-1 text-3xl font-semibold text-slate-900">
+          {{ totalActiveHours.toFixed(1) }}h
+        </p>
         <p class="text-xs text-slate-400">Este período</p>
       </div>
       <div
@@ -44,9 +163,14 @@ const powerLogs = ref([
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tasa de uso
         </p>
-        <p class="mt-1 text-3xl font-semibold text-red-600">46.7%</p>
+        <p class="mt-1 text-3xl font-semibold text-red-600">
+          {{ usageRate.toFixed(1) }}%
+        </p>
         <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-          <div class="h-full bg-red-600" style="width: 46.7%"></div>
+          <div
+            class="h-full bg-red-600"
+            :style="{ width: usageRate.toFixed(1) + '%' }"
+          ></div>
         </div>
       </div>
       <div
@@ -55,25 +179,21 @@ const powerLogs = ref([
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Ingreso promedio/hora
         </p>
-        <p class="mt-1 text-3xl font-semibold text-red-600">$35.25</p>
-        <p class="text-xs text-slate-400">Basado en sesiones</p>
-      </div>
-      <div
-        class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
-      >
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Puntaje promedio/hora
+        <p class="mt-1 text-3xl font-semibold text-red-600">
+          $ {{ incomePerHour.toFixed(2) }}
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">321</p>
         <p class="text-xs text-slate-400">Basado en sesiones</p>
       </div>
+
       <div
         class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Sesiones totales
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">69</p>
+        <p class="mt-1 text-3xl font-semibold text-slate-900">
+          {{ sessions.length }}
+        </p>
         <p class="text-xs text-slate-400">En este período</p>
       </div>
     </div>
@@ -84,12 +204,22 @@ const powerLogs = ref([
     >
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-sm font-semibold">Registro de encendido/apagado</h2>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer border-slate-200"
+        <div
+          class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white border-slate-200"
         >
-          <span>📅</span>
-          <span>Rango 27 oct - 26 nov</span>
-        </button>
+          <span class="hidden sm:inline">Rango:</span>
+          <input
+            v-model="startDate"
+            type="date"
+            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+          <span class="text-slate-400">a</span>
+          <input
+            v-model="endDate"
+            type="date"
+            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+        </div>
       </div>
       <div class="overflow-hidden rounded-xl border border-slate-200">
         <table class="w-full text-sm">
@@ -127,7 +257,7 @@ const powerLogs = ref([
         </table>
       </div>
       <p class="mt-3 text-center text-xs text-slate-400">
-        Mostrando últimos 10 registros de 138 totales
+        Mostrando {{ powerLogs.length }} registros en el rango seleccionado
       </p>
     </div>
   </section>

@@ -7,8 +7,8 @@ import FilterPanel from "@/components/FilterPanel.vue";
 import {
   getMachines,
   createMachine as apiCreateMachine,
-  getTotalCoins,
   getCoinsByMachine,
+  updateMachine,
 } from "../api/client";
 
 const router = useRouter();
@@ -16,6 +16,8 @@ const router = useRouter();
 const sidebarOpen = ref(false);
 const newMachineOpen = ref(false);
 const filterOpen = ref(false);
+const isAdmin = ref(false);
+const statusMenuOpenId = ref<string | null>(null);
 
 type Machine = {
   id: string;
@@ -26,11 +28,6 @@ type Machine = {
 };
 const machines = ref<Machine[]>([]);
 
-// Datos del usuario autenticado desde localStorage
-const currentRole = ref(localStorage.getItem("role") || "");
-const assignedMachineId = ref(localStorage.getItem("assignedMachineId") || "");
-const currentUserName = ref(localStorage.getItem("userName") || "usuario");
-
 const stateFilters = [
   "todas",
   "activas",
@@ -40,38 +37,31 @@ const stateFilters = [
 type Filter = (typeof stateFilters)[number];
 const selectedFilter = ref<Filter>("todas");
 
-function getRoleMachines() {
-  if (currentRole.value === "employee" && assignedMachineId.value) {
-    return machines.value.filter(
-      (m) => String(m.id) === String(assignedMachineId.value)
-    );
-  }
-  return machines.value;
-}
-
 const filteredMachines = computed(() => {
-  const base = getRoleMachines();
-  if (selectedFilter.value === "todas") return base;
+  if (selectedFilter.value === "todas") return machines.value;
   if (selectedFilter.value === "activas")
-    return base.filter((m) => m.status === "active");
+    return machines.value.filter((m) => m.status === "active");
   if (selectedFilter.value === "inactivas")
-    return base.filter((m) => m.status === "inactive");
+    return machines.value.filter((m) => m.status === "inactive");
   if (selectedFilter.value === "mantenimiento")
-    return base.filter((m) => m.status === "maintenance");
-  return base;
+    return machines.value.filter((m) => m.status === "maintenance");
+  return machines.value;
 });
 
 // monedas por máquina: { [machineId]: total_coins }
 const coinsByMachine = ref<Record<string, number>>({});
 
-const totalMachines = computed(() => getRoleMachines().length);
+const totalMachines = computed(() => machines.value.length);
 const activeMachines = computed(
-  () => getRoleMachines().filter((m) => m.status === "active").length
+  () => machines.value.filter((m) => m.status === "active").length
 );
 const inactiveMachines = computed(
   () => totalMachines.value - activeMachines.value
 );
-const totalCoins = ref<number>(0);
+// Ingreso total en dinero (se calcula a partir de las monedas por máquina)
+const totalIncome = computed(() =>
+  machines.value.reduce((sum, machine) => sum + getMachineIncome(machine), 0)
+);
 
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 const isDark = () => {
@@ -89,6 +79,27 @@ function getMachineIncome(machine: Machine): number {
   return coins * valuePerCoin;
 }
 
+function getCurrentUserRole(): string | null {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payloadJson = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+    const payload = JSON.parse(payloadJson);
+    return (
+      payload.role ||
+      payload.jobRole ||
+      payload.userRole ||
+      payload["role"] ||
+      null
+    );
+  } catch (e) {
+    console.error("No se pudo decodificar el token JWT:", e);
+    return null;
+  }
+}
+
 async function handleNewMachine(machine: {
   name: string;
   location: string;
@@ -103,17 +114,43 @@ async function handleNewMachine(machine: {
   }
 }
 
+function toggleStatusMenu(machineId: string) {
+  if (!isAdmin.value) {
+    alert("Solo un administrador puede cambiar el estado de la máquina.");
+    return;
+  }
+  statusMenuOpenId.value =
+    statusMenuOpenId.value === machineId ? null : machineId;
+}
+
+async function toggleMaintenance(machine: Machine) {
+  if (!isAdmin.value) return;
+  const newStatus =
+    machine.status === "maintenance" ? "inactive" : "maintenance";
+  try {
+    await updateMachine(machine.id, { status: newStatus });
+    machines.value = machines.value.map((m) =>
+      m.id === machine.id ? { ...m, status: newStatus } : m
+    );
+  } catch (err) {
+    console.error("Error actualizando estado de máquina:", err);
+  } finally {
+    statusMenuOpenId.value = null;
+  }
+}
+
+function handleGlobalClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  if (!target) return;
+  const inside = target.closest("[data-status-menu]");
+  if (!inside) {
+    statusMenuOpenId.value = null;
+  }
+}
+
 async function loadDashboardData() {
   try {
     machines.value = await getMachines();
-    try {
-      const coins = await getTotalCoins();
-      totalCoins.value = Number(coins.totalCoins ?? 0);
-    } catch (e) {
-      console.error("Error obteniendo monedas ingresadas:", e);
-      totalCoins.value = 0;
-    }
-
     // cargar monedas agrupadas por máquina para calcular ingresos por card
     try {
       const coinsPerMachine = await getCoinsByMachine();
@@ -139,6 +176,8 @@ async function loadDashboardData() {
 let refreshTimer: number | undefined;
 
 onMounted(async () => {
+  window.addEventListener("click", handleGlobalClick, true);
+  isAdmin.value = getCurrentUserRole() === "admin";
   await loadDashboardData();
 
   // Recarga automática del dashboard cada 15 segundos
@@ -151,6 +190,7 @@ onUnmounted(() => {
   if (refreshTimer !== undefined) {
     clearInterval(refreshTimer);
   }
+  window.removeEventListener("click", handleGlobalClick, true);
 });
 </script>
 
@@ -169,7 +209,7 @@ onUnmounted(() => {
     @close="newMachineOpen = false"
     @create="handleNewMachine"
   />
-  <!-- ...existing code... -->
+
   <div
     :class="[
       'min-h-full px-3 py-4 sm:px-8 sm:py-6 space-y-6',
@@ -190,11 +230,11 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-slate-500 transition cursor-pointer"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden"
               :class="
                 isDark()
-                  ? 'border-red-300 bg-red-700 hover:bg-red-600 hover:text-white'
-                  : 'border-red-200 bg-red-100 hover:bg-red-200 hover:text-red-700'
+                  ? 'border-red-300 hover:bg-transparent hover:text-white'
+                  : 'border-red-200 hover:bg-transparent hover:text-red-700'
               "
               aria-label="Abrir menú lateral"
               @click="
@@ -202,19 +242,11 @@ onUnmounted(() => {
                 filterOpen = false;
               "
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 512 512"
-                fill="none"
-              >
-                <path
-                  d="M315.27,33,96,304H224L192.49,477.23a2.36,2.36,0,0,0,2.33,2.77h0a2.36,2.36,0,0,0,1.89-.95L416,208H288L319.66,34.75A2.45,2.45,0,0,0,317.22,32h0A2.42,2.42,0,0,0,315.27,33Z"
-                  :stroke="isDark() ? '#ffffff' : '#000000'"
-                  stroke-width="28"
-                />
-              </svg>
+              <img
+                src="/img/icons/K11BOX.webp"
+                alt="MachineHub logo"
+                class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+              />
             </button>
             <h1 class="text-xl font-semibold sm:text-2xl">MachineHub</h1>
           </div>
@@ -225,8 +257,7 @@ onUnmounted(() => {
             class="text-sm"
             :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
           >
-            Bienvenido, <span class="font-medium">{{ currentUserName }}</span
-            >.
+            Bienvenido, <span class="font-medium">prueba</span>.
           </p>
         </div>
         <!-- Botón salir movido a Sidebar -->
@@ -297,9 +328,11 @@ onUnmounted(() => {
           <p
             class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
           >
-            Monedas ingresadas
+            Dinero recolectado
           </p>
-          <p class="text-2xl font-semibold text-slate-900">{{ totalCoins }}</p>
+          <p class="text-2xl font-semibold text-slate-900">
+            $ {{ totalIncome }}
+          </p>
         </div>
       </div>
     </header>
@@ -322,7 +355,32 @@ onUnmounted(() => {
               : 'border-slate-200 bg-slate-50 text-slate-500'
           "
         >
-          <span class="text-slate-400">🔍</span>
+          <svg
+            class="text-slate-400"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M21 21l-4.35-4.35"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle
+              cx="11"
+              cy="11"
+              r="6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           <input
             type="text"
             placeholder="Buscar máquina u ubicación..."
@@ -344,7 +402,21 @@ onUnmounted(() => {
                 if (filterOpen) sidebarOpen = false;
               "
             >
-              <span>⚙</span>
+              <svg
+                class="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 4.6C3 4.03995 3 3.75992 3.10899 3.54601C3.20487 3.35785 3.35785 3.20487 3.54601 3.10899C3.75992 3 4.03995 3 4.6 3H19.4C19.9601 3 20.2401 3 20.454 3.10899C20.6422 3.20487 20.7951 3.35785 20.891 3.54601C21 3.75992 21 4.03995 21 4.6V6.33726C21 6.58185 21 6.70414 20.9724 6.81923C20.9479 6.92127 20.9075 7.01881 20.8526 7.10828C20.7908 7.2092 20.7043 7.29568 20.5314 7.46863L14.4686 13.5314C14.2957 13.7043 14.2092 13.7908 14.1474 13.8917C14.0925 13.9812 14.0521 14.0787 14.0276 14.1808C14 14.2959 14 14.4182 14 14.6627V17L10 21V14.6627C10 14.4182 10 14.2959 9.97237 14.1808C9.94787 14.0787 9.90747 13.9812 9.85264 13.8917C9.7908 13.7908 9.70432 13.7043 9.53137 13.5314L3.46863 7.46863C3.29568 7.29568 3.2092 7.2092 3.14736 7.10828C3.09253 7.01881 3.05213 6.92127 3.02763 6.81923C3 6.70414 3 6.58185 3 6.33726V4.6Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
               <span class="hidden sm:inline">Filtro</span>
             </button>
             <FilterPanel
@@ -357,7 +429,29 @@ onUnmounted(() => {
             class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:text-sm cursor-pointer"
             @click="newMachineOpen = true"
           >
-            <span>＋</span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 5v14"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M5 12h14"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
             <span class="hidden sm:inline">Nueva</span>
           </button>
         </div>
@@ -386,7 +480,7 @@ onUnmounted(() => {
       <article
         v-for="machine in filteredMachines"
         :key="machine.name"
-        class="flex flex-col justify-between rounded-2xl border bg-white p-4 text-sm shadow-sm"
+        class="relative flex flex-col justify-between rounded-2xl border bg-white p-4 text-sm shadow-sm"
         :class="
           isDark()
             ? 'bg-slate-900/70 border-slate-800 text-slate-100'
@@ -405,10 +499,69 @@ onUnmounted(() => {
                 ? 'border-red-500/40 bg-red-900/40 text-red-100'
                 : 'border-red-100 bg-red-50'
             "
+            type="button"
+            @click.stop="toggleStatusMenu(machine.id)"
           >
-            ⏻
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2v10"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M7.05 6.05a7 7 0 1 0 9.9 0"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </button>
         </header>
+
+        <!-- Menú de cambio de estado (solo admin) -->
+        <div
+          v-if="statusMenuOpenId === machine.id && isAdmin"
+          class="absolute right-4 top-12 z-20 w-48 rounded-xl border border-slate-200 bg-white text-xs shadow-lg"
+          data-status-menu
+        >
+          <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400">
+            Modo mantenimiento
+          </p>
+          <button
+            type="button"
+            class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
+            @click="toggleMaintenance(machine)"
+          >
+            <span>
+              {{
+                machine.status === "maintenance"
+                  ? "Desactivar mantenimiento"
+                  : "Activar mantenimiento"
+              }}
+            </span>
+            <span
+              v-if="machine.status === 'maintenance'"
+              class="h-1.5 w-1.5 rounded-full bg-emerald-500"
+            ></span>
+          </button>
+          <button
+            type="button"
+            class="w-full px-3 py-1.5 text-left text-[11px] text-slate-400 hover:bg-slate-50"
+            @click="statusMenuOpenId = null"
+          >
+            Cancelar
+          </button>
+        </div>
 
         <div class="mb-3">
           <span
@@ -418,12 +571,22 @@ onUnmounted(() => {
                 ? isDark()
                   ? 'bg-emerald-900/60 text-emerald-100'
                   : 'bg-emerald-50 text-emerald-700'
+                : machine.status === 'maintenance'
+                ? isDark()
+                  ? 'bg-amber-900/60 text-amber-100'
+                  : 'bg-amber-50 text-amber-700'
                 : isDark()
                 ? 'bg-red-900/60 text-red-100'
                 : 'bg-red-50 text-red-700'
             "
           >
-            {{ machine.status === "active" ? "Activa" : "Inactiva" }}
+            {{
+              machine.status === "active"
+                ? "Activa"
+                : machine.status === "maintenance"
+                ? "Mantenimiento"
+                : "Inactiva"
+            }}
           </span>
         </div>
 
@@ -481,7 +644,29 @@ onUnmounted(() => {
             :class="isDark() ? 'hover:bg-red-500' : 'hover:bg-red-700'"
           >
             <span>Ver detalles</span>
-            <span>➜</span>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M5 12h14"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M12 5l7 7-7 7"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </RouterLink>
         </div>
       </article>

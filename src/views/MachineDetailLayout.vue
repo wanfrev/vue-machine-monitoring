@@ -40,7 +40,30 @@ const isActive = (name: string) => route.name === name;
             : 'border-slate-200 bg-slate-50 text-slate-600'
         "
       >
-        <span class="text-xs">⏻</span>
+        <svg
+          class="text-xs"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M12 2v10"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M7.05 6.05a7 7 0 1 0 9.9 0"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
         {{ status }}
       </span>
     </div>

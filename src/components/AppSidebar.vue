@@ -39,8 +39,8 @@ const userRole = localStorage.getItem("role") || "";
   <!-- Overlay -->
   <transition name="fade" appear>
     <div
-      v-if="open"
-      class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+      v-show="open"
+      class="fixed inset-0 z-40 bg-black/40"
       aria-hidden="true"
       @click="close"
     ></div>
@@ -49,7 +49,7 @@ const userRole = localStorage.getItem("role") || "";
   <!-- Sidebar panel -->
   <transition name="slide-left" appear>
     <aside
-      v-if="open"
+      v-show="open"
       class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col border-r px-4 py-5 shadow-xl sm:w-80 rounded-xl"
       :class="
         isDark
@@ -92,7 +92,22 @@ const userRole = localStorage.getItem("role") || "";
           "
         >
           <span>Dashboard</span>
-          <span>›</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </button>
         <button
           class="flex w-full items-center justify-between rounded-lg px-3 py-2 font-medium transition cursor-pointer"
@@ -107,7 +122,22 @@ const userRole = localStorage.getItem("role") || "";
           "
         >
           <span>Máquinas</span>
-          <span>›</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </button>
         <button
           v-if="userRole === 'admin'"
@@ -123,7 +153,22 @@ const userRole = localStorage.getItem("role") || "";
           "
         >
           <span>Empleados</span>
-          <span>›</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </button>
         <button
           class="flex w-full items-center justify-between rounded-lg px-3 py-2 font-medium transition cursor-pointer"
@@ -141,7 +186,22 @@ const userRole = localStorage.getItem("role") || "";
           "
         >
           <span>Reportes</span>
-          <span>›</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </button>
       </nav>
 
@@ -193,11 +253,19 @@ const userRole = localStorage.getItem("role") || "";
 /* Slide for sidebar */
 .slide-left-enter-active,
 .slide-left-leave-active {
-  transition: transform 0.25s ease, opacity 0.25s ease;
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.2, 1), opacity 0.25s ease;
+  will-change: transform, opacity;
 }
 .slide-left-enter-from,
 .slide-left-leave-to {
-  transform: translateX(-100%);
+  transform: translate3d(-100%, 0, 0);
   opacity: 0;
+  backface-visibility: hidden;
+  transform-origin: left center;
+}
+.slide-left-enter-to,
+.slide-left-leave-from {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
 }
 </style>

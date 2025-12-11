@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { login as apiLogin, getUsers } from "../api/client";
+import { login as apiLogin } from "../api/client";
 
 const username = ref("");
 const password = ref("");
@@ -13,43 +13,7 @@ async function login() {
     return;
   }
   try {
-    const res = await apiLogin(username.value, password.value);
-    // Guardar datos básicos del usuario en localStorage
-    if (res && res.user) {
-      if (res.user.role) {
-        localStorage.setItem("role", res.user.role);
-      }
-
-      if (res.user.name || res.user.username) {
-        localStorage.setItem("userName", res.user.name || res.user.username);
-      }
-
-      // Intentar obtener la máquina asignada del propio login
-      let assignedId =
-        res.user.assignedMachineId ?? res.user.assigned_machine_id;
-
-      // Si no viene en el login y es empleado, buscar en /api/users
-      if (!assignedId && res.user.role === "employee") {
-        try {
-          const users = await getUsers();
-          const me = users.find(
-            (u: any) =>
-              u.username === username.value || u.name === username.value
-          );
-          if (me && me.assignedMachineId) {
-            assignedId = me.assignedMachineId;
-          }
-        } catch (err) {
-          console.error("No se pudo obtener la máquina asignada", err);
-        }
-      }
-
-      if (assignedId) {
-        localStorage.setItem("assignedMachineId", String(assignedId));
-      } else {
-        localStorage.removeItem("assignedMachineId");
-      }
-    }
+    await apiLogin(username.value, password.value);
     window.location.href = "/";
   } catch (e: any) {
     error.value = e?.response?.data?.message || "Credenciales inválidas.";
@@ -76,17 +40,13 @@ async function login() {
       <div class="flex flex-col items-center mb-6">
         <div class="mb-3">
           <div
-            class="mx-auto h-12 w-12 rounded-xl flex items-center justify-center bg-red-600 shadow-lg"
+            class="mx-auto h-20 w-20 sm:h-20 sm:w-20 rounded-full flex items-center justify-center"
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M7 12h5l-1 5 6-8h-5l1-5-6 8z"
-                stroke="#fff"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <img
+              src="/img/icons/K11BOX.webp"
+              alt="MachineHub logo"
+              class="h-full w-full object-cover rounded-full shadow-lg"
+            />
           </div>
         </div>
         <h1 class="text-3xl font-bold text-slate-800 mb-1">MachineHub</h1>

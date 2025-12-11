@@ -89,6 +89,50 @@ export async function getCoinsByMachine() {
   return res.data as { machine_id: string; total_coins: number }[];
 }
 
+// Historial de eventos/ingresos por máquina
+export async function getMachineHistory(
+  machineId: string,
+  params: { startDate?: string; endDate?: string } = {}
+) {
+  const res = await api.get(`/api/machines/${machineId}/history`, {
+    params,
+  });
+  return res.data as {
+    kind: "Ingreso" | "Evento";
+    description: string;
+    date: string;
+    time?: string;
+    amount: number;
+    ok: boolean;
+  }[];
+}
+
+// Ingresos diarios por máquina (debe ser implementado en el backend)
+export async function getMachineDailyIncome(
+  machineId: string,
+  params: { startDate?: string; endDate?: string } = {}
+) {
+  const res = await api.get(`/api/machines/${machineId}/income/daily`, {
+    params,
+  });
+  return res.data as { date: string; income: number }[];
+}
+
+// Registro de encendido/apagado por máquina
+export async function getMachinePowerLogs(
+  machineId: string,
+  params: { startDate?: string; endDate?: string } = {}
+) {
+  const res = await api.get(`/api/machines/${machineId}/power-logs`, {
+    params,
+  });
+  return res.data as {
+    event: "Encendido" | "Apagado";
+    ts: string; // fecha y hora
+    dur: number | null; // duración en minutos cuando aplique
+  }[];
+}
+
 // Users / Employees
 export async function getUsers() {
   const res = await api.get("/api/users");

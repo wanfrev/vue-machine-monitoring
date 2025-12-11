@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
+import {
+  getMachines,
+  getCoinsByMachine,
+  getMachineHistory,
+} from "../api/client";
 
 type Tx = {
   kind: "Ingreso" | "Evento";
@@ -10,31 +16,35 @@ type Tx = {
   ok: boolean;
 };
 
-/* prettier-ignore */
-const txs = ref<Tx[]>([
-  { kind: "Ingreso", description: "Ingreso - Sesión #127", date: "2025-11-27", time: "19:57", amount: 129, ok: true },
-  { kind: "Ingreso", description: "Evento - Error de comunicación", date: "2025-11-27", time: "11:19", amount: 68, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-27", time: "11:17", amount: 120, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-26", time: "22:57", amount: 130, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-26", time: "20:51", amount: 102, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-26", time: "18:52", amount: 168, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-26", time: "13:57", amount: 132, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-26", time: "08:38", amount: 168, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-25", time: "16:45", amount: 115, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-25", time: "12:03", amount: 124, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-25", time: "08:33", amount: 149, ok: true },
-  { kind: "Evento", description: "Evento", date: "2025-11-25", time: "05:36", amount: 0, ok: false },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-25", time: "02:57", amount: 114, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-25", time: "00:56", amount: 104, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-24", time: "22:24", amount: 0, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-24", time: "21:11", amount: 43, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-24", time: "08:46", amount: 31, ok: true },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-23", time: "18:07", amount: 75, ok: true },
-  { kind: "Evento", description: "Evento", date: "2025-11-23", time: "17:56", amount: 0, ok: false },
-  { kind: "Ingreso", description: "Venta", date: "2025-11-23", time: "15:11", amount: 84, ok: true },
-]);
+const txs = ref<Tx[]>([]);
+
+type Machine = {
+  id: string;
+  name: string;
+  status: string;
+  location?: string;
+  type?: string;
+};
+
+const route = useRoute();
+
+// Rango de fechas para el historial (por defecto últimos 30 días)
+function formatDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+const today = new Date();
+const thirtyDaysAgo = new Date();
+thirtyDaysAgo.setDate(today.getDate() - 30);
+
+const startDate = ref(formatDate(thirtyDaysAgo));
+const endDate = ref(formatDate(today));
 
 const search = ref("");
+
+const pageSize = 20;
+const currentPage = ref(1);
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   if (!q) return txs.value;
@@ -45,17 +55,83 @@ const filtered = computed(() => {
       .includes(q)
   );
 });
-const visible = computed(() => filtered.value.slice(0, 20));
-const totalIncome = computed(() =>
-  filtered.value.reduce(
-    (sum, t) => sum + (t.kind === "Ingreso" ? t.amount : 0),
-    0
-  )
-);
+
+const totalPages = computed(() => {
+  if (!filtered.value.length) return 1;
+  return Math.ceil(filtered.value.length / pageSize);
+});
+
+const visible = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filtered.value.slice(start, start + pageSize);
+});
+const machine = ref<Machine | null>(null);
+const totalCoins = ref(0);
+
+const valuePerCoin = computed(() => {
+  const name = machine.value?.name ?? "";
+  return name.includes("Boxeo") ? 1 : 2;
+});
+
+const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
+
+async function loadHistory() {
+  if (!machine.value) return;
+  try {
+    const history = await getMachineHistory(machine.value.id, {
+      startDate: startDate.value,
+      endDate: endDate.value,
+    });
+    const cleaned = (history || []).filter((h: any) => {
+      const hasText =
+        (h.kind && String(h.kind).trim()) ||
+        (h.description && String(h.description).trim());
+      const hasDate = h.date && String(h.date).trim();
+      const hasAmount = Number(h.amount) > 0;
+      return hasText || hasDate || hasAmount;
+    });
+    txs.value = cleaned;
+  } catch (e) {
+    console.error("Error cargando historial de máquina:", e);
+    txs.value = [];
+  }
+}
+
+onMounted(async () => {
+  try {
+    const all = await getMachines();
+    const routeId = route.params.id as string | undefined;
+    const current = all.find(
+      (m: any) => m.name === routeId || m.id === routeId
+    );
+    if (current) {
+      machine.value = current;
+      const coinsPerMachine = await getCoinsByMachine();
+      const row = coinsPerMachine.find((r) => r.machine_id === current.id);
+      totalCoins.value = Number(row?.total_coins ?? 0);
+      await loadHistory();
+    }
+  } catch (e) {
+    console.error("Error cargando datos de historial de máquina:", e);
+  }
+});
 
 function scoreFor(t: Tx) {
   return t.kind === "Ingreso" ? Math.round(t.amount * 5.1) : 0;
 }
+
+watch([startDate, endDate, machine], async () => {
+  if (!machine.value) return;
+  if (startDate.value && endDate.value && startDate.value > endDate.value) {
+    return;
+  }
+  currentPage.value = 1;
+  await loadHistory();
+});
+
+watch(search, () => {
+  currentPage.value = 1;
+});
 </script>
 
 <template>
@@ -67,17 +143,41 @@ function scoreFor(t: Tx) {
         <h2 class="text-sm font-semibold">
           Historial detallado de transacciones
         </h2>
-        <button
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer border-slate-200"
+        <div
+          class="mb-4 flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm border-slate-200 bg-white text-slate-600"
         >
-          <span>📅</span>
-          <span>27 oct - 26 nov</span>
-        </button>
+          <input
+            v-model="startDate"
+            type="date"
+            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+          <span class="text-slate-400">a</span>
+          <input
+            v-model="endDate"
+            type="date"
+            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+        </div>
       </div>
       <div
-        class="mb-4 flex items-center gap-2 rounded-full border px-3 py-2 text-sm border-slate-200 bg-slate-50 text-slate-500"
+        class="mb-6 flex items-center gap-2 rounded-full border px-3 py-2 text-sm border-slate-200 bg-slate-50 text-slate-500"
       >
-        <span>🔎</span>
+        <span class="flex items-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4 text-slate-400"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="6" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </span>
         <input
           v-model="search"
           type="text"
@@ -89,6 +189,13 @@ function scoreFor(t: Tx) {
       <!-- Mobile cards (show up to lg) -->
       <div class="lg:hidden space-y-3">
         <div
+          v-if="visible.length === 0"
+          class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-400"
+        >
+          No hay registros en el historial para este rango de fechas.
+        </div>
+        <div
+          v-else
           v-for="(t, i) in visible"
           :key="i"
           class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
@@ -111,8 +218,21 @@ function scoreFor(t: Tx) {
                   ? 'border-green-200 bg-green-50 text-green-600'
                   : 'border-slate-200 bg-slate-50 text-slate-400'
               "
+              aria-hidden="true"
             >
-              ✓
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-3 w-3"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
             </span>
           </div>
           <h3 class="text-base font-semibold text-slate-800">
@@ -157,7 +277,7 @@ function scoreFor(t: Tx) {
               <th class="px-4 py-2 text-left">Estado</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody v-if="visible.length > 0">
             <tr
               v-for="(t, i) in visible"
               :key="i"
@@ -195,13 +315,29 @@ function scoreFor(t: Tx) {
                       ? 'border-green-200 bg-green-50 text-green-600'
                       : 'border-slate-200 bg-slate-50 text-slate-400'
                   "
-                  >✓</span
+                  aria-hidden="true"
                 >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3 w-3"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </span>
               </td>
             </tr>
-            <tr v-if="visible.length === 0">
+          </tbody>
+          <tbody v-else>
+            <tr>
               <td colspan="5" class="px-4 py-6 text-center text-slate-400">
-                No se encontraron resultados
+                No hay registros en el historial para este rango de fechas.
               </td>
             </tr>
           </tbody>
@@ -221,9 +357,37 @@ function scoreFor(t: Tx) {
         <div
           class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
         >
-          <p class="text-slate-400">Total ingresos</p>
-          <p class="text-red-600 font-semibold">$ {{ totalIncome }}</p>
+          <p class="text-slate-400">Monedas / ingresos (reales)</p>
+          <p class="text-red-600 font-semibold">
+            {{ totalCoins }} monedas · $ {{ totalIncome }}
+          </p>
         </div>
+      </div>
+
+      <div
+        class="mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-slate-600"
+        v-if="filtered.length > 0"
+      >
+        <button
+          class="rounded-lg border px-3 py-1.5 border-slate-200 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+          :disabled="currentPage === 1"
+          @click="currentPage = currentPage - 1"
+        >
+          Anterior
+        </button>
+        <span>
+          Página
+          <span class="font-semibold">{{ currentPage }}</span>
+          de
+          <span class="font-semibold">{{ totalPages }}</span>
+        </span>
+        <button
+          class="rounded-lg border px-3 py-1.5 border-slate-200 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+          :disabled="currentPage === totalPages"
+          @click="currentPage = currentPage + 1"
+        >
+          Siguiente
+        </button>
       </div>
     </div>
   </section>
