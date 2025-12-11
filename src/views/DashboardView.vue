@@ -1,4 +1,8 @@
 <script setup lang="ts">
+// Datos del usuario autenticado desde localStorage
+const currentRole = ref(localStorage.getItem("role") || "");
+const assignedMachineId = ref(localStorage.getItem("assignedMachineId") || "");
+const currentUserName = ref(localStorage.getItem("userName") || "usuario");
 import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
@@ -37,15 +41,23 @@ const stateFilters = [
 type Filter = (typeof stateFilters)[number];
 const selectedFilter = ref<Filter>("todas");
 
+// Filtrado de máquinas según rol y filtro seleccionado
 const filteredMachines = computed(() => {
-  if (selectedFilter.value === "todas") return machines.value;
+  let baseMachines = machines.value;
+  // Si es empleado y tiene máquina asignada, solo mostrar esa
+  if (currentRole.value === "employee" && assignedMachineId.value) {
+    baseMachines = baseMachines.filter(
+      (m) => String(m.id) === String(assignedMachineId.value)
+    );
+  }
+  if (selectedFilter.value === "todas") return baseMachines;
   if (selectedFilter.value === "activas")
-    return machines.value.filter((m) => m.status === "active");
+    return baseMachines.filter((m) => m.status === "active");
   if (selectedFilter.value === "inactivas")
-    return machines.value.filter((m) => m.status === "inactive");
+    return baseMachines.filter((m) => m.status === "inactive");
   if (selectedFilter.value === "mantenimiento")
-    return machines.value.filter((m) => m.status === "maintenance");
-  return machines.value;
+    return baseMachines.filter((m) => m.status === "maintenance");
+  return baseMachines;
 });
 
 // monedas por máquina: { [machineId]: total_coins }
@@ -257,7 +269,9 @@ onUnmounted(() => {
             class="text-sm"
             :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
           >
-            Bienvenido, <span class="font-medium">prueba</span>.
+            Bienvenido,
+            <span class="font-medium">{{ currentUserName }}</span
+            >.
           </p>
         </div>
         <!-- Botón salir movido a Sidebar -->

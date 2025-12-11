@@ -13,10 +13,33 @@ async function login() {
     return;
   }
   try {
-    await apiLogin(username.value, password.value);
+    const res = await apiLogin(username.value, password.value);
+    // Guardar datos básicos del usuario en localStorage
+    if (res && res.user) {
+      if (res.user.role) {
+        localStorage.setItem("role", res.user.role);
+      }
+
+      if (res.user.name || res.user.username) {
+        localStorage.setItem("userName", res.user.name || res.user.username);
+      }
+
+      // Intentar obtener la máquina asignada del propio login
+      let assignedId =
+        res.user.assignedMachineId ?? res.user.assigned_machine_id;
+
+      // Si no viene en el login y es empleado, buscar en /api/users (opcional, puedes agregar lógica si tienes getUsers)
+      if (assignedId) {
+        localStorage.setItem("assignedMachineId", String(assignedId));
+      } else {
+        localStorage.removeItem("assignedMachineId");
+      }
+    }
     window.location.href = "/";
-  } catch (e: any) {
-    error.value = e?.response?.data?.message || "Credenciales inválidas.";
+  } catch (e: unknown) {
+    const respMsg = (e as { response?: { data?: { message?: string } } })
+      ?.response?.data?.message;
+    error.value = respMsg || "Credenciales inválidas.";
   }
 }
 </script>

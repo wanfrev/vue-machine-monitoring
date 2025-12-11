@@ -76,6 +76,7 @@ async function handleDeleteMachine(id: string) {
 
 <template>
   <AppSidebar
+    @click="handleDashboardClick"
     :open="sidebarOpen"
     :dark="isDark()"
     @close="sidebarOpen = false"
