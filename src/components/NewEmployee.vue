@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, defineEmits, defineProps, ref, watch } from "vue";
-
+import { computed, ref, watch } from "vue";
+import MachineSelectorModal from "./MachineSelectorModal.vue";
+// eslint-disable-next-line no-undef
 const props = defineProps<{
   open: boolean;
   dark?: boolean;
-  machines: { id: string; name: string }[];
+  machines: { id: string; name: string; location?: string }[];
   mode?: "create" | "edit";
   employee?: {
     id: number;
@@ -13,10 +14,11 @@ const props = defineProps<{
     username: string;
     jobRole?: string;
     shift?: string;
-    assignedMachineId?: string;
+    assignedMachineIds?: string[];
   } | null;
 }>();
 
+// eslint-disable-next-line no-undef
 const emit = defineEmits<{
   (e: "close"): void;
   (
@@ -28,7 +30,7 @@ const emit = defineEmits<{
       password: string;
       jobRole: string;
       shift?: string;
-      assignedMachineId?: string;
+      assignedMachineIds?: string[];
     }
   ): void;
   (
@@ -41,7 +43,7 @@ const emit = defineEmits<{
       password?: string;
       jobRole: string;
       shift?: string;
-      assignedMachineId?: string;
+      assignedMachineIds?: string[];
     }
   ): void;
 }>();
@@ -52,7 +54,18 @@ const username = ref("");
 const password = ref("");
 const jobRole = ref("");
 const shift = ref("");
-const assignedMachineId = ref("");
+const assignedMachineIds = ref<string[]>([]);
+const showMachineModal = ref(false);
+
+function openMachineModal() {
+  showMachineModal.value = true;
+}
+function closeMachineModal() {
+  showMachineModal.value = false;
+}
+function saveMachineSelection(selected: string[]) {
+  assignedMachineIds.value = selected;
+}
 const editingId = ref<number | null>(null);
 
 const isDark = computed(() => !!props.dark);
@@ -69,7 +82,7 @@ watch(
         password.value = ""; // No se muestra la contraseña actual
         jobRole.value = props.employee.jobRole || "";
         shift.value = props.employee.shift || "";
-        assignedMachineId.value = props.employee.assignedMachineId || "";
+        assignedMachineIds.value = props.employee.assignedMachineIds || [];
       } else {
         editingId.value = null;
         documentId.value = "";
@@ -78,7 +91,7 @@ watch(
         password.value = "";
         jobRole.value = "";
         shift.value = "";
-        assignedMachineId.value = "";
+        assignedMachineIds.value = [];
       }
       document.body.classList.add("overflow-hidden");
     } else {
@@ -110,7 +123,10 @@ function submit() {
       password: password.value || undefined,
       jobRole: jobRole.value,
       shift: shift.value || undefined,
-      assignedMachineId: assignedMachineId.value || undefined,
+      assignedMachineIds:
+        assignedMachineIds.value.length > 0
+          ? assignedMachineIds.value
+          : undefined,
     });
   } else {
     emit("create", {
@@ -120,7 +136,10 @@ function submit() {
       password: password.value,
       jobRole: jobRole.value,
       shift: shift.value || undefined,
-      assignedMachineId: assignedMachineId.value || undefined,
+      assignedMachineIds:
+        assignedMachineIds.value.length > 0
+          ? assignedMachineIds.value
+          : undefined,
     });
   }
 }
@@ -212,14 +231,16 @@ function submit() {
             <div>
               <h2 class="text-xl font-bold text-slate-800">
                 {{
-                  props.mode === "edit" ? "Editar empleado" : "Nuevo empleado"
+                  props.mode === "edit"
+                    ? "Editar supervisor"
+                    : "Nuevo supervisor"
                 }}
               </h2>
               <p class="text-sm text-slate-400">
                 {{
                   props.mode === "edit"
-                    ? "Edita los datos del empleado."
-                    : "Crea un nuevo usuario empleado y asígnale una máquina."
+                    ? "Edita los datos del supervisor."
+                    : "Crea un nuevo usuario supervisor y asígnale una máquina."
                 }}
               </p>
             </div>
@@ -305,17 +326,42 @@ function submit() {
             </div>
             <div>
               <label class="block text-sm font-semibold mb-1"
-                >Máquina asignada</label
+                >Máquinas asignadas (por ubicación)</label
               >
-              <select
-                v-model="assignedMachineId"
-                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer"
+              <div class="flex gap-2 items-center">
+                <button
+                  type="button"
+                  class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 transition cursor-pointer"
+                  @click="openMachineModal"
+                >
+                  Seleccionar máquinas
+                </button>
+                <span
+                  v-if="assignedMachineIds.length"
+                  class="text-xs text-slate-500"
+                >
+                  {{ assignedMachineIds.length }} seleccionada(s)
+                </span>
+              </div>
+              <ul
+                v-if="assignedMachineIds.length"
+                class="mt-2 text-xs text-slate-600 list-disc list-inside"
               >
-                <option value="">Sin asignar</option>
-                <option v-for="m in machines" :key="m.id" :value="m.id">
-                  {{ m.id }} - {{ m.name }}
-                </option>
-              </select>
+                <li v-for="id in assignedMachineIds" :key="id">
+                  {{
+                    machines.find((m) => m.id === id)?.location ||
+                    machines.find((m) => m.id === id)?.name ||
+                    id
+                  }}
+                </li>
+              </ul>
+              <MachineSelectorModal
+                :open="showMachineModal"
+                :machines="machines"
+                :selected="assignedMachineIds"
+                @close="closeMachineModal"
+                @save="saveMachineSelection"
+              />
             </div>
           </div>
           <div class="flex gap-2 justify-end mt-4">
@@ -373,7 +419,7 @@ function submit() {
                 </svg>
               </span>
               <span>{{
-                props.mode === "edit" ? "Guardar cambios" : "Crear empleado"
+                props.mode === "edit" ? "Guardar cambios" : "Crear supervisor"
               }}</span>
             </button>
           </div>

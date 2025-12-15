@@ -24,13 +24,25 @@ async function login() {
         localStorage.setItem("userName", res.user.name || res.user.username);
       }
 
-      // Intentar obtener la máquina asignada del propio login
-      let assignedId =
-        res.user.assignedMachineId ?? res.user.assigned_machine_id;
+      // Máquinas asignadas
+      const assignedIds =
+        res.user.assignedMachineIds ?? res.user.assigned_machine_ids;
+      const primaryId =
+        res.user.assignedMachineId ??
+        res.user.assigned_machine_id ??
+        (Array.isArray(assignedIds) && assignedIds.length
+          ? assignedIds[0]
+          : null);
 
-      // Si no viene en el login y es empleado, buscar en /api/users (opcional, puedes agregar lógica si tienes getUsers)
-      if (assignedId) {
-        localStorage.setItem("assignedMachineId", String(assignedId));
+      // Guardar arreglo completo (como JSON) y, por compatibilidad, un ID único
+      if (Array.isArray(assignedIds) && assignedIds.length) {
+        localStorage.setItem("assignedMachineIds", JSON.stringify(assignedIds));
+      } else {
+        localStorage.removeItem("assignedMachineIds");
+      }
+
+      if (primaryId) {
+        localStorage.setItem("assignedMachineId", String(primaryId));
       } else {
         localStorage.removeItem("assignedMachineId");
       }

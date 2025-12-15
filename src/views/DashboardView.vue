@@ -1,8 +1,31 @@
 <script setup lang="ts">
 // Datos del usuario autenticado desde localStorage
 const currentRole = ref(localStorage.getItem("role") || "");
-const assignedMachineId = ref(localStorage.getItem("assignedMachineId") || "");
 const currentUserName = ref(localStorage.getItem("userName") || "usuario");
+// Máquinas asignadas al empleado (si aplica)
+let rawAssignedIds: string | null = null;
+try {
+  rawAssignedIds = localStorage.getItem("assignedMachineIds");
+} catch (e) {
+  rawAssignedIds = null;
+}
+const initialAssignedMachineIds: string[] = (() => {
+  // Preferimos un arreglo JSON en assignedMachineIds
+  if (rawAssignedIds) {
+    try {
+      const parsed = JSON.parse(rawAssignedIds);
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => String(v));
+      }
+    } catch {
+      // ignorar error de parseo
+    }
+  }
+  // Compatibilidad: si solo hay un ID antiguo en assignedMachineId
+  const single = localStorage.getItem("assignedMachineId");
+  return single ? [String(single)] : [];
+})();
+const assignedMachineIds = ref<string[]>(initialAssignedMachineIds);
 import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
@@ -45,11 +68,10 @@ const selectedFilter = ref<Filter>("todas");
 // Filtrado de máquinas según rol y filtro seleccionado
 const filteredMachines = computed(() => {
   let baseMachines = machines.value;
-  // Si es empleado y tiene máquina asignada, solo mostrar esa
-  if (currentRole.value === "employee" && assignedMachineId.value) {
-    baseMachines = baseMachines.filter(
-      (m) => String(m.id) === String(assignedMachineId.value)
-    );
+  // Si es empleado y tiene máquinas asignadas, solo mostrar esas
+  if (currentRole.value === "employee" && assignedMachineIds.value.length) {
+    const idSet = new Set(assignedMachineIds.value.map((id) => String(id)));
+    baseMachines = baseMachines.filter((m) => idSet.has(String(m.id)));
   }
   if (selectedFilter.value === "todas") return baseMachines;
   if (selectedFilter.value === "activas")

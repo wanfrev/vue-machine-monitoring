@@ -21,10 +21,10 @@ type Employee = {
   shift?: string;
   documentId?: string;
   jobRole?: string;
-  assignedMachineId?: string;
+  assignedMachineIds?: string[];
 };
 
-type SimpleMachine = { id: string; name: string };
+type SimpleMachine = { id: string; name: string; location?: string };
 
 const employees = ref<Employee[]>([]);
 const machines = ref<SimpleMachine[]>([]);
@@ -45,7 +45,11 @@ async function loadEmployees() {
 async function loadMachines() {
   try {
     const data = await getMachines();
-    machines.value = data.map((m: any) => ({ id: m.id, name: m.name }));
+    machines.value = data.map((m: any) => ({
+      id: m.id,
+      name: m.name,
+      location: m.location,
+    }));
   } catch {
     machines.value = [];
   }
@@ -74,7 +78,7 @@ async function handleCreateEmployee(payload: {
   password: string;
   jobRole: string;
   shift?: string;
-  assignedMachineId?: string;
+  assignedMachineIds?: string[];
 }) {
   await createUser({
     ...payload,
@@ -94,15 +98,27 @@ async function handleUpdateEmployee(payload: {
   password?: string;
   jobRole: string;
   shift?: string;
-  assignedMachineId?: string;
+  assignedMachineIds?: string[];
 }) {
   await updateUser(payload.id, payload);
   showModal.value = false;
   await loadEmployees();
 }
 
+function getEmployeeMachinesLabel(e: Employee): string {
+  const ids = e.assignedMachineIds ?? [];
+  if (!ids.length) return "—";
+  const labels = ids
+    .map((mid) => {
+      const m = machines.value.find((mm) => mm.id === mid);
+      return m?.location || m?.name || mid;
+    })
+    .filter(Boolean);
+  return labels.length ? labels.join(", ") : "—";
+}
+
 async function handleDeleteEmployee(id: number) {
-  const ok = window.confirm("¿Seguro que deseas eliminar este empleado?");
+  const ok = window.confirm("¿Seguro que deseas eliminar este supervisor?");
   if (!ok) return;
   await deleteUser(id);
   await loadEmployees();
@@ -167,7 +183,7 @@ async function handleDeleteEmployee(id: number) {
               class="text-3xl font-bold"
               :class="isDark() ? 'text-white' : 'text-slate-900'"
             >
-              Empleados
+              Supervisor
             </h1>
           </div>
           <button
@@ -175,14 +191,14 @@ async function handleDeleteEmployee(id: number) {
             class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"
             @click="openCreateModal"
           >
-            + Nuevo empleado
+            + Nuevo supervisor
           </button>
         </div>
         <p
           class="text-sm mb-4"
           :class="isDark() ? 'text-slate-300' : 'text-slate-600'"
         >
-          CRUD de empleados conectado al backend.
+          CRUD de supervisores conectado al backend.
         </p>
         <div
           class="overflow-x-auto rounded-xl border shadow-sm"
@@ -208,7 +224,9 @@ async function handleDeleteEmployee(id: number) {
                 <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
                 <th class="px-4 py-2 whitespace-nowrap">Rol</th>
                 <th class="px-4 py-2 whitespace-nowrap">Turno</th>
-                <th class="px-4 py-2 whitespace-nowrap">Máquina</th>
+                <th class="px-4 py-2 whitespace-nowrap">
+                  Máquinas (ubicación)
+                </th>
                 <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
               </tr>
             </thead>
@@ -237,10 +255,7 @@ async function handleDeleteEmployee(id: number) {
                   {{ e.shift || "—" }}
                 </td>
                 <td class="px-4 py-2 whitespace-nowrap">
-                  {{
-                    machines.find((m) => m.id === e.assignedMachineId)?.name ||
-                    "—"
-                  }}
+                  {{ getEmployeeMachinesLabel(e) }}
                 </td>
                 <td
                   class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
