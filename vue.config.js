@@ -8,11 +8,11 @@ module.exports = defineConfig({
     msTileColor: "#ffffff",
     iconPaths: {
       // Usamos los iconos generados a partir de K11BOX
-      favicon32: "img/icons/pwa-64x64.png",
-      favicon16: "img/icons/pwa-64x64.png",
-      appleTouchIcon: "img/icons/pwa-512x512.png",
-      maskIcon: "img/icons/pwa-512x512.png",
-      msTileImage: "img/icons/mstile-150x150.png",
+      favicon32: "img/icons/icon-no-padding-192.png",
+      favicon16: "img/icons/icon-no-padding-192.png",
+      appleTouchIcon: "img/icons/icon-no-padding-512.png",
+      maskIcon: "img/icons/icon-no-padding-512.png",
+      msTileImage: "img/icons/icon-no-padding-192.png",
     },
   },
 });
