@@ -152,7 +152,7 @@ const userRole = localStorage.getItem("role") || "";
             router.push({ name: 'employees' });
           "
         >
-          <span>Empleados</span>
+          <span>Supervisor</span>
           <svg
             width="12"
             height="12"
