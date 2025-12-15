@@ -13,6 +13,7 @@ import {
   createMachine as apiCreateMachine,
   getCoinsByMachine,
   updateMachine,
+  getMachineDailyIncome,
 } from "../api/client";
 
 const router = useRouter();
@@ -60,8 +61,10 @@ const filteredMachines = computed(() => {
   return baseMachines;
 });
 
-// monedas por máquina: { [machineId]: total_coins }
+// monedas por máquina (histórico total): { [machineId]: total_coins }
 const coinsByMachine = ref<Record<string, number>>({});
+// monedas de HOY por máquina: { [machineId]: coins_today }
+const dailyCoinsByMachine = ref<Record<string, number>>({});
 
 const totalMachines = computed(() => machines.value.length);
 const activeMachines = computed(
@@ -70,9 +73,12 @@ const activeMachines = computed(
 const inactiveMachines = computed(
   () => totalMachines.value - activeMachines.value
 );
-// Ingreso total en dinero (se calcula a partir de las monedas por máquina)
-const totalIncome = computed(() =>
-  machines.value.reduce((sum, machine) => sum + getMachineIncome(machine), 0)
+// Ingreso total en dinero HOY (se calcula a partir de las monedas de hoy por máquina)
+const totalIncomeToday = computed(() =>
+  machines.value.reduce(
+    (sum, machine) => sum + getMachineIncomeToday(machine),
+    0
+  )
 );
 
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
@@ -85,8 +91,18 @@ function getMachineCoins(machineId: string): number {
   return coinsByMachine.value[machineId] || 0;
 }
 
+function getMachineCoinsToday(machineId: string): number {
+  return dailyCoinsByMachine.value[machineId] || 0;
+}
+
 function getMachineIncome(machine: Machine): number {
   const coins = getMachineCoins(machine.id);
+  const valuePerCoin = machine.name.includes("Boxeo") ? 1 : 2;
+  return coins * valuePerCoin;
+}
+
+function getMachineIncomeToday(machine: Machine): number {
+  const coins = getMachineCoinsToday(machine.id);
   const valuePerCoin = machine.name.includes("Boxeo") ? 1 : 2;
   return coins * valuePerCoin;
 }
@@ -163,7 +179,7 @@ function handleGlobalClick(event: MouseEvent) {
 async function loadDashboardData() {
   try {
     machines.value = await getMachines();
-    // cargar monedas agrupadas por máquina para calcular ingresos por card
+    // cargar monedas agrupadas por máquina (total histórico)
     try {
       const coinsPerMachine = await getCoinsByMachine();
       const map: Record<string, number> = {};
@@ -174,6 +190,55 @@ async function loadDashboardData() {
     } catch (e) {
       console.error("Error obteniendo monedas por máquina:", e);
       coinsByMachine.value = {};
+    }
+
+    // cargar monedas de HOY por máquina para los contadores diarios (usando fecha local)
+    try {
+      const today = new Date();
+      // Obtener YYYY-MM-DD local
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const day = String(today.getDate()).padStart(2, "0");
+      const todayLocalStr = `${year}-${month}-${day}`;
+      const dailyMap: Record<string, number> = {};
+
+      await Promise.all(
+        machines.value.map(async (machine) => {
+          try {
+            const daily = await getMachineDailyIncome(machine.id, {
+              startDate: todayLocalStr,
+              endDate: todayLocalStr,
+            });
+            // getMachineDailyIncome devuelve [{ date, income }] donde date puede estar en UTC, así que normalizamos a local
+            let coinsToday = 0;
+            if (Array.isArray(daily) && daily.length) {
+              // Buscar el registro que coincida con la fecha local
+              const found = daily.find((d) => {
+                if (!d.date) return false;
+                const dDate = new Date(d.date);
+                const dYear = dDate.getFullYear();
+                const dMonth = String(dDate.getMonth() + 1).padStart(2, "0");
+                const dDay = String(dDate.getDate()).padStart(2, "0");
+                return `${dYear}-${dMonth}-${dDay}` === todayLocalStr;
+              });
+              coinsToday = found ? Number(found.income ?? 0) : 0;
+            }
+            dailyMap[machine.id] = coinsToday;
+          } catch (err) {
+            console.error(
+              "Error obteniendo monedas de hoy para máquina:",
+              machine.id,
+              err
+            );
+            dailyMap[machine.id] = 0;
+          }
+        })
+      );
+
+      dailyCoinsByMachine.value = dailyMap;
+    } catch (e) {
+      console.error("Error obteniendo monedas diarias por máquina:", e);
+      dailyCoinsByMachine.value = {};
     }
   } catch (err: unknown) {
     const anyErr = err as { response?: { status?: number } };
@@ -342,10 +407,10 @@ onUnmounted(() => {
           <p
             class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
           >
-            Dinero recolectado
+            Dinero recolectado hoy
           </p>
           <p class="text-2xl font-semibold text-slate-900">
-            $ {{ totalIncome }}
+            $ {{ totalIncomeToday }}
           </p>
         </div>
       </div>
@@ -617,7 +682,7 @@ onUnmounted(() => {
             class="text-right font-semibold text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >
-            $ {{ getMachineIncome(machine) }}
+            $ {{ getMachineIncomeToday(machine) }}
           </p>
           <p class="font-medium text-slate-400">Total ingresos</p>
           <p
@@ -626,12 +691,12 @@ onUnmounted(() => {
           >
             $ {{ getMachineIncome(machine) }}
           </p>
-          <p class="font-medium text-slate-400">Monedas</p>
+          <p class="font-medium text-slate-400">Monedas hoy</p>
           <p
             class="text-right text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >
-            {{ getMachineCoins(machine.id) }}
+            {{ getMachineCoinsToday(machine.id) }}
           </p>
           <p class="font-medium text-slate-400">Tiempo activo</p>
           <p

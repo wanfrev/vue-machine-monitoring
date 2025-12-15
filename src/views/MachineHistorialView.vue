@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import {
   getMachines,
@@ -75,6 +75,17 @@ const valuePerCoin = computed(() => {
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
 
+function toLocalDateTime(utcString: string) {
+  if (!utcString) return { date: "", time: "" };
+  const d = new Date(utcString);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return { date: `${year}-${month}-${day}`, time: `${hours}:${minutes}` };
+}
+
 async function loadHistory() {
   if (!machine.value) return;
   try {
@@ -82,22 +93,31 @@ async function loadHistory() {
       startDate: startDate.value,
       endDate: endDate.value,
     });
-    const cleaned = (history || []).filter((h: any) => {
-      const hasText =
-        (h.kind && String(h.kind).trim()) ||
-        (h.description && String(h.description).trim());
-      const hasDate = h.date && String(h.date).trim();
-      const hasAmount = Number(h.amount) > 0;
-      return hasText || hasDate || hasAmount;
-    });
-    txs.value = cleaned;
+    // Solo mapear eventos de monedas (coin_inserted)
+    const mapped = (history || [])
+      .filter((h: any) => h.type === "coin_inserted")
+      .map((h: any) => {
+        const cantidad = h.data?.cantidad ?? h.data?.amount ?? 1;
+        const { date, time } = toLocalDateTime(h.timestamp);
+        return {
+          kind: "Ingreso",
+          description: "Ingreso de moneda",
+          date,
+          time,
+          amount: cantidad,
+          ok: true,
+        };
+      });
+    txs.value = mapped;
   } catch (e) {
     console.error("Error cargando historial de máquina:", e);
     txs.value = [];
   }
 }
 
-onMounted(async () => {
+let refreshInterval: number | undefined;
+
+async function fetchAllData() {
   try {
     const all = await getMachines();
     const routeId = route.params.id as string | undefined;
@@ -114,6 +134,15 @@ onMounted(async () => {
   } catch (e) {
     console.error("Error cargando datos de historial de máquina:", e);
   }
+}
+
+onMounted(() => {
+  fetchAllData();
+  refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
+});
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval);
 });
 
 function scoreFor(t: Tx) {
@@ -240,7 +269,7 @@ watch(search, () => {
           </h3>
           <p class="text-xs text-slate-400">{{ t.date }} {{ t.time }}</p>
           <div
-            class="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+            class="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
           >
             <div>
               <p class="text-xs text-slate-500">Monto</p>
@@ -251,12 +280,6 @@ watch(search, () => {
                 "
               >
                 {{ t.kind === "Ingreso" ? `$ ${t.amount}` : "$ 0" }}
-              </p>
-            </div>
-            <div>
-              <p class="text-xs text-slate-500">Puntaje</p>
-              <p class="text-2xl font-semibold text-slate-900">
-                {{ scoreFor(t) }}
               </p>
             </div>
           </div>

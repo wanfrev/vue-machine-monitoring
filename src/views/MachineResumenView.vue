@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import {
-  getMachines,
-  getCoinsByMachine,
-  getMachineDailyIncome,
-} from "../api/client";
+import { getMachines, getMachineDailyIncome } from "../api/client";
+import BarChart from "../components/BarChart.vue";
 
 type Machine = {
   id: string;
@@ -16,12 +13,11 @@ type Machine = {
 };
 
 const route = useRoute();
-
 const loading = ref(false);
 const machine = ref<Machine | null>(null);
+// Monedas de HOY para la máquina seleccionada
 const totalCoins = ref(0);
 
-// Rango de fechas para la gráfica (por defecto últimos 30 días)
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -33,7 +29,6 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
-// Datos para la gráfica de barras de ingresos diarios
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
 
 const valuePerCoin = computed(() => {
@@ -42,13 +37,28 @@ const valuePerCoin = computed(() => {
 });
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
-
 const isOn = computed(() => machine.value?.status === "active");
 
-const maxDailyIncome = computed(() => {
-  if (!dailyIncome.value.length) return 0;
-  return Math.max(...dailyIncome.value.map((d) => d.income));
-});
+function getDateRangeArray(start: string, end: string) {
+  const arr: string[] = [];
+  let current = new Date(start);
+  const last = new Date(end);
+  while (current <= last) {
+    arr.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+  return arr;
+}
+
+function toLocalDateString(utcDateString: string) {
+  // Convierte una fecha UTC (YYYY-MM-DD o ISO) a YYYY-MM-DD local
+  if (!utcDateString) return "";
+  const d = new Date(utcDateString);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 async function loadDailyIncome() {
   if (!machine.value) return;
@@ -57,14 +67,25 @@ async function loadDailyIncome() {
       startDate: startDate.value,
       endDate: endDate.value,
     });
-    dailyIncome.value = data;
+    // Convertir fechas UTC a local antes de agrupar
+    const mapped = (data || []).map((d: any) => ({
+      date: d.date ? toLocalDateString(d.date) : "",
+      income: Number(d.income) * valuePerCoin.value,
+    }));
+    const allDates = getDateRangeArray(startDate.value, endDate.value);
+    dailyIncome.value = allDates.map((date) => {
+      const found = mapped.find((m) => m.date === date);
+      return { date, income: found ? found.income : 0 };
+    });
   } catch (e) {
     console.error("Error cargando ingresos diarios de la máquina:", e);
     dailyIncome.value = [];
   }
 }
 
-onMounted(async () => {
+let refreshInterval: number | undefined;
+
+async function fetchAllData() {
   loading.value = true;
   try {
     const all = await getMachines();
@@ -74,9 +95,29 @@ onMounted(async () => {
     );
     if (current) {
       machine.value = current;
-      const coinsPerMachine = await getCoinsByMachine();
-      const row = coinsPerMachine.find((r) => r.machine_id === current.id);
-      totalCoins.value = Number(row?.total_coins ?? 0);
+      // Monedas de HOY usando getMachineDailyIncome con rango de un solo día (fecha local)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const day = String(today.getDate()).padStart(2, "0");
+      const todayLocalStr = `${year}-${month}-${day}`;
+      const todayData = await getMachineDailyIncome(current.id, {
+        startDate: todayLocalStr,
+        endDate: todayLocalStr,
+      });
+      let coinsToday = 0;
+      if (Array.isArray(todayData) && todayData.length) {
+        const found = todayData.find((d) => {
+          if (!d.date) return false;
+          const dDate = new Date(d.date);
+          const dYear = dDate.getFullYear();
+          const dMonth = String(dDate.getMonth() + 1).padStart(2, "0");
+          const dDay = String(dDate.getDate()).padStart(2, "0");
+          return `${dYear}-${dMonth}-${dDay}` === todayLocalStr;
+        });
+        coinsToday = found ? Number(found.income ?? 0) : 0;
+      }
+      totalCoins.value = coinsToday;
       await loadDailyIncome();
     }
   } catch (e) {
@@ -84,10 +125,18 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+}
+
+onMounted(() => {
+  fetchAllData();
+  refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
+});
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval);
 });
 
 watch([startDate, endDate, machine], async () => {
-  // Validar que startDate <= endDate antes de recargar
   if (!machine.value) return;
   if (startDate.value && endDate.value && startDate.value > endDate.value) {
     return;
@@ -121,28 +170,53 @@ watch([startDate, endDate, machine], async () => {
       </div>
     </div>
     <div
-      class="h-64 w-full rounded-xl border border-dashed border-slate-300 flex items-end gap-1 px-2 py-4 overflow-x-auto bg-slate-50"
+      class="h-64 w-full rounded-xl border border-dashed border-slate-300 px-2 py-4 bg-slate-50 flex items-center justify-center"
     >
-      <template v-if="dailyIncome.length && maxDailyIncome > 0">
-        <div
-          v-for="point in dailyIncome"
-          :key="point.date"
-          class="flex flex-col items-center gap-1"
-        >
-          <div
-            class="w-4 rounded-t-md bg-slate-900"
-            :style="{
-              height:
-                Math.max((point.income / maxDailyIncome) * 100, 4).toString() +
-                '%',
-            }"
-            :title="`${point.date}: $ ${point.income}`"
-          ></div>
-          <span class="text-[10px] text-slate-400">
-            {{ point.date.slice(5) }}
-          </span>
-        </div>
-      </template>
+      <BarChart
+        v-if="dailyIncome.length"
+        :chartData="{
+          labels: dailyIncome.map((d) => d.date),
+          datasets: [
+            {
+              label: 'Ingresos',
+              backgroundColor: '#1e293b',
+              data: dailyIncome.map((d) => d.income),
+              borderRadius: 6,
+              maxBarThickness: 16,
+              categoryPercentage: 0.9,
+              barPercentage: 0.9,
+            },
+          ],
+        }"
+        :chartOptions="{
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            title: { display: false },
+            tooltip: { enabled: true },
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Fecha' },
+              ticks: {
+                color: '#64748b',
+                font: { size: 10 },
+                autoSkip: true,
+                maxTicksLimit: 10,
+              },
+              grid: { display: false },
+            },
+            y: {
+              title: { display: true, text: 'Ingresos ($)' },
+              beginAtZero: true,
+              ticks: { color: '#64748b', font: { size: 10 }, precision: 0 },
+              grid: { color: '#e2e8f0' },
+            },
+          },
+        }"
+        class="w-full h-full"
+      />
       <p v-else class="mx-auto text-xs text-slate-400 text-center">
         No hay datos de ingresos para el rango seleccionado.
       </p>
@@ -175,7 +249,7 @@ watch([startDate, endDate, machine], async () => {
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
       >
-        Monedas totales
+        Monedas hoy
       </p>
       <p class="text-3xl font-semibold text-red-600">
         {{ totalCoins }}
@@ -187,7 +261,7 @@ watch([startDate, endDate, machine], async () => {
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
       >
-        Total ingresos
+        Ingresos hoy
       </p>
       <p class="text-3xl font-semibold text-red-600">$ {{ totalIncome }}</p>
     </div>

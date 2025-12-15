@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { getCoinsByMachine } from "../api/client";
+const totalCoins = ref(0);
+import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import {
   getMachines,
@@ -77,15 +79,32 @@ const totalIncomeInRange = computed(() =>
 );
 
 const incomePerHour = computed(() => {
-  if (!totalActiveHours.value) return 0;
+  // Si no hay tiempo activo, mostrar 0 para evitar divisiones por cero o valores irreales
+  if (
+    !totalActiveHours.value ||
+    isNaN(totalActiveHours.value) ||
+    !isFinite(totalActiveHours.value)
+  )
+    return 0;
   return totalIncomeInRange.value / totalActiveHours.value;
 });
+
+function toLocalDateTime(utcString: string) {
+  if (!utcString) return "";
+  const d = new Date(utcString);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
 
 async function loadStats() {
   if (!machine.value) return;
   loading.value = true;
   try {
-    const [logs, income] = await Promise.all([
+    const [logs, income, coinsPerMachine] = await Promise.all([
       getMachinePowerLogs(machine.value.id, {
         startDate: startDate.value,
         endDate: endDate.value,
@@ -94,9 +113,19 @@ async function loadStats() {
         startDate: startDate.value,
         endDate: endDate.value,
       }),
+      getCoinsByMachine(),
     ]);
-    powerLogs.value = logs;
+    powerLogs.value = (logs || []).map((log: any) => ({
+      event: log.event,
+      ts: toLocalDateTime(log.ts),
+      dur: log.dur,
+    }));
     dailyIncome.value = income;
+    // Buscar monedas totales para esta máquina
+    const row = Array.isArray(coinsPerMachine)
+      ? coinsPerMachine.find((r) => r.machine_id === machine.value?.id)
+      : null;
+    totalCoins.value = row ? Number(row.total_coins ?? 0) : 0;
   } catch (e) {
     console.error("Error cargando estadísticas de máquina:", e);
     powerLogs.value = [];
@@ -106,7 +135,9 @@ async function loadStats() {
   }
 }
 
-onMounted(async () => {
+let refreshInterval: number | undefined;
+
+async function fetchAllData() {
   try {
     const all = await getMachines();
     const routeId = route.params.id as string | undefined;
@@ -120,6 +151,15 @@ onMounted(async () => {
   } catch (e) {
     console.error("Error inicializando estadísticas de máquina:", e);
   }
+}
+
+onMounted(() => {
+  fetchAllData();
+  refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
+});
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval);
 });
 
 watch([startDate, endDate, machine], async () => {
@@ -173,18 +213,18 @@ watch([startDate, endDate, machine], async () => {
           ></div>
         </div>
       </div>
+
       <div
         class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Ingreso promedio/hora
+          Monedas totales
         </p>
         <p class="mt-1 text-3xl font-semibold text-red-600">
-          $ {{ incomePerHour.toFixed(2) }}
+          {{ totalCoins }}
         </p>
-        <p class="text-xs text-slate-400">Basado en sesiones</p>
+        <p class="text-xs text-slate-400">Histórico</p>
       </div>
-
       <div
         class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
       >
