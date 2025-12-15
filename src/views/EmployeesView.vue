@@ -191,7 +191,7 @@ async function handleDeleteEmployee(id: number) {
             class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"
             @click="openCreateModal"
           >
-            + Nuevo empleado
+            + Nuevo supervisor
           </button>
         </div>
         <p
