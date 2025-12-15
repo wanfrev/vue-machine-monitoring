@@ -231,14 +231,16 @@ function submit() {
             <div>
               <h2 class="text-xl font-bold text-slate-800">
                 {{
-                  props.mode === "edit" ? "Editar empleado" : "Nuevo empleado"
+                  props.mode === "edit"
+                    ? "Editar supervisor"
+                    : "Nuevo supervisor"
                 }}
               </h2>
               <p class="text-sm text-slate-400">
                 {{
                   props.mode === "edit"
-                    ? "Edita los datos del empleado."
-                    : "Crea un nuevo usuario empleado y asígnale una máquina."
+                    ? "Edita los datos del supervisor."
+                    : "Crea un nuevo usuario supervisor y asígnale una máquina."
                 }}
               </p>
             </div>
@@ -417,7 +419,7 @@ function submit() {
                 </svg>
               </span>
               <span>{{
-                props.mode === "edit" ? "Guardar cambios" : "Crear empleado"
+                props.mode === "edit" ? "Guardar cambios" : "Crear supervisor"
               }}</span>
             </button>
           </div>

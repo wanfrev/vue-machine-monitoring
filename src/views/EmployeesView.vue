@@ -118,7 +118,7 @@ function getEmployeeMachinesLabel(e: Employee): string {
 }
 
 async function handleDeleteEmployee(id: number) {
-  const ok = window.confirm("¿Seguro que deseas eliminar este empleado?");
+  const ok = window.confirm("¿Seguro que deseas eliminar este supervisor?");
   if (!ok) return;
   await deleteUser(id);
   await loadEmployees();
@@ -183,7 +183,7 @@ async function handleDeleteEmployee(id: number) {
               class="text-3xl font-bold"
               :class="isDark() ? 'text-white' : 'text-slate-900'"
             >
-              Empleados
+              Supervisor
             </h1>
           </div>
           <button
@@ -198,7 +198,7 @@ async function handleDeleteEmployee(id: number) {
           class="text-sm mb-4"
           :class="isDark() ? 'text-slate-300' : 'text-slate-600'"
         >
-          CRUD de empleados conectado al backend.
+          CRUD de supervisores conectado al backend.
         </p>
         <div
           class="overflow-x-auto rounded-xl border shadow-sm"
