@@ -7,6 +7,9 @@ export async function updateUser(
     password?: string;
     jobRole: string;
     shift?: string;
+    // Arreglo de IDs de máquinas asignadas
+    assignedMachineIds?: string[];
+    // Compatibilidad: un solo ID
     assignedMachineId?: string;
   }
 ) {
@@ -15,8 +18,13 @@ export async function updateUser(
     shift: payload.shift,
     document_id: payload.documentId,
     job_role: payload.jobRole,
-    assigned_machine_id: payload.assignedMachineId,
   };
+  const ids =
+    payload.assignedMachineIds ??
+    (payload.assignedMachineId ? [payload.assignedMachineId] : undefined);
+  if (ids) {
+    body.assigned_machine_ids = ids;
+  }
   if (payload.password) {
     body.password = payload.password;
   }
@@ -141,7 +149,10 @@ export async function getUsers() {
     ...u,
     documentId: u.documentId ?? u.document_id ?? "",
     jobRole: u.jobRole ?? u.job_role ?? "",
-    assignedMachineId: u.assignedMachineId ?? u.assigned_machine_id ?? "",
+    assignedMachineIds:
+      u.assignedMachineIds ??
+      u.assigned_machine_ids ??
+      (u.assignedMachineId ? [u.assignedMachineId] : []),
   }));
 }
 
@@ -152,9 +163,14 @@ export async function createUser(payload: {
   password: string;
   jobRole: string;
   shift?: string;
+  assignedMachineIds?: string[];
+  // Compatibilidad: un solo ID
   assignedMachineId?: string;
   role: "employee" | "admin";
 }) {
+  const ids =
+    payload.assignedMachineIds ??
+    (payload.assignedMachineId ? [payload.assignedMachineId] : undefined);
   const body = {
     username: payload.username,
     password: payload.password,
@@ -164,7 +180,7 @@ export async function createUser(payload: {
     // Campos en snake_case para coincidir con la API/BD
     document_id: payload.documentId,
     job_role: payload.jobRole,
-    assigned_machine_id: payload.assignedMachineId,
+    ...(ids ? { assigned_machine_ids: ids } : {}),
   };
   const res = await api.post("/api/users", body);
   return res.data;
