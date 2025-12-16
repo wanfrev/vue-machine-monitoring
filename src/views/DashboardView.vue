@@ -378,14 +378,17 @@ async function loadDashboardData() {
               startDate: todayLocalStr,
               endDate: todayLocalStr,
             });
-            // El backend ya devuelve la fecha agrupada en zona local (YYYY-MM-DD),
-            // así que comparamos usando directamente la cadena sin crear Date (evita desfase de día).
+            // getMachineDailyIncome devuelve [{ date, income }] donde date puede estar en UTC, así que normalizamos a local
             let coinsToday = 0;
             if (Array.isArray(daily) && daily.length) {
+              // Buscar el registro que coincida con la fecha local
               const found = daily.find((d) => {
                 if (!d.date) return false;
-                const dateStr = String(d.date).slice(0, 10);
-                return dateStr === todayLocalStr;
+                const dDate = new Date(d.date);
+                const dYear = dDate.getFullYear();
+                const dMonth = String(dDate.getMonth() + 1).padStart(2, "0");
+                const dDay = String(dDate.getDate()).padStart(2, "0");
+                return `${dYear}-${dMonth}-${dDay}` === todayLocalStr;
               });
               coinsToday = found ? Number(found.income ?? 0) : 0;
             }
