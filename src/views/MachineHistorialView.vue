@@ -30,7 +30,11 @@ const route = useRoute();
 
 // Rango de fechas para el historial (por defecto últimos 30 días)
 function formatDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Fecha local YYYY-MM-DD (sin convertir a UTC)
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 const today = new Date();
@@ -106,7 +110,15 @@ async function loadHistory() {
           time,
           amount: cantidad,
           ok: true,
-        };
+        } as Tx;
+      })
+      // Filtro extra por rango de fechas usando la fecha LOCAL del evento
+      .filter((t: Tx) => {
+        const d = t.date;
+        if (!d) return false;
+        if (startDate.value && d < startDate.value) return false;
+        if (endDate.value && d > endDate.value) return false;
+        return true;
       });
     txs.value = mapped;
   } catch (e) {

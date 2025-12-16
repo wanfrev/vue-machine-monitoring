@@ -19,7 +19,11 @@ const machine = ref<Machine | null>(null);
 const totalCoins = ref(0);
 
 function formatDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  // Fecha local YYYY-MM-DD (sin convertir a UTC)
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 const today = new Date();
@@ -50,16 +54,6 @@ function getDateRangeArray(start: string, end: string) {
   return arr;
 }
 
-function toLocalDateString(utcDateString: string) {
-  // Convierte una fecha UTC (YYYY-MM-DD o ISO) a YYYY-MM-DD local
-  if (!utcDateString) return "";
-  const d = new Date(utcDateString);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 async function loadDailyIncome() {
   if (!machine.value) return;
   try {
@@ -67,9 +61,9 @@ async function loadDailyIncome() {
       startDate: startDate.value,
       endDate: endDate.value,
     });
-    // Convertir fechas UTC a local antes de agrupar
+    // El backend ya devuelve la fecha agrupada en zona local, usarla tal cual
     const mapped = (data || []).map((d: any) => ({
-      date: d.date ? toLocalDateString(d.date) : "",
+      date: d.date ? String(d.date).slice(0, 10) : "",
       income: Number(d.income) * valuePerCoin.value,
     }));
     const allDates = getDateRangeArray(startDate.value, endDate.value);
@@ -97,10 +91,7 @@ async function fetchAllData() {
       machine.value = current;
       // Monedas de HOY usando getMachineDailyIncome con rango de un solo día (fecha local)
       const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, "0");
-      const day = String(today.getDate()).padStart(2, "0");
-      const todayLocalStr = `${year}-${month}-${day}`;
+      const todayLocalStr = formatDate(today);
       const todayData = await getMachineDailyIncome(current.id, {
         startDate: todayLocalStr,
         endDate: todayLocalStr,
@@ -109,11 +100,8 @@ async function fetchAllData() {
       if (Array.isArray(todayData) && todayData.length) {
         const found = todayData.find((d) => {
           if (!d.date) return false;
-          const dDate = new Date(d.date);
-          const dYear = dDate.getFullYear();
-          const dMonth = String(dDate.getMonth() + 1).padStart(2, "0");
-          const dDay = String(dDate.getDate()).padStart(2, "0");
-          return `${dYear}-${dMonth}-${dDay}` === todayLocalStr;
+          const dateStr = String(d.date).slice(0, 10);
+          return dateStr === todayLocalStr;
         });
         coinsToday = found ? Number(found.income ?? 0) : 0;
       }
