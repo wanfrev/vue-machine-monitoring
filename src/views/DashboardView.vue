@@ -1,4 +1,18 @@
 <script setup lang="ts">
+import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
+import AppSidebar from "@/components/AppSidebar.vue";
+import NewMachine from "@/components/NewMachine.vue";
+import FilterPanel from "@/components/FilterPanel.vue";
+import {
+  getMachines,
+  createMachine as apiCreateMachine,
+  getCoinsByMachine,
+  updateMachine,
+  getMachineDailyIncome,
+  getMachinePowerLogs,
+} from "../api/client";
+
 // Datos del usuario autenticado desde localStorage
 const currentRole = ref(localStorage.getItem("role") || "");
 const currentUserName = ref(localStorage.getItem("userName") || "usuario");
@@ -26,18 +40,6 @@ const initialAssignedMachineIds: string[] = (() => {
   return single ? [String(single)] : [];
 })();
 const assignedMachineIds = ref<string[]>(initialAssignedMachineIds);
-import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
-import AppSidebar from "@/components/AppSidebar.vue";
-import NewMachine from "@/components/NewMachine.vue";
-import FilterPanel from "@/components/FilterPanel.vue";
-import {
-  getMachines,
-  createMachine as apiCreateMachine,
-  getCoinsByMachine,
-  updateMachine,
-  getMachineDailyIncome,
-} from "../api/client";
 
 const router = useRouter();
 
@@ -46,6 +48,22 @@ const newMachineOpen = ref(false);
 const filterOpen = ref(false);
 const isAdmin = ref(false);
 const statusMenuOpenId = ref<string | null>(null);
+
+const searchQuery = ref("");
+
+type DashboardFilters = {
+  locations: string[];
+  minIncome: number;
+  minUsage: number;
+  maintenanceDate: string;
+};
+
+const dashboardFilters = ref<DashboardFilters>({
+  locations: [],
+  minIncome: 0,
+  minUsage: 0,
+  maintenanceDate: "",
+});
 
 type Machine = {
   id: string;
@@ -65,6 +83,84 @@ const stateFilters = [
 type Filter = (typeof stateFilters)[number];
 const selectedFilter = ref<Filter>("todas");
 
+const availableLocations = computed(() => {
+  const set = new Set<string>();
+  for (const m of machines.value) {
+    const loc = (m.location ?? "").trim();
+    if (loc) set.add(loc);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+});
+
+const maxIncome = computed(() => {
+  let maxVal = 0;
+  for (const m of machines.value) {
+    maxVal = Math.max(maxVal, getMachineIncome(m));
+  }
+  return maxVal;
+});
+
+// Uso (tasa) calculado con power logs (backend) - se carga bajo demanda
+const activeMinutesTodayByMachine = ref<Record<string, number>>({});
+const usageLoading = ref(false);
+const usageLastLoadedAt = ref<number | null>(null);
+
+function getTodayLocalStr() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function minutesSinceStartOfDay() {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const diff = Math.max(
+    1,
+    Math.floor((now.getTime() - start.getTime()) / 60000)
+  );
+  return diff;
+}
+
+function getUsagePercentToday(machineId: string) {
+  const activeMinutes = activeMinutesTodayByMachine.value[machineId] || 0;
+  return Math.min(100, (activeMinutes / minutesSinceStartOfDay()) * 100);
+}
+
+async function ensureUsageDataFresh() {
+  if (usageLoading.value) return;
+  const last = usageLastLoadedAt.value;
+  if (last && Date.now() - last < 60_000) return; // 1 min cache
+
+  usageLoading.value = true;
+  try {
+    const todayLocalStr = getTodayLocalStr();
+    const map: Record<string, number> = {};
+    await Promise.all(
+      machines.value.map(async (machine) => {
+        try {
+          const logs = await getMachinePowerLogs(machine.id, {
+            startDate: todayLocalStr,
+            endDate: todayLocalStr,
+          });
+          const activeMinutes = (logs || [])
+            .filter((l) => l.event === "Encendido" && l.dur)
+            .reduce((sum, l) => sum + Number(l.dur || 0), 0);
+          map[machine.id] = activeMinutes;
+        } catch (e) {
+          map[machine.id] = 0;
+        }
+      })
+    );
+    activeMinutesTodayByMachine.value = map;
+    usageLastLoadedAt.value = Date.now();
+  } finally {
+    usageLoading.value = false;
+  }
+}
+
 // Filtrado de máquinas según rol y filtro seleccionado
 const filteredMachines = computed(() => {
   let baseMachines = machines.value;
@@ -73,15 +169,62 @@ const filteredMachines = computed(() => {
     const idSet = new Set(assignedMachineIds.value.map((id) => String(id)));
     baseMachines = baseMachines.filter((m) => idSet.has(String(m.id)));
   }
-  if (selectedFilter.value === "todas") return baseMachines;
-  if (selectedFilter.value === "activas")
-    return baseMachines.filter((m) => m.status === "active");
-  if (selectedFilter.value === "inactivas")
-    return baseMachines.filter((m) => m.status === "inactive");
-  if (selectedFilter.value === "mantenimiento")
-    return baseMachines.filter((m) => m.status === "maintenance");
+
+  // 1) filtro por pestañas de estado
+  if (selectedFilter.value === "activas") {
+    baseMachines = baseMachines.filter((m) => m.status === "active");
+  } else if (selectedFilter.value === "inactivas") {
+    baseMachines = baseMachines.filter((m) => m.status === "inactive");
+  } else if (selectedFilter.value === "mantenimiento") {
+    baseMachines = baseMachines.filter((m) => m.status === "maintenance");
+  }
+
+  // 2) búsqueda por nombre/ubicación
+  const q = searchQuery.value.trim().toLowerCase();
+  if (q) {
+    baseMachines = baseMachines.filter((m) => {
+      const hay = `${m.name ?? ""} ${m.location ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  // 3) filtros avanzados del panel
+  const f = dashboardFilters.value;
+  if (f.locations.length) {
+    const set = new Set(f.locations);
+    baseMachines = baseMachines.filter((m) =>
+      set.has((m.location ?? "").trim())
+    );
+  }
+
+  if (f.minIncome > 0) {
+    baseMachines = baseMachines.filter(
+      (m) => getMachineIncome(m) >= f.minIncome
+    );
+  }
+
+  if (f.minUsage > 0) {
+    baseMachines = baseMachines.filter(
+      (m) => getUsagePercentToday(m.id) >= f.minUsage
+    );
+  }
+
+  // No hay fecha de mantenimiento en backend; aplicamos el filtro solo como "máquinas en mantenimiento"
+  // cuando el usuario selecciona una fecha.
+  if (f.maintenanceDate) {
+    baseMachines = baseMachines.filter((m) => m.status === "maintenance");
+  }
+
   return baseMachines;
 });
+
+function onApplyFilters(payload: DashboardFilters) {
+  dashboardFilters.value = payload;
+  filterOpen.value = false;
+  if (payload.minUsage > 0) {
+    ensureUsageDataFresh();
+  }
+}
 
 // monedas por máquina (histórico total): { [machineId]: total_coins }
 const coinsByMachine = ref<Record<string, number>>({});
@@ -153,11 +296,15 @@ function getCurrentUserRole(): string | null {
 async function handleNewMachine(machine: {
   name: string;
   location: string;
-  type: string;
+  type?: string;
   id?: string;
 }) {
   try {
-    await apiCreateMachine(machine);
+    await apiCreateMachine({
+      name: machine.name,
+      location: machine.location,
+      id: machine.id,
+    });
     machines.value = await getMachines();
   } catch (err: unknown) {
     console.error("Error al crear máquina:", err);
@@ -282,7 +429,7 @@ onMounted(async () => {
   // Recarga automática del dashboard cada 15 segundos
   refreshTimer = window.setInterval(() => {
     loadDashboardData();
-  }, 1000);
+  }, 15000);
 });
 
 onUnmounted(() => {
@@ -485,6 +632,7 @@ onUnmounted(() => {
           <input
             type="text"
             placeholder="Buscar máquina u ubicación..."
+            v-model="searchQuery"
             class="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 sm:text-sm"
           />
         </div>
@@ -522,8 +670,10 @@ onUnmounted(() => {
             </button>
             <FilterPanel
               :open="filterOpen"
+              :locations="availableLocations"
+              :maxIncome="maxIncome"
               @close="filterOpen = false"
-              @apply="filterOpen = false"
+              @apply="onApplyFilters"
             />
           </div>
           <button
