@@ -28,6 +28,10 @@ type Machine = {
 
 const route = useRoute();
 
+// Rol actual para controlar visibilidad de dinero
+const currentRole = ref(localStorage.getItem("role") || "");
+const isOperator = computed(() => currentRole.value === "operator");
+
 // Rango de fechas para el historial (por defecto últimos 30 días)
 function formatDate(d: Date) {
   // Fecha local YYYY-MM-DD (sin convertir a UTC)
@@ -291,7 +295,15 @@ watch(search, () => {
                   t.kind === 'Ingreso' ? 'text-slate-900' : 'text-slate-400'
                 "
               >
-                {{ t.kind === "Ingreso" ? `$ ${t.amount}` : "$ 0" }}
+                {{
+                  t.kind === "Ingreso"
+                    ? isOperator
+                      ? `${t.amount} monedas`
+                      : "$ " + String(t.amount)
+                    : isOperator
+                    ? "0 monedas"
+                    : "$ 0"
+                }}
               </p>
             </div>
           </div>
@@ -340,7 +352,15 @@ watch(search, () => {
                   t.kind === 'Ingreso' ? 'text-slate-800' : 'text-slate-400'
                 "
               >
-                {{ t.kind === "Ingreso" ? `$ ${t.amount}` : "$ 0" }}
+                {{
+                  t.kind === "Ingreso"
+                    ? isOperator
+                      ? `${t.amount} monedas`
+                      : "$ " + String(t.amount)
+                    : isOperator
+                    ? "0 monedas"
+                    : "$ 0"
+                }}
               </td>
               <td class="px-4 py-2">
                 <span
@@ -392,9 +412,14 @@ watch(search, () => {
         <div
           class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
         >
-          <p class="text-slate-400">Monedas / ingresos (reales)</p>
+          <p class="text-slate-400">
+            {{
+              isOperator ? "Monedas (reales)" : "Monedas / ingresos (reales)"
+            }}
+          </p>
           <p class="text-red-600 font-semibold">
-            {{ totalCoins }} monedas · $ {{ totalIncome }}
+            {{ totalCoins }} monedas
+            <span v-if="!isOperator"> · $ {{ totalIncome }}</span>
           </p>
         </div>
       </div>

@@ -47,6 +47,7 @@ const sidebarOpen = ref(false);
 const newMachineOpen = ref(false);
 const filterOpen = ref(false);
 const isAdmin = ref(false);
+const isOperator = computed(() => currentRole.value === "operator");
 const statusMenuOpenId = ref<string | null>(null);
 
 const searchQuery = ref("");
@@ -165,7 +166,10 @@ async function ensureUsageDataFresh() {
 const filteredMachines = computed(() => {
   let baseMachines = machines.value;
   // Si es empleado y tiene máquinas asignadas, solo mostrar esas
-  if (currentRole.value === "employee" && assignedMachineIds.value.length) {
+  if (
+    (currentRole.value === "employee" || currentRole.value === "operator") &&
+    assignedMachineIds.value.length
+  ) {
     const idSet = new Set(assignedMachineIds.value.map((id) => String(id)));
     baseMachines = baseMachines.filter((m) => idSet.has(String(m.id)));
   }
@@ -564,6 +568,7 @@ onUnmounted(() => {
         </div>
 
         <div
+          v-if="!isOperator"
           class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
           :class="
             isDark()
@@ -670,6 +675,7 @@ onUnmounted(() => {
               :open="filterOpen"
               :locations="availableLocations"
               :maxIncome="maxIncome"
+              :showIncomeFilter="!isOperator"
               @close="filterOpen = false"
               @apply="onApplyFilters"
             />
@@ -847,15 +853,21 @@ onUnmounted(() => {
               : 'border-slate-200 bg-slate-50'
           "
         >
-          <p class="font-medium text-slate-400">Ingresos hoy</p>
+          <p v-if="!isOperator" class="font-medium text-slate-400">
+            Ingresos hoy
+          </p>
           <p
+            v-if="!isOperator"
             class="text-right font-semibold text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >
             $ {{ getMachineIncomeToday(machine) }}
           </p>
-          <p class="font-medium text-slate-400">Total ingresos</p>
+          <p v-if="!isOperator" class="font-medium text-slate-400">
+            Total ingresos
+          </p>
           <p
+            v-if="!isOperator"
             class="text-right text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >

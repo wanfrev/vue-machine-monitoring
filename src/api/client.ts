@@ -166,7 +166,7 @@ export async function createUser(payload: {
   assignedMachineIds?: string[];
   // Compatibilidad: un solo ID
   assignedMachineId?: string;
-  role: "employee" | "admin";
+  role: "employee" | "admin" | "operator";
 }) {
   const ids =
     payload.assignedMachineIds ??

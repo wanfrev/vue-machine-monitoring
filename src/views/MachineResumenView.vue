@@ -18,6 +18,10 @@ const machine = ref<Machine | null>(null);
 // Monedas de HOY para la máquina seleccionada
 const totalCoins = ref(0);
 
+// Rol actual para controlar visibilidad de dinero
+const currentRole = ref(localStorage.getItem("role") || "");
+const isOperator = computed(() => currentRole.value === "operator");
+
 function formatDate(d: Date) {
   // Fecha local YYYY-MM-DD (sin convertir a UTC)
   const year = d.getFullYear();
@@ -62,10 +66,12 @@ async function loadDailyIncome() {
       endDate: endDate.value,
     });
     // El backend ya devuelve la fecha agrupada en zona local, usarla tal cual
-    const mapped = (data || []).map((d: any) => ({
-      date: d.date ? String(d.date).slice(0, 10) : "",
-      income: Number(d.income) * valuePerCoin.value,
-    }));
+    const mapped = (data || []).map((d: any) => {
+      const date = d.date ? String(d.date).slice(0, 10) : "";
+      const coins = Number(d.income);
+      const value = isOperator.value ? coins : coins * valuePerCoin.value;
+      return { date, income: value };
+    });
     const allDates = getDateRangeArray(startDate.value, endDate.value);
     dailyIncome.value = allDates.map((date) => {
       const found = mapped.find((m) => m.date === date);
@@ -139,7 +145,13 @@ watch([startDate, endDate, machine], async () => {
     class="rounded-2xl border bg-white p-4 shadow-sm sm:p-6 border-slate-200"
   >
     <div class="mb-3 flex items-center justify-between">
-      <h2 class="text-sm font-semibold">$ Ingresos por día – Último mes</h2>
+      <h2 class="text-sm font-semibold">
+        {{
+          isOperator
+            ? "Monedas por día – Último mes"
+            : "$ Ingresos por día – Último mes"
+        }}
+      </h2>
       <div
         class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white border-slate-200"
       >
@@ -166,7 +178,7 @@ watch([startDate, endDate, machine], async () => {
           labels: dailyIncome.map((d) => d.date),
           datasets: [
             {
-              label: 'Ingresos',
+              label: isOperator ? 'Monedas' : 'Ingresos',
               backgroundColor: '#1e293b',
               data: dailyIncome.map((d) => d.income),
               borderRadius: 6,
@@ -196,7 +208,10 @@ watch([startDate, endDate, machine], async () => {
               grid: { display: false },
             },
             y: {
-              title: { display: true, text: 'Ingresos ($)' },
+              title: {
+                display: true,
+                text: isOperator ? 'Monedas' : 'Ingresos ($)',
+              },
               beginAtZero: true,
               ticks: { color: '#64748b', font: { size: 10 }, precision: 0 },
               grid: { color: '#e2e8f0' },
@@ -206,12 +221,16 @@ watch([startDate, endDate, machine], async () => {
         class="w-full h-full"
       />
       <p v-else class="mx-auto text-xs text-slate-400 text-center">
-        No hay datos de ingresos para el rango seleccionado.
+        {{
+          isOperator
+            ? "No hay datos de monedas para el rango seleccionado."
+            : "No hay datos de ingresos para el rango seleccionado."
+        }}
       </p>
     </div>
     <div class="mt-4 text-sm text-slate-600">
       <span class="inline-block h-3 w-3 rounded-sm bg-slate-900"></span>
-      <span class="ml-2">Ingresos</span>
+      <span class="ml-2">{{ isOperator ? "Monedas" : "Ingresos" }}</span>
     </div>
   </section>
 
@@ -244,6 +263,7 @@ watch([startDate, endDate, machine], async () => {
       </p>
     </div>
     <div
+      v-if="!isOperator"
       class="rounded-2xl border bg-white px-4 py-3 shadow-sm border-slate-200"
     >
       <p
@@ -254,6 +274,7 @@ watch([startDate, endDate, machine], async () => {
       <p class="text-3xl font-semibold text-red-600">$ {{ totalIncome }}</p>
     </div>
     <div
+      v-if="!isOperator"
       class="rounded-2xl border bg-white px-4 py-3 shadow-sm border-slate-200"
     >
       <p

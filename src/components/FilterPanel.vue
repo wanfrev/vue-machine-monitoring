@@ -43,7 +43,7 @@
       </div>
     </div>
     <!-- Rango de ingresos -->
-    <div>
+    <div v-if="props.showIncomeFilter !== false">
       <button
         class="w-full flex justify-between items-center font-semibold text-slate-700 mb-2"
       >
@@ -157,6 +157,7 @@ const props = defineProps<{
   open: boolean;
   locations: string[];
   maxIncome: number;
+  showIncomeFilter?: boolean;
 }>();
 
 const emit = defineEmits<{
