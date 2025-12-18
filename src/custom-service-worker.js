@@ -5,9 +5,6 @@ precacheAndRoute(self.__WB_MANIFEST || []);
 
 /* eslint-env serviceworker */
 
-// Injected manifest will be placed into self.__WB_MANIFEST by Workbox InjectManifest
-precacheAndRoute(self.__WB_MANIFEST || []);
-
 self.addEventListener("push", function (event) {
   console.log("[SW] push event received", event);
   let data = null;
