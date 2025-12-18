@@ -80,10 +80,7 @@ async function handleCreateEmployee(payload: {
   shift?: string;
   assignedMachineIds?: string[];
 }) {
-  await createUser({
-    ...payload,
-    role: "employee",
-  });
+  await createUser(payload);
   showModal.value = false;
   await loadEmployees();
 }
@@ -100,7 +97,12 @@ async function handleUpdateEmployee(payload: {
   shift?: string;
   assignedMachineIds?: string[];
 }) {
-  await updateUser(payload.id, payload);
+  // Determinar el valor del campo 'role' según el jobRole seleccionado
+  let roleValue = "employee";
+  if (payload.jobRole === "Operador") {
+    roleValue = "operator";
+  }
+  await updateUser(payload.id, { ...payload, role: roleValue });
   showModal.value = false;
   await loadEmployees();
 }

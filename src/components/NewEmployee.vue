@@ -114,6 +114,11 @@ function submit() {
   ) {
     return;
   }
+  // Determinar el valor del campo 'role' según el jobRole seleccionado
+  let roleValue = "employee";
+  if (jobRole.value === "Operador") {
+    roleValue = "operator";
+  }
   if (props.mode === "edit" && editingId.value !== null) {
     emit("update", {
       id: editingId.value,
@@ -122,6 +127,7 @@ function submit() {
       username: username.value,
       password: password.value || undefined,
       jobRole: jobRole.value,
+      role: roleValue,
       shift: shift.value || undefined,
       assignedMachineIds:
         assignedMachineIds.value.length > 0
@@ -135,6 +141,7 @@ function submit() {
       username: username.value,
       password: password.value,
       jobRole: jobRole.value,
+      role: roleValue,
       shift: shift.value || undefined,
       assignedMachineIds:
         assignedMachineIds.value.length > 0
@@ -307,13 +314,15 @@ function submit() {
               <label class="block text-sm font-semibold mb-1"
                 >Rol en máquina<span class="text-red-500">*</span></label
               >
-              <input
+              <select
                 v-model="jobRole"
-                type="text"
-                placeholder="Ej: Operador"
                 class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
                 required
-              />
+              >
+                <option value="">Selecciona un rol</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Operador">Operador</option>
+              </select>
             </div>
             <div>
               <label class="block text-sm font-semibold mb-1">Turno</label>
