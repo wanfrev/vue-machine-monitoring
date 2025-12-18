@@ -3,7 +3,8 @@
 import { register } from "register-service-worker";
 
 if (process.env.NODE_ENV === "production") {
-  register(`${process.env.BASE_URL}service-worker.js`, {
+  // Use the custom service worker placed in `public/custom-service-worker.js`
+  register(`${process.env.BASE_URL}custom-service-worker.js`, {
     ready() {
       console.log(
         "App is being served from cache by a service worker.\n" +
