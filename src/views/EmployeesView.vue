@@ -202,87 +202,149 @@ async function handleDeleteEmployee(id: number) {
         >
           CRUD de supervisores conectado al backend.
         </p>
-        <div
-          class="overflow-x-auto rounded-xl border shadow-sm"
-          :class="
-            isDark()
-              ? 'border-slate-800 bg-slate-900'
-              : 'border-slate-200 bg-white'
-          "
-        >
-          <table
-            class="min-w-full text-left text-sm"
-            :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+        <div>
+          <!-- Desktop table (hidden on small screens) -->
+          <div
+            class="hidden sm:block overflow-x-auto rounded-xl border shadow-sm"
+            :class="
+              isDark()
+                ? 'border-slate-800 bg-slate-900'
+                : 'border-slate-200 bg-white'
+            "
           >
-            <thead
-              :class="
-                isDark()
-                  ? 'bg-slate-800 text-slate-300'
-                  : 'bg-slate-50 text-slate-600'
-              "
+            <table
+              class="min-w-full text-left text-sm"
+              :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
             >
-              <tr>
-                <th class="px-4 py-2 whitespace-nowrap">Cédula</th>
-                <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
-                <th class="px-4 py-2 whitespace-nowrap">Rol</th>
-                <th class="px-4 py-2 whitespace-nowrap">Turno</th>
-                <th class="px-4 py-2 whitespace-nowrap">
-                  Máquinas (ubicación)
-                </th>
-                <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="loading">
-                <td class="px-4 py-3" colspan="6">Cargando...</td>
-              </tr>
-              <tr
-                v-for="e in employees"
-                :key="e.id"
-                class="border-t"
+              <thead
                 :class="
                   isDark()
-                    ? 'border-slate-800 hover:bg-slate-800'
-                    : 'border-slate-200 hover:bg-slate-50'
+                    ? 'bg-slate-800 text-slate-300'
+                    : 'bg-slate-50 text-slate-600'
                 "
               >
-                <td class="px-4 py-2 whitespace-nowrap">
-                  {{ e.documentId || "—" }}
-                </td>
-                <td class="px-4 py-2 whitespace-nowrap">{{ e.name }}</td>
-                <td class="px-4 py-2 whitespace-nowrap">
-                  {{ e.jobRole || (e.role === "admin" ? "Admin" : "Empleado") }}
-                </td>
-                <td class="px-4 py-2 whitespace-nowrap">
-                  {{ e.shift || "—" }}
-                </td>
-                <td class="px-4 py-2 whitespace-nowrap">
-                  {{ getEmployeeMachinesLabel(e) }}
-                </td>
-                <td
-                  class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
+                <tr>
+                  <th class="px-4 py-2 whitespace-nowrap">Cédula</th>
+                  <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
+                  <th class="px-4 py-2 whitespace-nowrap">Rol</th>
+                  <th class="px-4 py-2 whitespace-nowrap">Turno</th>
+                  <th class="px-4 py-2 whitespace-nowrap">
+                    Máquinas (ubicación)
+                  </th>
+                  <th class="px-4 py-2 text-right whitespace-nowrap">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loading">
+                  <td class="px-4 py-3" colspan="6">Cargando...</td>
+                </tr>
+                <tr
+                  v-for="e in employees"
+                  :key="e.id"
+                  class="border-t"
+                  :class="
+                    isDark()
+                      ? 'border-slate-800 hover:bg-slate-800'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  "
                 >
-                  <button class="text-red-500 hover:underline" type="button">
-                    Ver
-                  </button>
-                  <button
-                    class="text-amber-500 hover:underline"
-                    type="button"
-                    @click="openEditModal(e)"
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    {{ e.documentId || "—" }}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">{{ e.name }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    {{
+                      e.jobRole || (e.role === "admin" ? "Admin" : "Empleado")
+                    }}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    {{ e.shift || "—" }}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    {{ getEmployeeMachinesLabel(e) }}
+                  </td>
+                  <td
+                    class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
                   >
-                    Editar
-                  </button>
-                  <button
-                    class="text-slate-400 hover:underline"
-                    type="button"
-                    @click="handleDeleteEmployee(e.id)"
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <button
+                      class="text-amber-500 hover:underline"
+                      type="button"
+                      @click="openEditModal(e)"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      class="text-slate-400 hover:underline"
+                      type="button"
+                      @click="handleDeleteEmployee(e.id)"
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile stacked cards -->
+          <div class="sm:hidden space-y-3">
+            <div v-if="loading" class="px-4 py-3">Cargando...</div>
+            <div v-else class="space-y-3">
+              <div
+                v-for="e in employees"
+                :key="e.id"
+                class="rounded-xl border px-4 py-3"
+                :class="
+                  isDark()
+                    ? 'border-slate-800 bg-slate-900'
+                    : 'border-slate-200 bg-white'
+                "
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1">
+                    <div class="text-sm font-semibold">{{ e.name }}</div>
+                    <div class="text-xs text-slate-400 mt-1">
+                      {{ e.documentId || "—" }} •
+                      {{
+                        e.jobRole || (e.role === "admin" ? "Admin" : "Empleado")
+                      }}
+                    </div>
+                    <div class="text-xs text-slate-400">
+                      {{ getEmployeeMachinesLabel(e) }}
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-end">
+                    <div
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
+                      :class="
+                        isDark()
+                          ? 'bg-slate-800 text-slate-200'
+                          : 'bg-slate-100 text-slate-700'
+                      "
+                    >
+                      {{ e.shift || "—" }}
+                    </div>
+                    <div class="mt-2 flex flex-col items-end gap-2">
+                      <button
+                        class="text-amber-500 text-sm"
+                        @click="openEditModal(e)"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        class="text-slate-400 text-sm"
+                        @click="handleDeleteEmployee(e.id)"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

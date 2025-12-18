@@ -12,6 +12,7 @@ import {
   getMachineDailyIncome,
   getMachinePowerLogs,
 } from "../api/client";
+import { getSocket } from "../api/realtime";
 
 // Datos del usuario autenticado desde localStorage
 const currentRole = ref(localStorage.getItem("role") || "");
@@ -74,6 +75,18 @@ type Machine = {
   type?: string;
 };
 const machines = ref<Machine[]>([]);
+
+type CoinNotification = {
+  id: number;
+  machineId: string;
+  machineName: string;
+  location?: string;
+  amount: number;
+  timestamp: string;
+};
+
+const notifications = ref<CoinNotification[]>([]);
+let notificationCounter = 1;
 
 const stateFilters = [
   "todas",
@@ -256,6 +269,18 @@ const isDark = () => {
   return !!injectedDark?.value;
 };
 
+function shouldShowNotificationForMachine(machineId: string): boolean {
+  const role = currentRole.value;
+  if (role === "admin") return true;
+  if (
+    (role === "employee" || role === "operator") &&
+    assignedMachineIds.value.length
+  ) {
+    return assignedMachineIds.value.includes(String(machineId));
+  }
+  return true;
+}
+
 function getMachineCoins(machineId: string): number {
   return coinsByMachine.value[machineId] || 0;
 }
@@ -422,11 +447,86 @@ async function loadDashboardData() {
 }
 
 let refreshTimer: number | undefined;
+let coinSocket: ReturnType<typeof getSocket> | null = null;
+let coinHandler: ((payload: any) => void) | null = null;
 
 onMounted(async () => {
   window.addEventListener("click", handleGlobalClick, true);
   isAdmin.value = getCurrentUserRole() === "admin";
   await loadDashboardData();
+
+  // Suscribirse a eventos en tiempo real de monedas
+  try {
+    coinSocket = getSocket();
+    coinHandler = (payload: any) => {
+      const machineId = String(payload.machineId ?? "");
+      if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+
+      const machine = machines.value.find((m) => String(m.id) === machineId);
+      const machineName =
+        payload.machineName || machine?.name || `Máquina ${machineId}`;
+      const location = payload.location || machine?.location;
+      const amount = Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
+      const ts = payload.timestamp || new Date().toISOString();
+      const timeStr = new Date(ts).toLocaleTimeString();
+
+      const id = notificationCounter++;
+      notifications.value.unshift({
+        id,
+        machineId,
+        machineName,
+        location,
+        amount,
+        timestamp: timeStr,
+      });
+
+      // Mantener solo las últimas 5 notificaciones
+      if (notifications.value.length > 5) {
+        notifications.value = notifications.value.slice(0, 5);
+      }
+
+      // Auto-remover después de 10s
+      window.setTimeout(() => {
+        notifications.value = notifications.value.filter((n) => n.id !== id);
+      }, 10000);
+
+      // Además del toast en la UI, mostrar notificación del sistema
+      try {
+        if ("Notification" in window) {
+          if (Notification.permission === "granted") {
+            const title = "Moneda ingresada";
+            const bodyParts = [machineName];
+            if (location) bodyParts.push(`• ${location}`);
+            bodyParts.push(`+${amount} moneda(s)`);
+            bodyParts.push(`• ${timeStr}`);
+            const body = bodyParts.join(" ");
+            new Notification(title, {
+              body,
+              icon: "/img/icons/K11BOX.webp",
+            });
+          } else if (Notification.permission === "default") {
+            Notification.requestPermission();
+          }
+        }
+      } catch (e) {
+        console.warn("No se pudo mostrar la notificación del sistema:", e);
+      }
+    };
+    coinSocket.on("coin_inserted", coinHandler);
+  } catch (e) {
+    console.error("No se pudo conectar al socket de tiempo real:", e);
+  }
+
+  // Intentar suscribirse a push (sólo si el navegador lo soporta)
+  try {
+    const pushModule = await import("@/services/push");
+    pushModule.subscribeToPush().then((sub: any) => {
+      if (sub) console.log("Push suscripción registrada");
+    });
+  } catch (e) {
+    // no bloquear por errores aquí
+    console.warn("No se pudo inicializar push subscription:", e);
+  }
 
   // Recarga automática del dashboard cada 15 segundos
   refreshTimer = window.setInterval(() => {
@@ -439,6 +539,9 @@ onUnmounted(() => {
     clearInterval(refreshTimer);
   }
   window.removeEventListener("click", handleGlobalClick, true);
+  if (coinSocket && coinHandler) {
+    coinSocket.off("coin_inserted", coinHandler);
+  }
 });
 </script>
 
@@ -450,6 +553,7 @@ onUnmounted(() => {
     @open="filterOpen = false"
   />
   <NewMachine
+    v-if="!isOperator"
     :open="newMachineOpen"
     :count="machines.length"
     :machines="machines"
@@ -457,6 +561,32 @@ onUnmounted(() => {
     @close="newMachineOpen = false"
     @create="handleNewMachine"
   />
+
+  <!-- Notificaciones de monedas en tiempo real -->
+  <div class="fixed top-4 right-4 z-50 space-y-2 max-w-xs w-full sm:max-w-sm">
+    <div
+      v-for="n in notifications"
+      :key="n.id"
+      class="flex items-start gap-2 rounded-xl border px-3 py-2 text-xs shadow-md backdrop-blur-sm"
+      :class="
+        isDark()
+          ? 'bg-slate-900/90 border-slate-700 text-slate-100'
+          : 'bg-white/90 border-slate-200 text-slate-800'
+      "
+    >
+      <span class="mt-1 h-2 w-2 rounded-full bg-emerald-500"></span>
+      <div class="space-y-0.5">
+        <p class="font-semibold">Moneda ingresada</p>
+        <p class="text-[11px]">
+          {{ n.machineName }}
+          <span v-if="n.location">• {{ n.location }}</span>
+        </p>
+        <p class="text-[11px] text-slate-400">
+          +{{ n.amount }} moneda(s) • {{ n.timestamp }}
+        </p>
+      </div>
+    </div>
+  </div>
 
   <div
     :class="[
@@ -681,6 +811,7 @@ onUnmounted(() => {
             />
           </div>
           <button
+            v-if="!isOperator"
             class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:text-sm cursor-pointer"
             @click="newMachineOpen = true"
           >

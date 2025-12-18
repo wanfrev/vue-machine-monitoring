@@ -84,7 +84,7 @@ async function handleDeleteMachine(id: string) {
   />
   <!-- Modal solo visible para admins -->
   <NewMachine
-    v-if="currentRole !== 'employee'"
+    v-if="currentRole !== 'employee' && currentRole !== 'operator'"
     :open="showModal"
     :count="machines.length"
     :dark="isDark()"
@@ -137,9 +137,9 @@ async function handleDeleteMachine(id: string) {
           Máquinas
         </h1>
       </div>
-      <!-- Botón solo visible para admins -->
+      <!-- Botón solo visible para admins/operator excluido -->
       <button
-        v-if="currentRole !== 'employee'"
+        v-if="currentRole !== 'employee' && currentRole !== 'operator'"
         type="button"
         class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"
         @click="openCreateModal"
@@ -153,91 +153,167 @@ async function handleDeleteMachine(id: string) {
     >
       Aquí luego se conectará el CRUD real contra la Raspberry Pi.
     </p>
-    <div
-      class="overflow-x-auto rounded-xl border shadow-sm"
-      :class="
-        isDark() ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'
-      "
-    >
-      <table
-        class="min-w-full text-left text-sm"
-        :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+    <div>
+      <!-- Desktop table (hidden on small screens) -->
+      <div
+        class="hidden sm:block overflow-x-auto rounded-xl border shadow-sm"
+        :class="
+          isDark()
+            ? 'border-slate-800 bg-slate-900'
+            : 'border-slate-200 bg-white'
+        "
       >
-        <thead
-          :class="
-            isDark()
-              ? 'bg-slate-800 text-slate-300'
-              : 'bg-slate-50 text-slate-600'
-          "
+        <table
+          class="min-w-full text-left text-sm"
+          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
         >
-          <tr>
-            <th class="px-4 py-2 whitespace-nowrap">ID</th>
-            <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
-            <th class="px-4 py-2 whitespace-nowrap">Estado</th>
-            <th class="px-4 py-2 whitespace-nowrap">OEE</th>
-            <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td class="px-4 py-3" colspan="5">Cargando...</td>
-          </tr>
-          <tr
-            v-for="m in machines"
-            :key="m.id"
-            class="border-t"
+          <thead
             :class="
               isDark()
-                ? 'border-slate-800 hover:bg-slate-800'
-                : 'border-slate-200 hover:bg-slate-50'
+                ? 'bg-slate-800 text-slate-300'
+                : 'bg-slate-50 text-slate-600'
             "
           >
-            <td class="px-4 py-2 whitespace-nowrap">{{ m.id }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ m.name }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">
-              <span
-                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
-                :class="
-                  m.status === 'active'
-                    ? isDark()
-                      ? 'bg-green-900 text-green-200'
-                      : 'bg-green-100 text-green-700'
-                    : isDark()
-                    ? 'bg-slate-800 text-slate-200'
-                    : 'bg-slate-100 text-slate-700'
-                "
-              >
-                {{ m.status === "active" ? "Activa" : "Inactiva" }}
-              </span>
-            </td>
-            <td class="px-4 py-2 whitespace-nowrap">—</td>
-            <td
-              class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
+            <tr>
+              <th class="px-4 py-2 whitespace-nowrap">ID</th>
+              <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
+              <th class="px-4 py-2 whitespace-nowrap">Estado</th>
+              <th class="px-4 py-2 whitespace-nowrap">OEE</th>
+              <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td class="px-4 py-3" colspan="5">Cargando...</td>
+            </tr>
+            <tr
+              v-for="m in machines"
+              :key="m.id"
+              class="border-t"
+              :class="
+                isDark()
+                  ? 'border-slate-800 hover:bg-slate-800'
+                  : 'border-slate-200 hover:bg-slate-50'
+              "
             >
-              <!-- Acciones solo para admins -->
-              <template v-if="currentRole !== 'employee'">
-                <button class="text-red-500 hover:underline" type="button">
-                  Ver
-                </button>
-                <button
-                  class="text-amber-500 hover:underline"
-                  type="button"
-                  @click="openEditModal(m)"
+              <td class="px-4 py-2 whitespace-nowrap">{{ m.id }}</td>
+              <td class="px-4 py-2 whitespace-nowrap">{{ m.name }}</td>
+              <td class="px-4 py-2 whitespace-nowrap">
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
+                  :class="
+                    m.status === 'active'
+                      ? isDark()
+                        ? 'bg-green-900 text-green-200'
+                        : 'bg-green-100 text-green-700'
+                      : isDark()
+                      ? 'bg-slate-800 text-slate-200'
+                      : 'bg-slate-100 text-slate-700'
+                  "
                 >
-                  Editar
-                </button>
+                  {{ m.status === "active" ? "Activa" : "Inactiva" }}
+                </span>
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap">—</td>
+              <td
+                class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
+              >
+                <template
+                  v-if="
+                    currentRole !== 'employee' && currentRole !== 'operator'
+                  "
+                >
+                  <button
+                    class="text-amber-500 hover:underline"
+                    type="button"
+                    @click="openEditModal(m)"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    class="text-slate-400 hover:underline"
+                    type="button"
+                    @click="handleDeleteMachine(m.id)"
+                  >
+                    Eliminar
+                  </button>
+                </template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile list (visible on small screens) -->
+      <div class="sm:hidden space-y-3">
+        <div v-if="loading" class="px-4 py-3">Cargando...</div>
+        <div v-else class="space-y-3">
+          <div
+            v-for="m in machines"
+            :key="m.id"
+            class="rounded-xl border px-4 py-3"
+            :class="
+              isDark()
+                ? 'border-slate-800 bg-slate-900'
+                : 'border-slate-200 bg-white'
+            "
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1">
+                <div class="text-sm font-semibold">{{ m.name }}</div>
+                <div class="text-xs text-slate-400 mt-1">
+                  {{ m.id }} • {{ m.location }}
+                </div>
+              </div>
+              <div class="flex flex-col items-end">
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
+                  :class="
+                    m.status === 'active'
+                      ? isDark()
+                        ? 'bg-green-900 text-green-200'
+                        : 'bg-green-100 text-green-700'
+                      : isDark()
+                      ? 'bg-slate-800 text-slate-200'
+                      : 'bg-slate-100 text-slate-700'
+                  "
+                >
+                  {{ m.status === "active" ? "Activa" : "Inactiva" }}
+                </span>
+                <div class="mt-2">
+                  <button
+                    v-if="
+                      currentRole !== 'employee' && currentRole !== 'operator'
+                    "
+                    class="text-amber-500 text-sm"
+                    @click="openEditModal(m)"
+                  >
+                    Editar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="mt-3 flex items-center justify-between text-xs text-slate-500"
+            >
+              <div>OEE: —</div>
+              <div class="flex items-center gap-3">
                 <button
-                  class="text-slate-400 hover:underline"
+                  v-if="
+                    currentRole !== 'employee' && currentRole !== 'operator'
+                  "
+                  class="text-slate-400 text-sm"
                   type="button"
                   @click="handleDeleteMachine(m.id)"
                 >
                   Eliminar
                 </button>
-              </template>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

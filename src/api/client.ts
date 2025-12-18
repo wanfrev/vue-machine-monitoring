@@ -34,7 +34,8 @@ export async function updateUser(
 import axios from "axios";
 
 // Proyecto basado en Vue CLI (webpack), usar VUE_APP_* en lugar de import.meta.env
-const baseURL = process.env.VUE_APP_API_BASE_URL || "http://localhost:3000";
+export const baseURL =
+  process.env.VUE_APP_API_BASE_URL || "http://localhost:3000";
 
 export const api = axios.create({
   baseURL,
@@ -188,4 +189,20 @@ export async function createUser(payload: {
 
 export async function deleteUser(id: string | number) {
   await api.delete(`/api/users/${id}`);
+}
+
+// Push subscription endpoints
+export async function savePushSubscription(subscription: any) {
+  const res = await api.post(`/api/push/subscribe`, subscription);
+  return res.data;
+}
+
+export async function deletePushSubscription(endpoint: string) {
+  const res = await api.post(`/api/push/unsubscribe`, { endpoint });
+  return res.data;
+}
+
+export async function getVapidPublicKey() {
+  const res = await api.get(`/api/push/vapid-public`);
+  return res.data?.publicKey || null;
 }
