@@ -14,5 +14,10 @@ module.exports = defineConfig({
       maskIcon: "img/icons/pwa-512x512.png",
       msTileImage: "img/icons/icon-no-padding-192.png",
     },
+    workboxPluginMode: 'InjectManifest',
+    workboxOptions: {
+      swSrc: 'public/custom-service-worker.js',
+      swDest: 'custom-service-worker.js'
+    }
   },
 });
