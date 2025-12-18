@@ -1,26 +1,70 @@
 self.addEventListener("push", function (event) {
   console.log("[SW] push event received", event);
-  let data = {};
+  let data = null;
+
   try {
-    data = event.data ? event.data.json() : {};
-    console.log("[SW] parsed push data:", data);
+    if (event.data) {
+      data = event.data.json();
+      console.log("[SW] parsed push data:", data);
+    }
   } catch (e) {
-    data = { title: "Notificación", body: event.data ? event.data.text() : "" };
-    console.error("[SW] error parsing push data, using text fallback:", e);
+    console.error("[SW] error parsing push data:", e);
   }
 
-  const title = data.title || "MachineHub";
-  const options = {
-    body: data.body || "",
-    data: data.data || {},
-    icon: "/img/icons/K11BOX.webp",
-    badge: "/img/icons/K11BOX.webp",
+  // If there's no payload, try to fetch latest events from the backend
+  const fetchFallback = async () => {
+    try {
+      const resp = await fetch("/api/iot/events");
+      if (!resp.ok) throw new Error("fetch events failed " + resp.status);
+      const json = await resp.json();
+      const events = json.events || [];
+      // find the most recent coin_inserted event
+      const coin = events.find(
+        (e) => e.type === "coin_inserted" || e.type === "MONEDA"
+      );
+      if (coin) {
+        return {
+          title: "Moneda ingresada",
+          body:
+            coin.data && coin.data.cantidad
+              ? `Máquina ${coin.machine_id} recibió ${coin.data.cantidad} moneda(s)`
+              : `Máquina ${coin.machine_id} registró una moneda`,
+          data: coin,
+        };
+      }
+    } catch (err) {
+      console.error("[SW] fallback fetch error", err);
+    }
+    return null;
+  };
+
+  const show = async (payload) => {
+    const title = payload.title || "MachineHub";
+    const options = {
+      body: payload.body || "",
+      data: payload.data || {},
+      icon: "/img/icons/K11BOX.webp",
+      badge: "/img/icons/K11BOX.webp",
+    };
+    console.log("[SW] showing notification", title, options);
+    return self.registration.showNotification(title, options);
   };
 
   event.waitUntil(
     (async () => {
-      console.log("[SW] showing notification", title, options);
-      return self.registration.showNotification(title, options);
+      if (data && (data.title || data.body)) {
+        return show(data);
+      }
+
+      // try fallback fetch
+      const fallback = await fetchFallback();
+      if (fallback) return show(fallback);
+
+      // last resort: show a generic notification
+      return show({
+        title: "MachineHub",
+        body: "Tiene un nuevo evento en segundo plano",
+      });
     })()
   );
 });
