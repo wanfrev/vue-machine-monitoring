@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
+import {
+  inject,
+  type Ref,
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+} from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import FilterPanel from "@/components/FilterPanel.vue";
+
 import {
   getMachines,
   createMachine as apiCreateMachine,
@@ -25,7 +34,6 @@ try {
   rawAssignedIds = null;
 }
 const initialAssignedMachineIds: string[] = (() => {
-  // Preferimos un arreglo JSON en assignedMachineIds
   if (rawAssignedIds) {
     try {
       const parsed = JSON.parse(rawAssignedIds);
@@ -33,10 +41,9 @@ const initialAssignedMachineIds: string[] = (() => {
         return parsed.map((v) => String(v));
       }
     } catch {
-      // ignorar error de parseo
+      // ignore
     }
   }
-  // Compatibilidad: si solo hay un ID antiguo en assignedMachineId
   const single = localStorage.getItem("assignedMachineId");
   return single ? [String(single)] : [];
 })();
@@ -86,7 +93,23 @@ type CoinNotification = {
 };
 
 const notifications = ref<CoinNotification[]>([]);
+const unreadCount = ref(0);
 let notificationCounter = 1;
+const notificationPanelOpen = ref(false);
+
+// In-page notification sound (put a short audio file at public/sounds/coin.mp3)
+const notificationSound = new Audio("/sounds/coin.mp3");
+notificationSound.preload = "auto";
+function playNotificationSound() {
+  try {
+    if (document.visibilityState === "visible") {
+      notificationSound.currentTime = 0;
+      void notificationSound.play();
+    }
+  } catch (e) {
+    // ignore playback errors
+  }
+}
 
 const stateFilters = [
   "todas",
@@ -368,9 +391,29 @@ async function toggleMaintenance(machine: Machine) {
 function handleGlobalClick(event: MouseEvent) {
   const target = event.target as HTMLElement | null;
   if (!target) return;
-  const inside = target.closest("[data-status-menu]");
-  if (!inside) {
+  const insideStatus = target.closest("[data-status-menu]");
+  if (!insideStatus) {
     statusMenuOpenId.value = null;
+  }
+  const insideNotif = target.closest("[data-notification-panel]");
+  if (!insideNotif) {
+    notificationPanelOpen.value = false;
+  }
+}
+
+function clearNotifications() {
+  notifications.value = [];
+  try {
+    localStorage.removeItem("notifications");
+  } catch (e) {
+    console.warn("No se pudo limpiar localStorage de notificaciones", e);
+  }
+}
+
+function toggleNotificationPanel() {
+  notificationPanelOpen.value = !notificationPanelOpen.value;
+  if (notificationPanelOpen.value) {
+    unreadCount.value = 0;
   }
 }
 
@@ -480,15 +523,27 @@ onMounted(async () => {
         timestamp: timeStr,
       });
 
-      // Mantener solo las últimas 5 notificaciones
-      if (notifications.value.length > 5) {
-        notifications.value = notifications.value.slice(0, 5);
+      // Increment unread counter only if panel is closed
+      if (!notificationPanelOpen.value) {
+        unreadCount.value = (unreadCount.value || 0) + 1;
       }
 
-      // Auto-remover después de 10s
-      window.setTimeout(() => {
-        notifications.value = notifications.value.filter((n) => n.id !== id);
-      }, 10000);
+      // Mantener historial en localStorage (persistente)
+      try {
+        localStorage.setItem(
+          "notifications",
+          JSON.stringify(notifications.value)
+        );
+      } catch (e) {
+        console.warn("No se pudo guardar notificaciones en localStorage", e);
+      }
+
+      // Reproducir sonido en la página (si está visible)
+      try {
+        playNotificationSound();
+      } catch (e) {
+        /* ignore */
+      }
 
       // Además del toast en la UI, mostrar notificación del sistema
       try {
@@ -528,6 +583,25 @@ onMounted(async () => {
     console.warn("No se pudo inicializar push subscription:", e);
   }
 
+  // Cargar notificaciones persistentes
+  try {
+    const stored = localStorage.getItem("notifications");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed))
+        notifications.value = parsed as CoinNotification[];
+    }
+  } catch (e) {
+    console.warn("Error cargando notificaciones desde localStorage", e);
+  }
+
+  // Inicializar contador de no-leídos según historial (si hay)
+  try {
+    unreadCount.value = notifications.value.length || 0;
+  } catch (e) {
+    unreadCount.value = 0;
+  }
+
   // Recarga automática del dashboard cada 15 segundos
   refreshTimer = window.setInterval(() => {
     loadDashboardData();
@@ -542,6 +616,11 @@ onUnmounted(() => {
   if (coinSocket && coinHandler) {
     coinSocket.off("coin_inserted", coinHandler);
   }
+});
+
+// Asegurar que al abrir el panel se resetea el contador (por si se abre desde elsewhere)
+watch(notificationPanelOpen, (open) => {
+  if (open) unreadCount.value = 0;
 });
 </script>
 
@@ -562,31 +641,7 @@ onUnmounted(() => {
     @create="handleNewMachine"
   />
 
-  <!-- Notificaciones de monedas en tiempo real -->
-  <div class="fixed top-4 right-4 z-50 space-y-2 max-w-xs w-full sm:max-w-sm">
-    <div
-      v-for="n in notifications"
-      :key="n.id"
-      class="flex items-start gap-2 rounded-xl border px-3 py-2 text-xs shadow-md backdrop-blur-sm"
-      :class="
-        isDark()
-          ? 'bg-slate-900/90 border-slate-700 text-slate-100'
-          : 'bg-white/90 border-slate-200 text-slate-800'
-      "
-    >
-      <span class="mt-1 h-2 w-2 rounded-full bg-emerald-500"></span>
-      <div class="space-y-0.5">
-        <p class="font-semibold">Moneda ingresada</p>
-        <p class="text-[11px]">
-          {{ n.machineName }}
-          <span v-if="n.location">• {{ n.location }}</span>
-        </p>
-        <p class="text-[11px] text-slate-400">
-          +{{ n.amount }} moneda(s) • {{ n.timestamp }}
-        </p>
-      </div>
-    </div>
-  </div>
+  <!-- Notificaciones: icono y panel en el header -->
 
   <div
     :class="[
@@ -641,6 +696,103 @@ onUnmounted(() => {
           </p>
         </div>
         <!-- Botón salir movido a Sidebar -->
+        <div class="flex items-center gap-2">
+          <div class="relative overflow-visible" data-notification-panel>
+            <button
+              @click="toggleNotificationPanel()"
+              class="relative inline-flex h-10 w-10 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group"
+              :class="
+                isDark()
+                  ? 'border-slate-700 hover:bg-transparent hover:text-white'
+                  : 'border-slate-200 hover:bg-transparent hover:text-red-700'
+              "
+              aria-label="Notificaciones"
+            >
+              <svg
+                class="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6 6 0 1 0-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M13.73 21a2 2 0 0 1-3.46 0"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span
+                v-if="unreadCount"
+                class="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 inline-flex items-center justify-center bg-red-600 text-white text-xs font-bold px-2 py-0.5 min-w-[18px] min-h-[18px] border-2 border-white shadow-lg rounded-full"
+                >{{ unreadCount }}</span
+              >
+            </button>
+
+            <div
+              v-if="notificationPanelOpen"
+              class="absolute right-0 mt-2 w-80 max-h-72 overflow-auto rounded-xl border bg-white shadow-lg z-50"
+              :class="
+                isDark()
+                  ? 'bg-slate-900 border-slate-800 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            >
+              <div class="p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-semibold">Notificaciones</h3>
+                  <button
+                    class="text-xs text-slate-400 hover:underline"
+                    @click="clearNotifications"
+                  >
+                    Borrar
+                  </button>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-if="!notifications.length"
+                    class="text-xs text-slate-400"
+                  >
+                    No hay notificaciones recientes
+                  </div>
+                  <div
+                    v-for="n in notifications"
+                    :key="n.id"
+                    class="flex items-start gap-2 rounded-md p-2"
+                    :class="
+                      isDark() ? 'hover:bg-slate-800' : 'hover:bg-slate-50'
+                    "
+                  >
+                    <span
+                      class="mt-1 h-2 w-2 rounded-full bg-emerald-500"
+                    ></span>
+                    <div class="flex-1 text-xs">
+                      <p class="font-medium">Moneda ingresada</p>
+                      <p
+                        class="text-[12px] text-slate-500"
+                        :class="isDark() ? 'text-slate-400' : ''"
+                      >
+                        {{ n.machineName }}
+                        <span v-if="n.location">• {{ n.location }}</span>
+                      </p>
+                      <p class="text-[11px] text-slate-400">
+                        +{{ n.amount }} • {{ n.timestamp }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Tarjetas métricas superiores -->
@@ -771,76 +923,74 @@ onUnmounted(() => {
         </div>
 
         <div class="flex items-center gap-2 self-end sm:self-auto">
-          <div class="relative">
-            <button
-              class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 sm:text-sm cursor-pointer"
-              :class="
-                isDark()
-                  ? 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800'
-                  : 'border-slate-200 bg-white text-slate-700'
-              "
-              @click="
-                filterOpen = !filterOpen;
-                if (filterOpen) sidebarOpen = false;
-              "
-            >
-              <svg
-                class="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 4.6C3 4.03995 3 3.75992 3.10899 3.54601C3.20487 3.35785 3.35785 3.20487 3.54601 3.10899C3.75992 3 4.03995 3 4.6 3H19.4C19.9601 3 20.2401 3 20.454 3.10899C20.6422 3.20487 20.7951 3.35785 20.891 3.54601C21 3.75992 21 4.03995 21 4.6V6.33726C21 6.58185 21 6.70414 20.9724 6.81923C20.9479 6.92127 20.9075 7.01881 20.8526 7.10828C20.7908 7.2092 20.7043 7.29568 20.5314 7.46863L14.4686 13.5314C14.2957 13.7043 14.2092 13.7908 14.1474 13.8917C14.0925 13.9812 14.0521 14.0787 14.0276 14.1808C14 14.2959 14 14.4182 14 14.6627V17L10 21V14.6627C10 14.4182 10 14.2959 9.97237 14.1808C9.94787 14.0787 9.90747 13.9812 9.85264 13.8917C9.7908 13.7908 9.70432 13.7043 9.53137 13.5314L3.46863 7.46863C3.29568 7.29568 3.2092 7.2092 3.14736 7.10828C3.09253 7.01881 3.05213 6.92127 3.02763 6.81923C3 6.70414 3 6.58185 3 6.33726V4.6Z"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              <span class="hidden sm:inline">Filtro</span>
-            </button>
-            <FilterPanel
-              :open="filterOpen"
-              :locations="availableLocations"
-              :maxIncome="maxIncome"
-              :showIncomeFilter="!isOperator"
-              @close="filterOpen = false"
-              @apply="onApplyFilters"
-            />
-          </div>
           <button
-            v-if="!isOperator"
-            class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:text-sm cursor-pointer"
-            @click="newMachineOpen = true"
+            class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 sm:text-sm cursor-pointer"
+            :class="
+              isDark()
+                ? 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800'
+                : 'border-slate-200 bg-white text-slate-700'
+            "
+            @click="
+              filterOpen = !filterOpen;
+              if (filterOpen) sidebarOpen = false;
+            "
           >
             <svg
-              width="14"
-              height="14"
+              class="w-4 h-4"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               aria-hidden="true"
             >
               <path
-                d="M12 5v14"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M5 12h14"
+                d="M3 4.6C3 4.03995 3 3.75992 3.10899 3.54601C3.20487 3.35785 3.35785 3.20487 3.54601 3.10899C3.75992 3 4.03995 3 4.6 3H19.4C19.9601 3 20.2401 3 20.454 3.10899C20.6422 3.20487 20.7951 3.35785 20.891 3.54601C21 3.75992 21 4.03995 21 4.6V6.33726C21 6.58185 21 6.70414 20.9724 6.81923C20.9479 6.92127 20.9075 7.01881 20.8526 7.10828C20.7908 7.2092 20.7043 7.29568 20.5314 7.46863L14.4686 13.5314C14.2957 13.7043 14.2092 13.7908 14.1474 13.8917C14.0925 13.9812 14.0521 14.0787 14.0276 14.1808C14 14.2959 14 14.4182 14 14.6627V17L10 21V14.6627C10 14.4182 10 14.2959 9.97237 14.1808C9.94787 14.0787 9.90747 13.9812 9.85264 13.8917C9.7908 13.7908 9.70432 13.7043 9.53137 13.5314L3.46863 7.46863C3.29568 7.29568 3.2092 7.2092 3.14736 7.10828C3.09253 7.01881 3.05213 6.92127 3.02763 6.81923C3 6.70414 3 6.58185 3 6.33726V4.6Z"
                 stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               />
             </svg>
-            <span class="hidden sm:inline">Nueva</span>
+            <span class="hidden sm:inline">Filtro</span>
           </button>
+          <FilterPanel
+            :open="filterOpen"
+            :locations="availableLocations"
+            :maxIncome="maxIncome"
+            :showIncomeFilter="!isOperator"
+            @close="filterOpen = false"
+            @apply="onApplyFilters"
+          />
         </div>
+        <button
+          v-if="!isOperator"
+          class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:text-sm cursor-pointer"
+          @click="newMachineOpen = true"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 5v14"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M5 12h14"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="hidden sm:inline">Nueva</span>
+        </button>
       </div>
     </section>
 
@@ -928,17 +1078,36 @@ onUnmounted(() => {
             class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
             @click="toggleMaintenance(machine)"
           >
-            <span>
-              {{
-                machine.status === "maintenance"
-                  ? "Desactivar mantenimiento"
-                  : "Activar mantenimiento"
-              }}
-            </span>
-            <span
-              v-if="machine.status === 'maintenance'"
-              class="h-1.5 w-1.5 rounded-full bg-emerald-500"
-            ></span>
+            <div class="flex items-center gap-2">
+              <span
+                v-if="machine.status === 'maintenance'"
+                class="h-1.5 w-1.5 rounded-full bg-emerald-500"
+              ></span>
+              <span class="text-[11px]">
+                {{
+                  machine.status === "maintenance"
+                    ? "Quitar mantenimiento"
+                    : "Poner en mantenimiento"
+                }}
+              </span>
+            </div>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              class="text-slate-400"
+            >
+              <path
+                d="M9 18l6-6-6-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </button>
           <button
             type="button"

@@ -14,14 +14,10 @@ self.addEventListener("push", function (event) {
   // If there's no payload, try to fetch latest events from the backend
   const fetchFallback = async () => {
     try {
-      const resp = await fetch("/api/iot/events");
+      const resp = await fetch("/api/iot/events/latest");
       if (!resp.ok) throw new Error("fetch events failed " + resp.status);
       const json = await resp.json();
-      const events = json.events || [];
-      // find the most recent coin_inserted event
-      const coin = events.find(
-        (e) => e.type === "coin_inserted" || e.type === "MONEDA"
-      );
+      const coin = json.event;
       if (coin) {
         return {
           title: "Moneda ingresada",
@@ -45,6 +41,10 @@ self.addEventListener("push", function (event) {
       data: payload.data || {},
       icon: "/img/icons/K11BOX.webp",
       badge: "/img/icons/K11BOX.webp",
+      vibrate: [100, 50, 100],
+      renotify: true,
+      tag: "machinehub-coin",
+      requireInteraction: false,
     };
     console.log("[SW] showing notification", title, options);
     return self.registration.showNotification(title, options);
