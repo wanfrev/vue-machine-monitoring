@@ -16,7 +16,8 @@ module.exports = defineConfig({
     },
     workboxPluginMode: "InjectManifest",
     workboxOptions: {
-      swSrc: "src/custom-service-worker.js",
+      // Use a relative path to ensure webpack resolves it correctly in CI/build env
+      swSrc: "./src/custom-service-worker.js",
       swDest: "custom-service-worker.js",
     },
   },
