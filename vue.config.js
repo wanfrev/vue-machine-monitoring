@@ -16,8 +16,8 @@ module.exports = defineConfig({
     },
     workboxPluginMode: 'InjectManifest',
     workboxOptions: {
-      swSrc: 'public/custom-service-worker.js',
+      swSrc: 'src/custom-service-worker.js',
       swDest: 'custom-service-worker.js'
     }
-  },
+  }
 });
