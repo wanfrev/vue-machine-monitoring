@@ -492,6 +492,7 @@ async function loadDashboardData() {
 let refreshTimer: number | undefined;
 let coinSocket: ReturnType<typeof getSocket> | null = null;
 let coinHandler: ((payload: any) => void) | null = null;
+let swMessageHandler: ((ev: MessageEvent) => void) | null = null;
 
 onMounted(async () => {
   window.addEventListener("click", handleGlobalClick, true);
@@ -583,6 +584,29 @@ onMounted(async () => {
     console.warn("No se pudo inicializar push subscription:", e);
   }
 
+  // Escuchar mensajes del Service Worker (para reproducir sonido si hay cliente abierto)
+  try {
+    if (
+      navigator.serviceWorker &&
+      "addEventListener" in navigator.serviceWorker
+    ) {
+      swMessageHandler = (ev: MessageEvent) => {
+        try {
+          const msg = ev.data;
+          if (msg && msg.type === "coin_notification") {
+            // reproducir sonido en la página si corresponde
+            playNotificationSound();
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+      navigator.serviceWorker.addEventListener("message", swMessageHandler);
+    }
+  } catch (e) {
+    console.warn("No se pudo registrar listener de SW messages", e);
+  }
+
   // Cargar notificaciones persistentes
   try {
     const stored = localStorage.getItem("notifications");
@@ -615,6 +639,17 @@ onUnmounted(() => {
   window.removeEventListener("click", handleGlobalClick, true);
   if (coinSocket && coinHandler) {
     coinSocket.off("coin_inserted", coinHandler);
+  }
+  if (
+    swMessageHandler &&
+    navigator.serviceWorker &&
+    "removeEventListener" in navigator.serviceWorker
+  ) {
+    try {
+      navigator.serviceWorker.removeEventListener("message", swMessageHandler);
+    } catch (e) {
+      /* ignore */
+    }
   }
 });
 

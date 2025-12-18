@@ -47,6 +47,26 @@ self.addEventListener("push", function (event) {
       requireInteraction: false,
     };
     console.log("[SW] showing notification", title, options);
+    // Notify open window clients so they can play a sound if appropriate
+    try {
+      const all = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of all) {
+        try {
+          client.postMessage({
+            type: "coin_notification",
+            payload: options.data || {},
+          });
+        } catch (e) {
+          console.warn("[SW] client.postMessage failed", e);
+        }
+      }
+    } catch (e) {
+      console.warn("[SW] notify clients failed", e);
+    }
+
     return self.registration.showNotification(title, options);
   };
 
