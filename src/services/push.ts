@@ -25,7 +25,7 @@ export async function subscribeToPush() {
     if (!registration) {
       try {
         registration = await navigator.serviceWorker.register(
-          "/service-worker.js"
+          "/custom-service-worker.js"
         );
       } catch (regErr) {
         console.warn("Failed to register service worker for push:", regErr);
