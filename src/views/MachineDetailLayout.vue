@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
+import { getMachines, updateMachine } from "../api/client";
 
 const route = useRoute();
 const router = useRouter();
@@ -9,7 +10,81 @@ const id = computed(() => (route.params.id as string) || "Máquina");
 const locationText = computed(
   () => (route.query.location as string) || "Centro comercial - Pasillo A"
 );
-const status = computed(() => (route.query.status as string) || "Activa");
+
+const currentRole = ref(localStorage.getItem("role") || "");
+const isAdmin = computed(() => currentRole.value === "admin");
+
+type ApiMachine = { id: string | number; name: string; status?: string };
+const resolvedMachineId = ref<string | null>(null);
+const resolvedStatus = ref<string>("inactive");
+
+const statusLabel = computed(() => {
+  if (resolvedStatus.value === "maintenance") return "Mantenimiento";
+  if (resolvedStatus.value === "active") return "Activa";
+  // fallback
+  const fromQuery = (route.query.status as string) || "";
+  return fromQuery || "Inactiva";
+});
+
+async function resolveMachine() {
+  try {
+    const all = (await getMachines()) as ApiMachine[];
+    const routeId = route.params.id as string | undefined;
+    const current = all.find(
+      (m) => m.name === routeId || String(m.id) === routeId
+    );
+    if (current) {
+      resolvedMachineId.value = String(current.id);
+      resolvedStatus.value = String(current.status || "inactive");
+      return;
+    }
+  } catch (e) {
+    console.error("Error resolviendo máquina en detalle:", e);
+  }
+
+  resolvedMachineId.value = null;
+  // Si llegamos aquí, mantenemos un status conservador
+  const fromQuery = (route.query.status as string) || "";
+  resolvedStatus.value = fromQuery === "Activa" ? "active" : "inactive";
+}
+
+const statusMenuOpen = ref(false);
+
+function toggleStatusMenu() {
+  if (!isAdmin.value) {
+    alert("Solo un administrador puede cambiar el estado de la máquina.");
+    return;
+  }
+  if (!resolvedMachineId.value) return;
+  statusMenuOpen.value = !statusMenuOpen.value;
+}
+
+async function toggleMaintenance() {
+  if (!isAdmin.value) return;
+  if (!resolvedMachineId.value) return;
+
+  const newStatus =
+    resolvedStatus.value === "maintenance" ? "inactive" : "maintenance";
+  try {
+    await updateMachine(resolvedMachineId.value, { status: newStatus });
+    resolvedStatus.value = newStatus;
+  } catch (err) {
+    console.error("Error actualizando estado de máquina:", err);
+  } finally {
+    statusMenuOpen.value = false;
+  }
+}
+
+function handleGlobalClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  if (!target) return;
+  const insideStatus = target.closest("[data-status-menu]");
+  if (!insideStatus) statusMenuOpen.value = false;
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") statusMenuOpen.value = false;
+}
 
 function goBack() {
   router.push({ name: "dashboard" });
@@ -20,13 +95,32 @@ function refreshPage() {
 }
 
 const isActive = (name: string) => route.name === name;
+
+onMounted(() => {
+  resolveMachine();
+  document.addEventListener("click", handleGlobalClick);
+  document.addEventListener("keydown", handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleGlobalClick);
+  document.removeEventListener("keydown", handleKeydown);
+});
+
+watch(
+  () => route.params.id,
+  () => {
+    statusMenuOpen.value = false;
+    resolveMachine();
+  }
+);
 </script>
 
 <template>
   <div class="min-h-screen px-3 py-4 sm:px-8 sm:py-6 bg-slate-50">
     <!-- Top bar -->
     <div
-      class="mb-4 flex items-center justify-between rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6 border-slate-200/70"
+      class="relative z-50 mb-4 flex items-center justify-between rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6 border-slate-200/70"
     >
       <button
         type="button"
@@ -46,40 +140,102 @@ const isActive = (name: string) => route.name === name;
         >
           ↻
         </button>
-        <span
-          class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium"
-          :class="
-            status === 'Activa'
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : 'border-slate-200 bg-slate-50 text-slate-600'
-          "
-        >
-          <svg
-            class="text-xs"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
+        <div class="relative" data-status-menu>
+          <button
+            type="button"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-sm font-medium cursor-pointer"
+            :class="
+              resolvedStatus === 'active'
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : 'border-slate-200 bg-slate-50 text-slate-600'
+            "
+            :aria-label="`Estado: ${statusLabel}`"
+            :title="
+              isAdmin
+                ? `Estado: ${statusLabel} (toca para opciones)`
+                : `Estado: ${statusLabel}`
+            "
+            @click="toggleStatusMenu"
           >
-            <path
-              d="M12 2v10"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M7.05 6.05a7 7 0 1 0 9.9 0"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          {{ status }}
-        </span>
+            <svg
+              class="text-xs"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2v10"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M7.05 6.05a7 7 0 1 0 9.9 0"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+
+          <!-- Menú de cambio de estado (solo admin) -->
+          <div
+            v-if="statusMenuOpen && isAdmin"
+            class="absolute right-0 top-11 z-50 w-56 max-w-[90vw] rounded-xl border bg-white/80 backdrop-blur-xl text-xs text-slate-700 shadow-lg border-slate-200/70"
+          >
+            <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400">
+              Modo mantenimiento
+            </p>
+            <button
+              type="button"
+              class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
+              @click="toggleMaintenance"
+            >
+              <div class="flex items-center gap-2">
+                <span
+                  v-if="resolvedStatus === 'maintenance'"
+                  class="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                ></span>
+                <span class="text-[11px]">
+                  {{
+                    resolvedStatus === "maintenance"
+                      ? "Quitar mantenimiento"
+                      : "Poner en mantenimiento"
+                  }}
+                </span>
+              </div>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                class="text-slate-400"
+              >
+                <path
+                  d="M9 18l6-6-6-6"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="w-full px-3 py-1.5 text-left text-[11px] text-slate-400 hover:bg-slate-50"
+              @click="statusMenuOpen = false"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

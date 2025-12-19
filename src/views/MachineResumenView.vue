@@ -140,9 +140,61 @@ watch([startDate, endDate, machine], async () => {
 </script>
 
 <template>
-  <!-- Resumen content: chart + metrics grid -->
+  <!-- Resumen content: metrics grid + chart -->
+  <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+    >
+      <p
+        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+      >
+        Estado actual
+      </p>
+      <p
+        class="text-3xl font-semibold"
+        :class="isOn ? 'text-green-600' : 'text-slate-500'"
+      >
+        {{ isOn ? "Encendida" : "Apagada" }}
+      </p>
+    </div>
+    <div
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+    >
+      <p
+        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+      >
+        Monedas hoy
+      </p>
+      <p class="text-3xl font-semibold text-red-600">
+        {{ totalCoins }}
+      </p>
+    </div>
+    <div
+      v-if="!isOperator"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+    >
+      <p
+        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+      >
+        Ingresos hoy
+      </p>
+      <p class="text-3xl font-semibold text-red-600">$ {{ totalIncome }}</p>
+    </div>
+    <div
+      v-if="!isOperator"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+    >
+      <p
+        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+      >
+        Valor por moneda
+      </p>
+      <p class="text-3xl font-semibold text-slate-900">$ {{ valuePerCoin }}</p>
+    </div>
+  </section>
+
   <section
-    class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
+    class="mt-4 rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
   >
     <div
       class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
@@ -248,58 +300,6 @@ watch([startDate, endDate, machine], async () => {
     <div class="mt-4 text-sm text-slate-600">
       <span class="inline-block h-3 w-3 rounded-sm bg-red-600"></span>
       <span class="ml-2">{{ isOperator ? "Monedas" : "Ingresos" }}</span>
-    </div>
-  </section>
-
-  <section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-    <div
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
-    >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-      >
-        Estado actual
-      </p>
-      <p
-        class="text-3xl font-semibold"
-        :class="isOn ? 'text-green-600' : 'text-slate-500'"
-      >
-        {{ isOn ? "Encendida" : "Apagada" }}
-      </p>
-    </div>
-    <div
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
-    >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-      >
-        Monedas hoy
-      </p>
-      <p class="text-3xl font-semibold text-red-600">
-        {{ totalCoins }}
-      </p>
-    </div>
-    <div
-      v-if="!isOperator"
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
-    >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-      >
-        Ingresos hoy
-      </p>
-      <p class="text-3xl font-semibold text-red-600">$ {{ totalIncome }}</p>
-    </div>
-    <div
-      v-if="!isOperator"
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
-    >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-      >
-        Valor por moneda
-      </p>
-      <p class="text-3xl font-semibold text-slate-900">$ {{ valuePerCoin }}</p>
     </div>
   </section>
 </template>
