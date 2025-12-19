@@ -124,6 +124,8 @@ type Machine = {
   status: string;
   location?: string;
   type?: string;
+  last_on?: string | null;
+  last_off?: string | null;
 };
 const machines = ref<Machine[]>([]);
 
@@ -366,6 +368,26 @@ function getMachineIncomeToday(machine: Machine): number {
   const coins = getMachineCoinsToday(machine.id);
   const valuePerCoin = machine.name.includes("Boxeo") ? 1 : 2;
   return coins * valuePerCoin;
+}
+
+function formatLastTime(ts?: string | null) {
+  if (!ts) return "—";
+  try {
+    // If timestamp lacks timezone, treat as UTC then convert to America/Caracas
+    let d = new Date(ts);
+    // If parsing produced Invalid Date, return placeholder
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleString(undefined, {
+      timeZone: "America/Caracas",
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch (e) {
+    return "—";
+  }
 }
 
 function getCurrentUserRole(): string | null {
@@ -1353,8 +1375,8 @@ watch(notificationPanelOpen, (open) => {
         </div>
 
         <div class="mb-3 space-y-1 text-[11px] text-slate-400">
-          <p>Último inicio: --</p>
-          <p>Último cierre: --</p>
+          <p>Último inicio: {{ formatLastTime(machine.last_on) }}</p>
+          <p>Último cierre: {{ formatLastTime(machine.last_off) }}</p>
         </div>
 
         <div class="mt-1 flex justify-end">

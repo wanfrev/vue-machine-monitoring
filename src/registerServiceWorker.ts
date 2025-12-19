@@ -34,7 +34,9 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 // Forzar actualización del Service Worker en cada visita
-if ("serviceWorker" in navigator) {
+// Evitar forzar `update()` en modo de desarrollo porque el dev-server
+// no sirve el `custom-service-worker.js` en la raíz y eso provoca 404.
+if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     for (const registration of registrations) {
       registration.update();

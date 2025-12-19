@@ -21,18 +21,38 @@ self.addEventListener("push", function (event) {
   // If there's no payload, try to fetch latest events from the backend
   const fetchFallback = async () => {
     try {
-      const resp = await fetch("/api/iot/events/latest");
+      const resp = await fetch("/api/iot/events");
       if (!resp.ok) throw new Error("fetch events failed " + resp.status);
       const json = await resp.json();
-      const coin = json.event;
-      if (coin) {
+      const ev = Array.isArray(json.events) ? json.events[0] : json.event;
+      if (ev) {
+        // Normalize payload for different event types
+        if (ev.type === "coin_inserted") {
+          return {
+            title: "Moneda ingresada",
+            body:
+              ev.data && ev.data.cantidad
+                ? `Máquina ${ev.machine_id} recibió ${ev.data.cantidad} moneda(s)`
+                : `Máquina ${ev.machine_id} registró una moneda`,
+            data: ev,
+          };
+        }
+        if (ev.type === "machine_on" || ev.type === "machine_off") {
+          return {
+            title:
+              ev.type === "machine_on"
+                ? "Máquina encendida"
+                : "Máquina apagada",
+            body: `${ev.machine_id}${
+              ev.data && ev.data.reason ? ` — ${ev.data.reason}` : ""
+            }`,
+            data: { ...ev, eventType: ev.type },
+          };
+        }
         return {
-          title: "Moneda ingresada",
-          body:
-            coin.data && coin.data.cantidad
-              ? `Máquina ${coin.machine_id} recibió ${coin.data.cantidad} moneda(s)`
-              : `Máquina ${coin.machine_id} registró una moneda`,
-          data: coin,
+          title: "Nuevo evento",
+          body: `Evento ${ev.type} en ${ev.machine_id}`,
+          data: ev,
         };
       }
     } catch (err) {
@@ -43,15 +63,21 @@ self.addEventListener("push", function (event) {
 
   const show = async (payload) => {
     const title = payload.title || "MachineHub";
+    const eventType =
+      (payload.data && (payload.data.eventType || payload.data.type)) || null;
+    const vibrate =
+      eventType === "machine_off" ? [300, 100, 300] : [100, 50, 100];
+    const requireInteraction = eventType === "machine_off";
+    const tag = `machinehub-${eventType || "event"}`;
     const options = {
       body: payload.body || "",
       data: payload.data || {},
       icon: "/img/icons/K11BOX.webp",
       badge: "/img/icons/K11BOX.webp",
-      vibrate: [100, 50, 100],
+      vibrate,
       renotify: true,
-      tag: "machinehub-coin",
-      requireInteraction: false,
+      tag,
+      requireInteraction,
     };
     console.log("[SW] showing notification", title, options);
     // Notify open window clients so they can play a sound if appropriate
@@ -63,7 +89,7 @@ self.addEventListener("push", function (event) {
       for (const client of all) {
         try {
           client.postMessage({
-            type: "coin_notification",
+            type: "event_notification",
             payload: options.data || {},
           });
         } catch (e) {
