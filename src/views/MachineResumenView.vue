@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import { getMachines, getMachineDailyIncome } from "../api/client";
+import {
+  getMachines,
+  getMachineDailyIncome,
+  getMachineHistory,
+} from "../api/client";
 import BarChart from "../components/BarChart.vue";
 
 type Machine = {
@@ -10,6 +14,23 @@ type Machine = {
   status: string;
   location?: string;
   type?: string;
+};
+
+type ApiMachine = {
+  id: string;
+  name: string;
+  status: string;
+  location?: string;
+  type?: string;
+};
+
+type ApiMachineHistoryEvent = {
+  type?: string;
+  timestamp?: string;
+  data?: {
+    cantidad?: number;
+    amount?: number;
+  };
 };
 
 const route = useRoute();
@@ -37,7 +58,12 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
+type ChartMode = "day" | "hour";
+const chartMode = ref<ChartMode>("day");
+
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
+const hourlyIncome = ref<{ hour: number; income: number }[]>([]);
+const hourlyCoins = ref<{ hour: number; coins: number }[]>([]);
 
 const valuePerCoin = computed(() => {
   const name = machine.value?.name ?? "";
@@ -58,6 +84,66 @@ function getDateRangeArray(start: string, end: string) {
   return arr;
 }
 
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function addDaysYmd(ymd: string, days: number) {
+  // Interpretar YYYY-MM-DD como fecha local
+  const [y, m, d] = ymd.split("-").map((v) => Number(v));
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+}
+
+async function loadHourlyIncome() {
+  if (!machine.value) return;
+  try {
+    const apiStart = startDate.value;
+    const apiEnd =
+      startDate.value && endDate.value && startDate.value === endDate.value
+        ? addDaysYmd(startDate.value, 1)
+        : endDate.value;
+
+    const history = (await getMachineHistory(machine.value.id, {
+      startDate: apiStart,
+      endDate: apiEnd,
+    })) as unknown as ApiMachineHistoryEvent[];
+
+    // La API tipada de getMachineHistory no incluye campos internos de evento,
+    // pero el backend entrega { type, timestamp, data } (ya se usa así en MachineHistorialView).
+    const byHourCoins = new Array<number>(24).fill(0);
+    for (const raw of history) {
+      if (raw?.type !== "coin_inserted") continue;
+      const ts = raw?.timestamp ? new Date(raw.timestamp) : null;
+      if (!ts || Number.isNaN(ts.getTime())) continue;
+      const hour = ts.getHours();
+      const cantidad = Number(raw?.data?.cantidad ?? raw?.data?.amount ?? 1);
+      byHourCoins[hour] += Number.isFinite(cantidad) ? cantidad : 0;
+    }
+
+    hourlyCoins.value = byHourCoins.map((coins, hour) => ({ hour, coins }));
+    hourlyIncome.value = byHourCoins.map((coins, hour) => {
+      const value = isOperator.value ? coins : coins * valuePerCoin.value;
+      return { hour, income: value };
+    });
+  } catch (e) {
+    console.error("Error cargando ingresos por hora de la máquina:", e);
+    hourlyIncome.value = [];
+    hourlyCoins.value = [];
+  }
+}
+
+function setChartMode(mode: ChartMode) {
+  chartMode.value = mode;
+  // En modo por hora mostramos un SOLO día (para que el tooltip muestre “el día del dato”)
+  if (mode === "hour" && startDate.value && endDate.value) {
+    if (startDate.value !== endDate.value) {
+      endDate.value = startDate.value;
+    }
+  }
+}
+
 async function loadDailyIncome() {
   if (!machine.value) return;
   try {
@@ -66,7 +152,7 @@ async function loadDailyIncome() {
       endDate: endDate.value,
     });
     // El backend ya devuelve la fecha agrupada en zona local, usarla tal cual
-    const mapped = (data || []).map((d: any) => {
+    const mapped = (data || []).map((d) => {
       const date = d.date ? String(d.date).slice(0, 10) : "";
       const coins = Number(d.income);
       const value = isOperator.value ? coins : coins * valuePerCoin.value;
@@ -88,11 +174,9 @@ let refreshInterval: number | undefined;
 async function fetchAllData() {
   loading.value = true;
   try {
-    const all = await getMachines();
+    const all = (await getMachines()) as ApiMachine[];
     const routeId = route.params.id as string | undefined;
-    const current = all.find(
-      (m: any) => m.name === routeId || m.id === routeId
-    );
+    const current = all.find((m) => m.name === routeId || m.id === routeId);
     if (current) {
       machine.value = current;
       // Monedas de HOY usando getMachineDailyIncome con rango de un solo día (fecha local)
@@ -112,7 +196,11 @@ async function fetchAllData() {
         coinsToday = found ? Number(found.income ?? 0) : 0;
       }
       totalCoins.value = coinsToday;
-      await loadDailyIncome();
+      if (chartMode.value === "hour") {
+        await loadHourlyIncome();
+      } else {
+        await loadDailyIncome();
+      }
     }
   } catch (e) {
     console.error("Error cargando resumen de máquina:", e);
@@ -130,12 +218,34 @@ onUnmounted(() => {
   if (refreshInterval) clearInterval(refreshInterval);
 });
 
-watch([startDate, endDate, machine], async () => {
+watch([startDate, endDate, machine, chartMode], async () => {
   if (!machine.value) return;
   if (startDate.value && endDate.value && startDate.value > endDate.value) {
     return;
   }
-  await loadDailyIncome();
+  if (chartMode.value === "hour") {
+    await loadHourlyIncome();
+  } else {
+    await loadDailyIncome();
+  }
+});
+
+const chartLabels = computed(() => {
+  return chartMode.value === "hour"
+    ? hourlyIncome.value.map((d) => `${pad2(d.hour)}:00`)
+    : dailyIncome.value.map((d) => d.date);
+});
+
+const chartValues = computed(() => {
+  return chartMode.value === "hour"
+    ? hourlyIncome.value.map((d) => d.income)
+    : dailyIncome.value.map((d) => d.income);
+});
+
+const hasChartData = computed(() => {
+  return chartMode.value === "hour"
+    ? hourlyIncome.value.length > 0
+    : dailyIncome.value.length > 0;
 });
 </script>
 
@@ -202,34 +312,77 @@ watch([startDate, endDate, machine], async () => {
       <h2 class="text-sm font-semibold">
         {{
           isOperator
-            ? "Monedas por día – Último mes"
+            ? chartMode === "hour"
+              ? "Monedas por hora – Rango seleccionado"
+              : "Monedas por día – Último mes"
+            : chartMode === "hour"
+            ? "$ Ingresos por hora – Rango seleccionado"
             : "$ Ingresos por día – Último mes"
         }}
       </h2>
       <div
-        class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+        class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto"
       >
-        <span class="hidden sm:inline">Rango:</span>
-        <input
-          v-model="startDate"
-          type="date"
-          class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-        />
-        <span class="text-slate-400">a</span>
-        <input
-          v-model="endDate"
-          type="date"
-          class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-        />
+        <div
+          class="w-full sm:w-auto inline-flex items-center gap-1 rounded-full border p-1 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+          role="tablist"
+          aria-label="Modo de gráfica"
+        >
+          <button
+            type="button"
+            class="rounded-full px-3 py-1.5 transition"
+            :class="
+              chartMode === 'day'
+                ? 'bg-red-600 text-white'
+                : 'text-slate-600 hover:bg-white/40'
+            "
+            role="tab"
+            :aria-selected="chartMode === 'day'"
+            @click="setChartMode('day')"
+          >
+            Por día
+          </button>
+          <button
+            type="button"
+            class="rounded-full px-3 py-1.5 transition"
+            :class="
+              chartMode === 'hour'
+                ? 'bg-red-600 text-white'
+                : 'text-slate-600 hover:bg-white/40'
+            "
+            role="tab"
+            :aria-selected="chartMode === 'hour'"
+            @click="setChartMode('hour')"
+          >
+            Por hora
+          </button>
+        </div>
+
+        <div
+          class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+        >
+          <span class="hidden sm:inline">Rango:</span>
+          <input
+            v-model="startDate"
+            type="date"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+          <span class="text-slate-400">a</span>
+          <input
+            v-model="endDate"
+            type="date"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+        </div>
       </div>
     </div>
     <div
       class="h-56 sm:h-72 lg:h-80 w-full rounded-xl border border-slate-200/70 px-2 py-4 bg-white/40 backdrop-blur flex items-center justify-center min-w-0"
     >
       <BarChart
-        v-if="dailyIncome.length"
+        v-if="hasChartData"
         :chartData="{
-          labels: dailyIncome.map((d) => d.date),
+          labels: chartLabels,
           datasets: [
             {
               label: isOperator ? 'Monedas' : 'Ingresos',
@@ -237,7 +390,7 @@ watch([startDate, endDate, machine], async () => {
               hoverBackgroundColor: 'rgba(220, 38, 38, 0.75)',
               borderColor: 'rgba(220, 38, 38, 0.9)',
               borderWidth: 1,
-              data: dailyIncome.map((d) => d.income),
+              data: chartValues,
               borderRadius: 6,
               maxBarThickness: 16,
               categoryPercentage: 0.9,
@@ -259,16 +412,43 @@ watch([startDate, endDate, machine], async () => {
               bodyColor: 'rgba(248, 250, 252, 0.9)',
               padding: 10,
               cornerRadius: 10,
+              callbacks: {
+                title: (items) => {
+                  const label = items?.[0]?.label ?? '';
+                  if (chartMode === 'hour') {
+                    // Mostrar solo el día (no el rango)
+                    return `${startDate} ${label}`.trim();
+                  }
+                  return label;
+                },
+                label: (ctx) => {
+                  const raw = (ctx as any)?.parsed?.y ?? (ctx as any)?.raw;
+                  const yValue = typeof raw === 'number' ? raw : Number(raw);
+                  const safeY = Number.isFinite(yValue) ? yValue : 0;
+
+                  if (chartMode === 'hour' && !isOperator) {
+                    const idx = Number((ctx as any)?.dataIndex ?? -1);
+                    const coins = hourlyCoins[idx]?.coins ?? 0;
+                    return [`Monedas: ${coins}`, `Ingresos: $ ${safeY}`];
+                  }
+
+                  const prefix = isOperator ? 'Monedas' : 'Ingresos';
+                  return `${prefix}: ${safeY}`;
+                },
+              },
             },
           },
           scales: {
             x: {
-              title: { display: true, text: 'Fecha' },
+              title: {
+                display: true,
+                text: chartMode === 'hour' ? 'Hora' : 'Fecha',
+              },
               ticks: {
                 color: 'rgba(71, 85, 105, 0.9)',
                 font: { size: 10 },
                 autoSkip: true,
-                maxTicksLimit: 10,
+                maxTicksLimit: chartMode === 'hour' ? 12 : 10,
               },
               grid: { display: false },
             },

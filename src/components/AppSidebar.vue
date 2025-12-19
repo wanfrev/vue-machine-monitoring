@@ -182,16 +182,6 @@ const userRole = localStorage.getItem("role") || "";
           class="w-full rounded-lg px-3 py-2 font-medium transition cursor-pointer"
           :class="
             isDark
-              ? 'bg-red-600 text-white hover:bg-red-500'
-              : 'bg-red-600 text-white hover:bg-red-700'
-          "
-        >
-          Nueva máquina
-        </button>
-        <button
-          class="w-full rounded-lg px-3 py-2 font-medium transition cursor-pointer"
-          :class="
-            isDark
               ? 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700'
               : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
           "
