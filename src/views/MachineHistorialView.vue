@@ -184,23 +184,23 @@ watch(search, () => {
     <div
       class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
     >
-      <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-sm font-semibold">
-          Historial detallado de transacciones
-        </h2>
+      <div
+        class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <h2 class="text-sm font-semibold">Historial detallado de monedas</h2>
         <div
-          class="mb-4 flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm border-slate-200/70 bg-white/50 backdrop-blur text-slate-600"
+          class="w-full sm:w-auto flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm border-slate-200/70 bg-white/50 backdrop-blur text-slate-600"
         >
           <input
             v-model="startDate"
             type="date"
-            class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
         </div>
       </div>
@@ -232,7 +232,7 @@ watch(search, () => {
       </div>
 
       <!-- Mobile cards (show up to lg) -->
-      <div class="lg:hidden space-y-3">
+      <div class="lg:hidden space-y-2">
         <div
           v-if="visible.length === 0"
           class="rounded-2xl border border-dashed border-slate-200/70 bg-white/40 backdrop-blur p-4 text-center text-sm text-slate-500"
@@ -243,11 +243,11 @@ watch(search, () => {
           v-else
           v-for="(t, i) in visible"
           :key="i"
-          class="rounded-2xl border border-slate-200/70 bg-white/60 backdrop-blur-xl p-4 shadow-sm"
+          class="rounded-2xl border border-slate-200/70 bg-white/60 backdrop-blur-xl p-3 shadow-sm"
         >
-          <div class="mb-2 flex items-center justify-between">
+          <div class="mb-1.5 flex items-center justify-between">
             <span
-              class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+              class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
               :class="
                 t.kind === 'Ingreso'
                   ? 'bg-green-100 text-green-700'
@@ -257,7 +257,7 @@ watch(search, () => {
               {{ t.kind }}
             </span>
             <span
-              class="inline-flex h-6 w-6 items-center justify-center rounded-full border"
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full border"
               :class="
                 t.ok
                   ? 'border-green-200 bg-green-50 text-green-600'
@@ -280,32 +280,31 @@ watch(search, () => {
               </svg>
             </span>
           </div>
-          <h3 class="text-base font-semibold text-slate-800">
-            {{ t.description }}
-          </h3>
-          <p class="text-xs text-slate-400">{{ t.date }} {{ t.time }}</p>
-          <div
-            class="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur px-3 py-3"
-          >
-            <div>
-              <p class="text-xs text-slate-500">Monto</p>
-              <p
-                class="text-2xl font-semibold"
-                :class="
-                  t.kind === 'Ingreso' ? 'text-slate-900' : 'text-slate-400'
-                "
-              >
-                {{
-                  t.kind === "Ingreso"
-                    ? isOperator
-                      ? `${t.amount} monedas`
-                      : "$ " + String(t.amount)
-                    : isOperator
-                    ? "0 monedas"
-                    : "$ 0"
-                }}
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="text-sm font-semibold text-slate-800 leading-snug">
+                {{ t.description }}
+              </h3>
+              <p class="text-[11px] text-slate-400">
+                {{ t.date }} {{ t.time }}
               </p>
             </div>
+            <p
+              class="text-xl font-semibold text-right whitespace-nowrap leading-none pt-0.5"
+              :class="
+                t.kind === 'Ingreso' ? 'text-slate-900' : 'text-slate-400'
+              "
+            >
+              {{
+                t.kind === "Ingreso"
+                  ? isOperator
+                    ? `${t.amount} monedas`
+                    : "$ " + String(t.amount)
+                  : isOperator
+                  ? "0 monedas"
+                  : "$ 0"
+              }}
+            </p>
           </div>
         </div>
       </div>
@@ -399,7 +398,7 @@ watch(search, () => {
         </table>
       </div>
 
-      <div class="mt-4 grid gap-3 sm:grid-cols-2">
+      <div class="mt-4 grid grid-cols-2 gap-3">
         <div
           class="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 text-sm"
         >

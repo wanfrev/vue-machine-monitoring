@@ -15,6 +15,10 @@ function goBack() {
   router.push({ name: "dashboard" });
 }
 
+function refreshPage() {
+  window.location.reload();
+}
+
 const isActive = (name: string) => route.name === name;
 </script>
 
@@ -32,40 +36,51 @@ const isActive = (name: string) => route.name === name;
         <span>←</span>
         <span>Volver</span>
       </button>
-      <span
-        class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium"
-        :class="
-          status === 'Activa'
-            ? 'border-red-200 bg-red-50 text-red-700'
-            : 'border-slate-200 bg-slate-50 text-slate-600'
-        "
-      >
-        <svg
-          class="text-xs"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer border-slate-200"
+          aria-label="Refrescar"
+          title="Refrescar"
+          @click="refreshPage"
         >
-          <path
-            d="M12 2v10"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M7.05 6.05a7 7 0 1 0 9.9 0"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-        {{ status }}
-      </span>
+          ↻
+        </button>
+        <span
+          class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium"
+          :class="
+            status === 'Activa'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-slate-200 bg-slate-50 text-slate-600'
+          "
+        >
+          <svg
+            class="text-xs"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 2v10"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M7.05 6.05a7 7 0 1 0 9.9 0"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          {{ status }}
+        </span>
+      </div>
     </div>
 
     <!-- Header -->
@@ -90,7 +105,7 @@ const isActive = (name: string) => route.name === name;
               : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
           "
         >
-          Resumen
+          General
         </RouterLink>
         <RouterLink
           :to="{
@@ -105,7 +120,7 @@ const isActive = (name: string) => route.name === name;
               : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
           "
         >
-          Historial
+          Monedas
         </RouterLink>
         <RouterLink
           :to="{
@@ -120,7 +135,7 @@ const isActive = (name: string) => route.name === name;
               : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
           "
         >
-          Estadísticas
+          Tiempos de uso
         </RouterLink>
       </nav>
     </header>

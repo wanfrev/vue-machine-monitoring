@@ -174,7 +174,7 @@ watch([startDate, endDate, machine], async () => {
 <template>
   <section class="space-y-4">
     <!-- Metric cards -->
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
       <div
         class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
       >
@@ -242,29 +242,31 @@ watch([startDate, endDate, machine], async () => {
     <div
       class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
     >
-      <div class="mb-3 flex items-center justify-between">
+      <div
+        class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
         <h2 class="text-sm font-semibold">Registro de encendido/apagado</h2>
         <div
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+          class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
         >
           <span class="hidden sm:inline">Rango:</span>
           <input
             v-model="startDate"
             type="date"
-            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
         </div>
       </div>
       <div
-        class="overflow-hidden rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur"
+        class="overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur"
       >
-        <table class="w-full text-sm">
+        <table class="min-w-[520px] w-full text-sm">
           <thead class="bg-red-50/70 backdrop-blur text-slate-700">
             <tr>
               <th class="px-4 py-2 text-left">Evento</th>

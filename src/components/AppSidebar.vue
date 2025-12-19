@@ -31,6 +31,10 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
+
+function refreshPage() {
+  window.location.reload();
+}
 // Obtener el rol del usuario desde localStorage
 const userRole = localStorage.getItem("role") || "";
 </script>
@@ -183,6 +187,17 @@ const userRole = localStorage.getItem("role") || "";
           "
         >
           Nueva máquina
+        </button>
+        <button
+          class="w-full rounded-lg px-3 py-2 font-medium transition cursor-pointer"
+          :class="
+            isDark
+              ? 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700'
+              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+          "
+          @click="refreshPage"
+        >
+          Refrescar
         </button>
         <button
           class="w-full rounded-lg px-3 py-2 font-medium transition cursor-pointer"

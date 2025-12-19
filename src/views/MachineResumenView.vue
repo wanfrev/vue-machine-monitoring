@@ -144,7 +144,9 @@ watch([startDate, endDate, machine], async () => {
   <section
     class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
   >
-    <div class="mb-3 flex items-center justify-between">
+    <div
+      class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+    >
       <h2 class="text-sm font-semibold">
         {{
           isOperator
@@ -153,24 +155,24 @@ watch([startDate, endDate, machine], async () => {
         }}
       </h2>
       <div
-        class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+        class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
       >
         <span class="hidden sm:inline">Rango:</span>
         <input
           v-model="startDate"
           type="date"
-          class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
         />
         <span class="text-slate-400">a</span>
         <input
           v-model="endDate"
           type="date"
-          class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
         />
       </div>
     </div>
     <div
-      class="h-64 w-full rounded-xl border border-slate-200/70 px-2 py-4 bg-white/40 backdrop-blur flex items-center justify-center"
+      class="h-56 sm:h-72 lg:h-80 w-full rounded-xl border border-slate-200/70 px-2 py-4 bg-white/40 backdrop-blur flex items-center justify-center min-w-0"
     >
       <BarChart
         v-if="dailyIncome.length"
@@ -249,7 +251,7 @@ watch([startDate, endDate, machine], async () => {
     </div>
   </section>
 
-  <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
     <div
       class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
     >

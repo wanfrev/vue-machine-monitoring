@@ -1,7 +1,11 @@
 <template>
   <div
     v-if="open"
-    class="absolute z-40 mt-2 right-0 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl p-5 flex flex-col gap-4"
+    :class="
+      placement === 'static'
+        ? 'w-full max-h-[70vh] overflow-auto overscroll-contain bg-white rounded-2xl border border-slate-200 shadow-xl p-5 flex flex-col gap-4'
+        : 'absolute top-full right-0 z-[60] mt-2 w-80 max-h-[70vh] overflow-auto overscroll-contain bg-white rounded-2xl border border-slate-200 shadow-xl p-5 flex flex-col gap-4'
+    "
     @click.stop
   >
     <div class="flex items-center gap-2 mb-2">
@@ -158,7 +162,10 @@ const props = defineProps<{
   locations: string[];
   maxIncome: number;
   showIncomeFilter?: boolean;
+  placement?: "absolute" | "static";
 }>();
+
+const placement = computed(() => props.placement || "absolute");
 
 const emit = defineEmits<{
   (e: "close"): void;

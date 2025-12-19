@@ -154,14 +154,17 @@ async function handleDeleteMachine(id: string) {
         <button
           v-if="currentRole !== 'employee' && currentRole !== 'operator'"
           type="button"
-          class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer"
+          class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
           @click="openCreateModal"
         >
-          + Nueva máquina
+          <span class="mr-1">+</span>
+          <span>Nueva máquina</span>
         </button>
       </div>
 
-      <div class="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        class="grid grid-cols-2 gap-3 pt-2 auto-rows-fr sm:grid-cols-2 lg:grid-cols-4"
+      >
         <div
           class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
@@ -389,8 +392,46 @@ async function handleDeleteMachine(id: string) {
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1">
                 <div class="text-sm font-semibold">{{ m.name }}</div>
-                <div class="text-xs text-slate-400 mt-1">
-                  {{ m.id }} • {{ m.location }}
+                <div class="mt-1 flex flex-wrap items-center gap-2">
+                  <span class="text-xs text-slate-400">{{ m.id }}</span>
+                  <span
+                    v-if="m.location"
+                    class="inline-flex max-w-full items-start gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                    :class="
+                      isDark()
+                        ? 'border-slate-700/60 bg-slate-950/20 text-slate-200'
+                        : 'border-slate-200/70 bg-white/40 text-slate-700'
+                    "
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      class="text-red-600"
+                    >
+                      <path
+                        d="M12 22s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                    <span class="whitespace-normal break-words">{{
+                      m.location
+                    }}</span>
+                  </span>
+                  <span v-else class="text-xs text-slate-400">—</span>
                 </div>
               </div>
               <div class="flex flex-col items-end">

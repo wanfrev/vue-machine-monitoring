@@ -4,6 +4,7 @@ import {
   type Ref,
   ref,
   computed,
+  nextTick,
   onMounted,
   onUnmounted,
   watch,
@@ -58,7 +59,50 @@ const isAdmin = ref(false);
 const isOperator = computed(() => currentRole.value === "operator");
 const statusMenuOpenId = ref<string | null>(null);
 
+const filterButtonEl = ref<HTMLElement | null>(null);
+const filterPopoverStyle = ref<Record<string, string>>({});
+
 const searchQuery = ref("");
+
+function updateFilterPopoverPosition() {
+  const el = filterButtonEl.value;
+  if (!el) return;
+
+  const rect = el.getBoundingClientRect();
+  const padding = 12;
+  const desiredWidth = 320;
+  const viewportW = window.innerWidth || 0;
+
+  const width = Math.max(
+    0,
+    Math.min(desiredWidth, Math.max(0, viewportW - padding * 2))
+  );
+  const left = Math.min(
+    Math.max(padding, rect.right - width),
+    Math.max(padding, viewportW - padding - width)
+  );
+  const top = rect.bottom + 8;
+
+  filterPopoverStyle.value = {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+  };
+}
+
+function onGlobalReposition() {
+  if (!filterOpen.value) return;
+  updateFilterPopoverPosition();
+}
+
+async function toggleFilters() {
+  filterOpen.value = !filterOpen.value;
+  if (filterOpen.value) {
+    sidebarOpen.value = false;
+    await nextTick();
+    updateFilterPopoverPosition();
+  }
+}
 
 type DashboardFilters = {
   locations: string[];
@@ -499,6 +543,24 @@ onMounted(async () => {
   isAdmin.value = getCurrentUserRole() === "admin";
   await loadDashboardData();
 
+  watch(filterOpen, async (open) => {
+    if (open) {
+      await nextTick();
+      updateFilterPopoverPosition();
+      window.addEventListener("resize", onGlobalReposition, { passive: true });
+      // capture=true para reposicionar también si algún contenedor scrollea
+      window.addEventListener("scroll", onGlobalReposition, true);
+    } else {
+      window.removeEventListener("resize", onGlobalReposition);
+      window.removeEventListener("scroll", onGlobalReposition, true);
+    }
+  });
+
+  onUnmounted(() => {
+    window.removeEventListener("resize", onGlobalReposition);
+    window.removeEventListener("scroll", onGlobalReposition, true);
+  });
+
   // Suscribirse a eventos en tiempo real de monedas
   try {
     coinSocket = getSocket();
@@ -774,8 +836,7 @@ watch(notificationPanelOpen, (open) => {
 
             <div
               v-if="notificationPanelOpen"
-              class="absolute right-0 mt-2 w-80 max-h-60 overflow-auto rounded-xl border bg-white/70 backdrop-blur-xl shadow-lg z-[100]"
-              style="z-index: 1000"
+              class="absolute right-0 mt-2 w-80 max-h-72 overflow-auto rounded-xl border bg-white/70 backdrop-blur-xl shadow-lg z-50"
               :class="
                 isDark()
                   ? 'bg-slate-900/60 border-slate-700/60 text-white'
@@ -832,7 +893,9 @@ watch(notificationPanelOpen, (open) => {
       </div>
 
       <!-- Tarjetas métricas superiores -->
-      <div class="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        class="grid grid-cols-2 gap-3 pt-2 auto-rows-fr sm:grid-cols-2 lg:grid-cols-4"
+      >
         <div
           class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
@@ -909,7 +972,7 @@ watch(notificationPanelOpen, (open) => {
     <!-- Barra de búsqueda y acciones -->
     <section class="space-y-4">
       <div
-        class="flex flex-col gap-3 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6"
+        class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6"
         :class="
           isDark()
             ? 'bg-slate-900/40 border-slate-700/60'
@@ -917,7 +980,7 @@ watch(notificationPanelOpen, (open) => {
         "
       >
         <div
-          class="flex flex-1 items-center gap-3 rounded-full border px-3 py-2 text-sm"
+          class="flex min-w-0 items-center gap-3 rounded-full border px-3 py-2 text-sm sm:flex-1"
           :class="
             isDark()
               ? 'border-slate-700/60 bg-slate-900/30 text-slate-200'
@@ -954,22 +1017,20 @@ watch(notificationPanelOpen, (open) => {
             type="text"
             placeholder="Buscar máquina u ubicación..."
             v-model="searchQuery"
-            class="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 sm:text-sm"
+            class="min-w-0 w-full bg-transparent text-xs outline-none placeholder:text-slate-400 sm:text-sm"
           />
         </div>
 
-        <div class="flex items-center gap-2 self-end sm:self-auto">
+        <div class="flex items-center gap-2 justify-self-end">
           <button
+            ref="filterButtonEl"
             class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 sm:text-sm cursor-pointer"
             :class="
               isDark()
                 ? 'border-slate-700/60 bg-slate-900/40 backdrop-blur-xl text-slate-100 hover:bg-slate-900/60'
                 : 'border-slate-200/70 bg-white/50 backdrop-blur-xl text-slate-700 hover:bg-white/70'
             "
-            @click="
-              filterOpen = !filterOpen;
-              if (filterOpen) sidebarOpen = false;
-            "
+            @click="toggleFilters"
           >
             <svg
               class="w-4 h-4"
@@ -986,20 +1047,12 @@ watch(notificationPanelOpen, (open) => {
                 stroke-linejoin="round"
               />
             </svg>
-            <span class="hidden sm:inline">Filtro</span>
+            <span>Filtro</span>
           </button>
-          <FilterPanel
-            :open="filterOpen"
-            :locations="availableLocations"
-            :maxIncome="maxIncome"
-            :showIncomeFilter="!isOperator"
-            @close="filterOpen = false"
-            @apply="onApplyFilters"
-          />
         </div>
         <button
           v-if="!isOperator"
-          class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:text-sm cursor-pointer"
+          class="col-span-2 inline-flex w-full items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:col-auto sm:w-auto sm:text-sm cursor-pointer"
           @click="newMachineOpen = true"
         >
           <svg
@@ -1025,9 +1078,39 @@ watch(notificationPanelOpen, (open) => {
               stroke-linejoin="round"
             />
           </svg>
-          <span class="hidden sm:inline">Nueva</span>
+          <span>Nueva máquina</span>
         </button>
       </div>
+
+      <Teleport to="body">
+        <div
+          v-if="filterOpen"
+          class="fixed inset-0 z-[9998]"
+          aria-hidden="true"
+          @click="filterOpen = false"
+        ></div>
+        <div
+          v-if="filterOpen"
+          class="fixed z-[9999]"
+          :style="filterPopoverStyle"
+          @click.stop
+        >
+          <FilterPanel
+            :open="true"
+            placement="static"
+            :locations="availableLocations"
+            :maxIncome="maxIncome"
+            :showIncomeFilter="!isOperator"
+            @close="filterOpen = false"
+            @apply="
+              (p) => {
+                onApplyFilters(p);
+                filterOpen = false;
+              }
+            "
+          />
+        </div>
+      </Teleport>
     </section>
 
     <!-- Grid de tarjetas de máquinas -->
@@ -1047,7 +1130,7 @@ watch(notificationPanelOpen, (open) => {
       </button>
     </div>
     <section
-      class="grid gap-4 pb-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3"
+      class="grid grid-cols-2 gap-3 pb-6 auto-rows-fr sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3"
     >
       <article
         v-for="machine in filteredMachines"
@@ -1060,12 +1143,51 @@ watch(notificationPanelOpen, (open) => {
         "
       >
         <header class="mb-3 flex items-start justify-between gap-2">
-          <div>
+          <div class="min-w-0">
             <h2 class="text-sm font-semibold">{{ machine.name }}</h2>
-            <p class="text-xs text-slate-400">{{ machine.location }}</p>
+            <div class="mt-1">
+              <span
+                v-if="machine.location"
+                class="inline-flex max-w-full items-start gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                :class="
+                  isDark()
+                    ? 'border-slate-700/60 bg-slate-950/20 text-slate-200'
+                    : 'border-slate-200/70 bg-white/40 text-slate-700'
+                "
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  class="text-red-600"
+                >
+                  <path
+                    d="M12 22s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span class="whitespace-normal break-words">{{
+                  machine.location
+                }}</span>
+              </span>
+              <span v-else class="text-xs text-slate-400">—</span>
+            </div>
           </div>
           <button
-            class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold text-red-600 shadow-sm cursor-pointer"
+            class="inline-flex h-8 w-8 shrink-0 flex-none items-center justify-center rounded-full border text-xs font-semibold text-red-600 shadow-sm cursor-pointer"
             :class="
               isDark()
                 ? 'border-red-500/40 bg-red-900/40 text-red-100'
@@ -1103,7 +1225,7 @@ watch(notificationPanelOpen, (open) => {
         <!-- Menú de cambio de estado (solo admin) -->
         <div
           v-if="statusMenuOpenId === machine.id && isAdmin"
-          class="absolute right-4 top-12 z-20 w-48 rounded-xl border text-xs shadow-lg"
+          class="absolute top-12 z-20 rounded-xl border text-xs shadow-lg left-4 right-4 sm:left-auto sm:right-4 w-auto sm:w-48 max-w-[90vw]"
           :class="
             isDark()
               ? 'border-slate-700/60 bg-slate-900/70 backdrop-blur-xl text-slate-100'

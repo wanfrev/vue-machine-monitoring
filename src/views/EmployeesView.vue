@@ -41,6 +41,34 @@ const totalEmployees = computed(
   () => employees.value.filter((e) => e.role === "employee").length
 );
 
+type PeopleTab = "supervisores" | "empleados";
+const peopleTab = ref<PeopleTab>("supervisores");
+
+type ApiMachine = {
+  id: number | string;
+  name: string;
+  location?: string | null;
+};
+
+const displayedEmployees = computed(() => {
+  // En este proyecto: role === 'operator' => empleado/operador
+  // role === 'employee' => supervisor (admins se ocultan en esta vista)
+  if (peopleTab.value === "empleados") {
+    return employees.value.filter((e) => e.role === "operator");
+  }
+  return employees.value.filter((e) => e.role === "employee");
+});
+
+const emptyTitle = computed(() =>
+  peopleTab.value === "empleados" ? "Sin empleados" : "Sin supervisores"
+);
+
+const emptySubtitle = computed(() =>
+  peopleTab.value === "empleados"
+    ? "Crea el primero para que aparezca aquí."
+    : "Crea el primero para que aparezca aquí."
+);
+
 async function loadEmployees() {
   loading.value = true;
   try {
@@ -52,8 +80,8 @@ async function loadEmployees() {
 
 async function loadMachines() {
   try {
-    const data = await getMachines();
-    machines.value = data.map((m: any) => ({
+    const data = (await getMachines()) as ApiMachine[];
+    machines.value = data.map((m) => ({
       id: m.id,
       name: m.name,
       location: m.location,
@@ -113,20 +141,26 @@ async function handleUpdateEmployee(payload: {
   await loadEmployees();
 }
 
-function getEmployeeMachinesLabel(e: Employee): string {
+function getEmployeeMachineLabels(e: Employee): string[] {
   const ids = e.assignedMachineIds ?? [];
-  if (!ids.length) return "—";
-  const labels = ids
+  if (!ids.length) return [];
+  return ids
     .map((mid) => {
       const m = machines.value.find((mm) => mm.id === mid);
-      return m?.location || m?.name || mid;
+      return (m?.location || m?.name || mid || "").trim();
     })
-    .filter(Boolean);
-  return labels.length ? labels.join(", ") : "—";
+    .filter((v) => !!v);
+}
+
+function getRoleLabel(e: Employee): string {
+  if (e.jobRole) return e.jobRole;
+  if (e.role === "admin") return "Admin";
+  if (e.role === "operator") return "Operador";
+  return "Supervisor";
 }
 
 async function handleDeleteEmployee(id: number) {
-  const ok = window.confirm("¿Seguro que deseas eliminarlo?");
+  const ok = window.confirm("¿Seguro que deseas eliminar este registro?");
   if (!ok) return;
   await deleteUser(id);
   await loadEmployees();
@@ -184,9 +218,7 @@ async function handleDeleteEmployee(id: number) {
                 class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
               />
             </button>
-            <h1 class="text-xl font-semibold sm:text-2xl">
-              Supervisores y Empleados
-            </h1>
+            <h1 class="text-xl font-semibold sm:text-2xl">Supervisor</h1>
           </div>
           <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
             Gestión
@@ -195,20 +227,23 @@ async function handleDeleteEmployee(id: number) {
             class="text-sm"
             :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
           >
-            CRUD de supervisores y empleados conectado al backend.
+            Administración de supervisores y operadores
           </p>
         </div>
 
         <button
           type="button"
-          class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer"
+          class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
           @click="openCreateModal"
         >
-          + Nuevo
+          <span class="mr-1">+</span>
+          <span>Nuevo supervisor</span>
         </button>
       </div>
 
-      <div class="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div
+        class="grid grid-cols-2 gap-3 pt-2 auto-rows-fr sm:grid-cols-2 lg:grid-cols-3"
+      >
         <div
           class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
@@ -269,6 +304,33 @@ async function handleDeleteEmployee(id: number) {
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
+      <div class="mb-4 flex gap-2">
+        <button
+          type="button"
+          class="px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition"
+          :class="
+            peopleTab === 'supervisores'
+              ? 'bg-slate-900 text-white hover:bg-slate-800'
+              : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70'
+          "
+          @click="peopleTab = 'supervisores'"
+        >
+          Supervisores
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition"
+          :class="
+            peopleTab === 'empleados'
+              ? 'bg-slate-900 text-white hover:bg-slate-800'
+              : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70'
+          "
+          @click="peopleTab = 'empleados'"
+        >
+          Empleados
+        </button>
+      </div>
+
       <!-- Desktop table (hidden on small screens) -->
       <div
         class="hidden sm:block overflow-x-auto rounded-2xl border shadow-sm"
@@ -302,7 +364,7 @@ async function handleDeleteEmployee(id: number) {
             <tr v-if="loading">
               <td class="px-4 py-3" colspan="6">Cargando...</td>
             </tr>
-            <tr v-else-if="!employees.length">
+            <tr v-else-if="!displayedEmployees.length">
               <td class="px-4 py-10" colspan="6">
                 <div
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
@@ -312,17 +374,13 @@ async function handleDeleteEmployee(id: number) {
                       : 'border-slate-200/70 bg-white/50 text-slate-600'
                   "
                 >
-                  <p class="text-base font-semibold">
-                    Sin supervisores ni empleados
-                  </p>
-                  <p class="mt-1 text-xs text-slate-400">
-                    Crea el primero para que aparezca aquí.
-                  </p>
+                  <p class="text-base font-semibold">{{ emptyTitle }}</p>
+                  <p class="mt-1 text-xs text-slate-400">{{ emptySubtitle }}</p>
                 </div>
               </td>
             </tr>
             <tr
-              v-for="e in employees"
+              v-for="e in displayedEmployees"
               :key="e.id"
               class="border-t transition-colors"
               :class="
@@ -336,13 +394,57 @@ async function handleDeleteEmployee(id: number) {
               </td>
               <td class="px-4 py-2 whitespace-nowrap">{{ e.name }}</td>
               <td class="px-4 py-2 whitespace-nowrap">
-                {{ e.jobRole || (e.role === "admin" ? "Admin" : "Empleado") }}
+                <span
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold"
+                  :class="
+                    e.role === 'admin'
+                      ? isDark()
+                        ? 'border-violet-800/50 bg-violet-950/40 text-violet-200'
+                        : 'border-violet-200 bg-violet-50 text-violet-700'
+                      : e.role === 'operator'
+                      ? isDark()
+                        ? 'border-emerald-800/50 bg-emerald-950/40 text-emerald-200'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : isDark()
+                      ? 'border-slate-700/60 bg-slate-900/30 text-slate-200'
+                      : 'border-slate-200 bg-white/40 text-slate-700'
+                  "
+                >
+                  {{ getRoleLabel(e) }}
+                </span>
               </td>
               <td class="px-4 py-2 whitespace-nowrap">
-                {{ e.shift || "—" }}
+                <span
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+                  :class="
+                    isDark()
+                      ? 'border-slate-700/60 bg-slate-950/20 text-slate-200'
+                      : 'border-slate-200/70 bg-white/40 text-slate-700'
+                  "
+                >
+                  {{ e.shift || "—" }}
+                </span>
               </td>
               <td class="px-4 py-2 whitespace-nowrap">
-                {{ getEmployeeMachinesLabel(e) }}
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    v-for="label in getEmployeeMachineLabels(e)"
+                    :key="label"
+                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                    :class="
+                      isDark()
+                        ? 'border-red-900/40 bg-red-950/20 text-red-100'
+                        : 'border-red-200/70 bg-red-50/60 text-red-700'
+                    "
+                  >
+                    {{ label }}
+                  </span>
+                  <span
+                    v-if="!getEmployeeMachineLabels(e).length"
+                    class="text-slate-400"
+                    >—</span
+                  >
+                </div>
               </td>
               <td
                 class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
@@ -370,7 +472,7 @@ async function handleDeleteEmployee(id: number) {
       <!-- Mobile stacked cards -->
       <div class="sm:hidden space-y-3">
         <div v-if="loading" class="px-4 py-3">Cargando...</div>
-        <div v-else-if="!employees.length" class="px-4 py-10">
+        <div v-else-if="!displayedEmployees.length" class="px-4 py-10">
           <div
             class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
             :class="
@@ -379,15 +481,13 @@ async function handleDeleteEmployee(id: number) {
                 : 'border-slate-200/70 bg-white/50 text-slate-600'
             "
           >
-            <p class="text-base font-semibold">Sin supervisores</p>
-            <p class="mt-1 text-xs text-slate-400">
-              Crea el primero para que aparezca aquí.
-            </p>
+            <p class="text-base font-semibold">{{ emptyTitle }}</p>
+            <p class="mt-1 text-xs text-slate-400">{{ emptySubtitle }}</p>
           </div>
         </div>
         <div v-else class="space-y-3">
           <div
-            v-for="e in employees"
+            v-for="e in displayedEmployees"
             :key="e.id"
             class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl"
             :class="
@@ -399,12 +499,48 @@ async function handleDeleteEmployee(id: number) {
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1">
                 <div class="text-sm font-semibold">{{ e.name }}</div>
-                <div class="text-xs text-slate-400 mt-1">
-                  {{ e.documentId || "—" }} •
-                  {{ e.jobRole || (e.role === "admin" ? "Admin" : "Empleado") }}
+                <div class="mt-1 flex flex-wrap items-center gap-2">
+                  <span class="text-xs text-slate-400">{{
+                    e.documentId || "—"
+                  }}</span>
+                  <span
+                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                    :class="
+                      e.role === 'admin'
+                        ? isDark()
+                          ? 'border-violet-800/50 bg-violet-950/40 text-violet-200'
+                          : 'border-violet-200 bg-violet-50 text-violet-700'
+                        : e.role === 'operator'
+                        ? isDark()
+                          ? 'border-emerald-800/50 bg-emerald-950/40 text-emerald-200'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : isDark()
+                        ? 'border-slate-700/60 bg-slate-900/30 text-slate-200'
+                        : 'border-slate-200 bg-white/40 text-slate-700'
+                    "
+                  >
+                    {{ getRoleLabel(e) }}
+                  </span>
                 </div>
-                <div class="text-xs text-slate-400">
-                  {{ getEmployeeMachinesLabel(e) }}
+
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <span
+                    v-for="label in getEmployeeMachineLabels(e)"
+                    :key="label"
+                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                    :class="
+                      isDark()
+                        ? 'border-red-900/40 bg-red-950/20 text-red-100'
+                        : 'border-red-200/70 bg-red-50/60 text-red-700'
+                    "
+                  >
+                    {{ label }}
+                  </span>
+                  <span
+                    v-if="!getEmployeeMachineLabels(e).length"
+                    class="text-xs text-slate-400"
+                    >—</span
+                  >
                 </div>
               </div>
               <div class="flex flex-col items-end">
