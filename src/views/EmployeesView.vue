@@ -126,7 +126,7 @@ function getEmployeeMachinesLabel(e: Employee): string {
 }
 
 async function handleDeleteEmployee(id: number) {
-  const ok = window.confirm("¿Seguro que deseas eliminar este supervisor?");
+  const ok = window.confirm("¿Seguro que deseas eliminarlo?");
   if (!ok) return;
   await deleteUser(id);
   await loadEmployees();
@@ -184,7 +184,9 @@ async function handleDeleteEmployee(id: number) {
                 class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
               />
             </button>
-            <h1 class="text-xl font-semibold sm:text-2xl">Supervisor</h1>
+            <h1 class="text-xl font-semibold sm:text-2xl">
+              Supervisores y Empleados
+            </h1>
           </div>
           <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
             Gestión
@@ -193,7 +195,7 @@ async function handleDeleteEmployee(id: number) {
             class="text-sm"
             :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
           >
-            CRUD de supervisores conectado al backend.
+            CRUD de supervisores y empleados conectado al backend.
           </p>
         </div>
 
@@ -202,7 +204,7 @@ async function handleDeleteEmployee(id: number) {
           class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer"
           @click="openCreateModal"
         >
-          + Nuevo supervisor
+          + Nuevo
         </button>
       </div>
 
@@ -310,7 +312,9 @@ async function handleDeleteEmployee(id: number) {
                       : 'border-slate-200/70 bg-white/50 text-slate-600'
                   "
                 >
-                  <p class="text-base font-semibold">Sin supervisores</p>
+                  <p class="text-base font-semibold">
+                    Sin supervisores ni empleados
+                  </p>
                   <p class="mt-1 text-xs text-slate-400">
                     Crea el primero para que aparezca aquí.
                   </p>

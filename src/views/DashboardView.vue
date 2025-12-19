@@ -774,7 +774,8 @@ watch(notificationPanelOpen, (open) => {
 
             <div
               v-if="notificationPanelOpen"
-              class="absolute right-0 mt-2 w-80 max-h-72 overflow-auto rounded-xl border bg-white/70 backdrop-blur-xl shadow-lg z-50"
+              class="absolute right-0 mt-2 w-80 max-h-60 overflow-auto rounded-xl border bg-white/70 backdrop-blur-xl shadow-lg z-[100]"
+              style="z-index: 1000"
               :class="
                 isDark()
                   ? 'bg-slate-900/60 border-slate-700/60 text-white'
