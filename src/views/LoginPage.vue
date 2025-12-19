@@ -58,19 +58,10 @@ async function login() {
 
 <template>
   <div
-    class="min-h-screen flex items-center justify-center"
-    style="
-      background: linear-gradient(
-        to right,
-        #fca5a5 0%,
-        #f3f4f6 40%,
-        #f8fafc 100%
-      );
-    "
+    class="min-h-screen flex items-center justify-center bg-gradient-to-r from-red-300 via-slate-100 to-slate-50"
   >
     <div
       class="backdrop-blur-xl bg-white/60 border border-slate-200 rounded-2xl shadow-2xl p-8 w-full max-w-md flex flex-col items-center"
-      style="box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18)"
     >
       <div class="flex flex-col items-center mb-6">
         <div class="mb-3">
@@ -122,7 +113,6 @@ async function login() {
           <button
             type="submit"
             class="w-full rounded-xl bg-red-600 text-white font-semibold py-3 mt-2 shadow-lg transition hover:bg-red-700"
-            style="box-shadow: 0 4px 24px 0 rgba(220, 38, 38, 0.15)"
           >
             Iniciar sesión
           </button>

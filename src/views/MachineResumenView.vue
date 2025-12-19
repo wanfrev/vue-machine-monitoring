@@ -142,7 +142,7 @@ watch([startDate, endDate, machine], async () => {
 <template>
   <!-- Resumen content: chart + metrics grid -->
   <section
-    class="rounded-2xl border bg-white p-4 shadow-sm sm:p-6 border-slate-200"
+    class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
   >
     <div class="mb-3 flex items-center justify-between">
       <h2 class="text-sm font-semibold">
@@ -153,24 +153,24 @@ watch([startDate, endDate, machine], async () => {
         }}
       </h2>
       <div
-        class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white border-slate-200"
+        class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
       >
         <span class="hidden sm:inline">Rango:</span>
         <input
           v-model="startDate"
           type="date"
-          class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
         />
         <span class="text-slate-400">a</span>
         <input
           v-model="endDate"
           type="date"
-          class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
         />
       </div>
     </div>
     <div
-      class="h-64 w-full rounded-xl border border-dashed border-slate-300 px-2 py-4 bg-slate-50 flex items-center justify-center"
+      class="h-64 w-full rounded-xl border border-slate-200/70 px-2 py-4 bg-white/40 backdrop-blur flex items-center justify-center"
     >
       <BarChart
         v-if="dailyIncome.length"
@@ -179,7 +179,10 @@ watch([startDate, endDate, machine], async () => {
           datasets: [
             {
               label: isOperator ? 'Monedas' : 'Ingresos',
-              backgroundColor: '#1e293b',
+              backgroundColor: 'rgba(220, 38, 38, 0.55)',
+              hoverBackgroundColor: 'rgba(220, 38, 38, 0.75)',
+              borderColor: 'rgba(220, 38, 38, 0.9)',
+              borderWidth: 1,
               data: dailyIncome.map((d) => d.income),
               borderRadius: 6,
               maxBarThickness: 16,
@@ -194,13 +197,21 @@ watch([startDate, endDate, machine], async () => {
           plugins: {
             legend: { display: false },
             title: { display: false },
-            tooltip: { enabled: true },
+            tooltip: {
+              enabled: true,
+              displayColors: false,
+              backgroundColor: 'rgba(15, 23, 42, 0.9)',
+              titleColor: 'rgba(248, 250, 252, 0.95)',
+              bodyColor: 'rgba(248, 250, 252, 0.9)',
+              padding: 10,
+              cornerRadius: 10,
+            },
           },
           scales: {
             x: {
               title: { display: true, text: 'Fecha' },
               ticks: {
-                color: '#64748b',
+                color: 'rgba(71, 85, 105, 0.9)',
                 font: { size: 10 },
                 autoSkip: true,
                 maxTicksLimit: 10,
@@ -213,8 +224,12 @@ watch([startDate, endDate, machine], async () => {
                 text: isOperator ? 'Monedas' : 'Ingresos ($)',
               },
               beginAtZero: true,
-              ticks: { color: '#64748b', font: { size: 10 }, precision: 0 },
-              grid: { color: '#e2e8f0' },
+              ticks: {
+                color: 'rgba(71, 85, 105, 0.9)',
+                font: { size: 10 },
+                precision: 0,
+              },
+              grid: { color: 'rgba(220, 38, 38, 0.10)' },
             },
           },
         }"
@@ -229,14 +244,14 @@ watch([startDate, endDate, machine], async () => {
       </p>
     </div>
     <div class="mt-4 text-sm text-slate-600">
-      <span class="inline-block h-3 w-3 rounded-sm bg-slate-900"></span>
+      <span class="inline-block h-3 w-3 rounded-sm bg-red-600"></span>
       <span class="ml-2">{{ isOperator ? "Monedas" : "Ingresos" }}</span>
     </div>
   </section>
 
   <section class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
     <div
-      class="rounded-2xl border bg-white px-4 py-3 shadow-sm border-slate-200"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
@@ -251,7 +266,7 @@ watch([startDate, endDate, machine], async () => {
       </p>
     </div>
     <div
-      class="rounded-2xl border bg-white px-4 py-3 shadow-sm border-slate-200"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
@@ -264,7 +279,7 @@ watch([startDate, endDate, machine], async () => {
     </div>
     <div
       v-if="!isOperator"
-      class="rounded-2xl border bg-white px-4 py-3 shadow-sm border-slate-200"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
@@ -275,7 +290,7 @@ watch([startDate, endDate, machine], async () => {
     </div>
     <div
       v-if="!isOperator"
-      class="rounded-2xl border bg-white px-4 py-3 shadow-sm border-slate-200"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"

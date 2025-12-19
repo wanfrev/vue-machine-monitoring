@@ -22,7 +22,7 @@ const isActive = (name: string) => route.name === name;
   <div class="min-h-screen px-3 py-4 sm:px-8 sm:py-6 bg-slate-50">
     <!-- Top bar -->
     <div
-      class="mb-4 flex items-center justify-between rounded-2xl border bg-white px-4 py-3 shadow-sm sm:px-6 border-slate-200"
+      class="mb-4 flex items-center justify-between rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6 border-slate-200/70"
     >
       <button
         type="button"
@@ -70,7 +70,7 @@ const isActive = (name: string) => route.name === name;
 
     <!-- Header -->
     <header
-      class="mb-4 rounded-2xl border bg-white px-4 py-4 shadow-sm sm:px-8 border-slate-200"
+      class="mb-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 border-slate-200/70"
     >
       <h1 class="text-2xl font-semibold">{{ id }}</h1>
       <p class="text-sm text-slate-400">{{ locationText }}</p>
@@ -87,7 +87,7 @@ const isActive = (name: string) => route.name === name;
           :class="
             isActive('machine-resumen')
               ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+              : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
           "
         >
           Resumen
@@ -102,7 +102,7 @@ const isActive = (name: string) => route.name === name;
           :class="
             isActive('machine-historial')
               ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+              : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
           "
         >
           Historial
@@ -117,7 +117,7 @@ const isActive = (name: string) => route.name === name;
           :class="
             isActive('machine-estadisticas')
               ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+              : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
           "
         >
           Estadísticas

@@ -8,7 +8,7 @@ provide("darkMode", darkMode);
 <template>
   <div
     :class="[
-      'min-h-screen',
+      'min-h-screen font-sans',
       darkMode ? 'dark bg-slate-900 text-white' : 'bg-white text-slate-900',
     ]"
   >

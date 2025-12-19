@@ -2,7 +2,7 @@
 import AppSidebar from "@/components/AppSidebar.vue";
 import { ref as vueRef } from "vue";
 const sidebarOpen = vueRef(false);
-import { inject, type Ref, onMounted, ref } from "vue";
+import { inject, type Ref, computed, onMounted, ref } from "vue";
 import NewEmployee from "@/components/NewEmployee.vue";
 import { getUsers, createUser, deleteUser, getMachines } from "../api/client";
 
@@ -32,6 +32,14 @@ const loading = ref(false);
 const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const employeeToEdit = ref<Employee | null>(null);
+
+const totalSupervisors = computed(() => employees.value.length);
+const totalOperators = computed(
+  () => employees.value.filter((e) => e.role === "operator").length
+);
+const totalEmployees = computed(
+  () => employees.value.filter((e) => e.role === "employee").length
+);
 
 async function loadEmployees() {
   loading.value = true;
@@ -80,7 +88,8 @@ async function handleCreateEmployee(payload: {
   shift?: string;
   assignedMachineIds?: string[];
 }) {
-  await createUser(payload);
+  const roleValue = payload.jobRole === "Operador" ? "operator" : "employee";
+  await createUser({ ...payload, role: roleValue });
   showModal.value = false;
   await loadEmployees();
 }
@@ -98,10 +107,7 @@ async function handleUpdateEmployee(payload: {
   assignedMachineIds?: string[];
 }) {
   // Determinar el valor del campo 'role' según el jobRole seleccionado
-  let roleValue = "employee";
-  if (payload.jobRole === "Operador") {
-    roleValue = "operator";
-  }
+  const roleValue = payload.jobRole === "Operador" ? "operator" : "employee";
   await updateUser(payload.id, { ...payload, role: roleValue });
   showModal.value = false;
   await loadEmployees();
@@ -128,225 +134,305 @@ async function handleDeleteEmployee(id: number) {
 </script>
 
 <template>
-  <div class="flex">
-    <AppSidebar
-      :open="sidebarOpen"
-      :dark="isDark()"
-      @close="sidebarOpen = false"
-    />
-    <div class="flex-1">
-      <NewEmployee
-        :open="showModal"
-        :dark="isDark()"
-        :machines="machines"
-        :mode="modalMode"
-        :employee="employeeToEdit"
-        @close="showModal = false"
-        @create="handleCreateEmployee"
-        @update="handleUpdateEmployee"
-      />
-      <!-- Botón de menú para abrir la sidebar (icono rayo) -->
-      <div
-        :class="[
-          'px-2 py-4 sm:p-6',
-          isDark() ? 'text-white bg-slate-900' : 'text-slate-900 bg-white',
-        ]"
-      >
-        <div
-          class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4"
-        >
+  <AppSidebar
+    :open="sidebarOpen"
+    :dark="isDark()"
+    @close="sidebarOpen = false"
+  />
+  <NewEmployee
+    :open="showModal"
+    :dark="isDark()"
+    :machines="machines"
+    :mode="modalMode"
+    :employee="employeeToEdit"
+    @close="showModal = false"
+    @create="handleCreateEmployee"
+    @update="handleUpdateEmployee"
+  />
+
+  <div
+    :class="[
+      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
+      isDark() ? 'bg-slate-900' : 'bg-slate-50',
+    ]"
+  >
+    <header
+      class="flex flex-col gap-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      :class="
+        isDark()
+          ? 'bg-slate-900/40 border-slate-700/60 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-1">
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-slate-500 transition cursor-pointer"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden"
               :class="
                 isDark()
-                  ? 'border-red-300 bg-red-700 hover:bg-red-600 hover:text-white'
-                  : 'border-red-200 bg-red-100 hover:bg-red-200 hover:text-red-700'
+                  ? 'border-red-300 hover:bg-transparent hover:text-white'
+                  : 'border-red-200 hover:bg-transparent hover:text-red-700'
               "
               aria-label="Abrir menú lateral"
               @click="sidebarOpen = true"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 512 512"
-                fill="none"
-              >
-                <path
-                  d="M315.27,33,96,304H224L192.49,477.23a2.36,2.36,0,0,0,2.33,2.77h0a2.36,2.36,0,0,0,1.89-.95L416,208H288L319.66,34.75A2.45,2.45,0,0,0,317.22,32h0A2.42,2.42,0,0,0,315.27,33Z"
-                  :stroke="isDark() ? '#ffffff' : '#000000'"
-                  stroke-width="28"
-                />
-              </svg>
+              <img
+                src="/img/icons/K11BOX.webp"
+                alt="MachineHub logo"
+                class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+              />
             </button>
-            <h1
-              class="text-3xl font-bold"
-              :class="isDark() ? 'text-white' : 'text-slate-900'"
-            >
-              Supervisor
-            </h1>
+            <h1 class="text-xl font-semibold sm:text-2xl">Supervisor</h1>
           </div>
-          <button
-            type="button"
-            class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm font-medium text-white shadow-sm"
-            @click="openCreateModal"
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Gestión
+          </p>
+          <p
+            class="text-sm"
+            :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
           >
-            + Nuevo supervisor
-          </button>
+            CRUD de supervisores conectado al backend.
+          </p>
         </div>
-        <p
-          class="text-sm mb-4"
-          :class="isDark() ? 'text-slate-300' : 'text-slate-600'"
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer"
+          @click="openCreateModal"
         >
-          CRUD de supervisores conectado al backend.
-        </p>
-        <div>
-          <!-- Desktop table (hidden on small screens) -->
-          <div
-            class="hidden sm:block overflow-x-auto rounded-xl border shadow-sm"
+          + Nuevo supervisor
+        </button>
+      </div>
+
+      <div class="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
+          :class="
+            isDark()
+              ? 'border-slate-700/60 bg-slate-900/30 text-slate-100'
+              : 'border-slate-200/70 bg-white/50 text-slate-700'
+          "
+        >
+          <p
+            class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+          >
+            Total
+          </p>
+          <p class="text-2xl font-semibold">{{ totalSupervisors }}</p>
+        </div>
+
+        <div
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
+          :class="
+            isDark()
+              ? 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200'
+              : 'border-emerald-100/80 bg-emerald-50/60 text-emerald-700'
+          "
+        >
+          <p
+            class="mb-1 text-xs font-medium uppercase tracking-wide text-emerald-500"
+          >
+            Operadores
+          </p>
+          <p class="text-2xl font-semibold text-emerald-600">
+            {{ totalOperators }}
+          </p>
+        </div>
+
+        <div
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
+          :class="
+            isDark()
+              ? 'border-slate-700/60 bg-slate-950/30 text-slate-200'
+              : 'border-slate-200/70 bg-white/50 text-slate-700'
+          "
+        >
+          <p
+            class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+          >
+            Supervisores
+          </p>
+          <p class="text-2xl font-semibold">{{ totalEmployees }}</p>
+        </div>
+      </div>
+    </header>
+
+    <section
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-3 shadow-sm sm:p-6"
+      :class="
+        isDark()
+          ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <!-- Desktop table (hidden on small screens) -->
+      <div
+        class="hidden sm:block overflow-x-auto rounded-2xl border shadow-sm"
+        :class="
+          isDark()
+            ? 'border-slate-700/60 bg-slate-900/20 backdrop-blur-xl'
+            : 'border-slate-200/70 bg-white/50 backdrop-blur-xl'
+        "
+      >
+        <table
+          class="min-w-full text-left text-sm"
+          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+        >
+          <thead
             :class="
               isDark()
-                ? 'border-slate-800 bg-slate-900'
-                : 'border-slate-200 bg-white'
+                ? 'bg-red-900/20 backdrop-blur text-slate-200'
+                : 'bg-red-50/70 backdrop-blur text-slate-700'
             "
           >
-            <table
-              class="min-w-full text-left text-sm"
-              :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
-            >
-              <thead
-                :class="
-                  isDark()
-                    ? 'bg-slate-800 text-slate-300'
-                    : 'bg-slate-50 text-slate-600'
-                "
-              >
-                <tr>
-                  <th class="px-4 py-2 whitespace-nowrap">Cédula</th>
-                  <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
-                  <th class="px-4 py-2 whitespace-nowrap">Rol</th>
-                  <th class="px-4 py-2 whitespace-nowrap">Turno</th>
-                  <th class="px-4 py-2 whitespace-nowrap">
-                    Máquinas (ubicación)
-                  </th>
-                  <th class="px-4 py-2 text-right whitespace-nowrap">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="loading">
-                  <td class="px-4 py-3" colspan="6">Cargando...</td>
-                </tr>
-                <tr
-                  v-for="e in employees"
-                  :key="e.id"
-                  class="border-t"
+            <tr>
+              <th class="px-4 py-2 whitespace-nowrap">Cédula</th>
+              <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
+              <th class="px-4 py-2 whitespace-nowrap">Rol</th>
+              <th class="px-4 py-2 whitespace-nowrap">Turno</th>
+              <th class="px-4 py-2 whitespace-nowrap">Máquinas (ubicación)</th>
+              <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td class="px-4 py-3" colspan="6">Cargando...</td>
+            </tr>
+            <tr v-else-if="!employees.length">
+              <td class="px-4 py-10" colspan="6">
+                <div
+                  class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
                   :class="
                     isDark()
-                      ? 'border-slate-800 hover:bg-slate-800'
-                      : 'border-slate-200 hover:bg-slate-50'
+                      ? 'border-slate-700/60 bg-slate-900/20 text-slate-200'
+                      : 'border-slate-200/70 bg-white/50 text-slate-600'
                   "
                 >
-                  <td class="px-4 py-2 whitespace-nowrap">
-                    {{ e.documentId || "—" }}
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap">{{ e.name }}</td>
-                  <td class="px-4 py-2 whitespace-nowrap">
-                    {{
-                      e.jobRole || (e.role === "admin" ? "Admin" : "Empleado")
-                    }}
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap">
-                    {{ e.shift || "—" }}
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap">
-                    {{ getEmployeeMachinesLabel(e) }}
-                  </td>
-                  <td
-                    class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
-                  >
-                    <button
-                      class="text-amber-500 hover:underline"
-                      type="button"
-                      @click="openEditModal(e)"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      class="text-slate-400 hover:underline"
-                      type="button"
-                      @click="handleDeleteEmployee(e.id)"
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Mobile stacked cards -->
-          <div class="sm:hidden space-y-3">
-            <div v-if="loading" class="px-4 py-3">Cargando...</div>
-            <div v-else class="space-y-3">
-              <div
-                v-for="e in employees"
-                :key="e.id"
-                class="rounded-xl border px-4 py-3"
-                :class="
-                  isDark()
-                    ? 'border-slate-800 bg-slate-900'
-                    : 'border-slate-200 bg-white'
-                "
+                  <p class="text-base font-semibold">Sin supervisores</p>
+                  <p class="mt-1 text-xs text-slate-400">
+                    Crea el primero para que aparezca aquí.
+                  </p>
+                </div>
+              </td>
+            </tr>
+            <tr
+              v-for="e in employees"
+              :key="e.id"
+              class="border-t transition-colors"
+              :class="
+                isDark()
+                  ? 'border-slate-800/70 hover:bg-red-500/10'
+                  : 'border-slate-200/70 hover:bg-red-100/50'
+              "
+            >
+              <td class="px-4 py-2 whitespace-nowrap">
+                {{ e.documentId || "—" }}
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap">{{ e.name }}</td>
+              <td class="px-4 py-2 whitespace-nowrap">
+                {{ e.jobRole || (e.role === "admin" ? "Admin" : "Empleado") }}
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap">
+                {{ e.shift || "—" }}
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap">
+                {{ getEmployeeMachinesLabel(e) }}
+              </td>
+              <td
+                class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex-1">
-                    <div class="text-sm font-semibold">{{ e.name }}</div>
-                    <div class="text-xs text-slate-400 mt-1">
-                      {{ e.documentId || "—" }} •
-                      {{
-                        e.jobRole || (e.role === "admin" ? "Admin" : "Empleado")
-                      }}
-                    </div>
-                    <div class="text-xs text-slate-400">
-                      {{ getEmployeeMachinesLabel(e) }}
-                    </div>
-                  </div>
-                  <div class="flex flex-col items-end">
-                    <div
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
-                      :class="
-                        isDark()
-                          ? 'bg-slate-800 text-slate-200'
-                          : 'bg-slate-100 text-slate-700'
-                      "
-                    >
-                      {{ e.shift || "—" }}
-                    </div>
-                    <div class="mt-2 flex flex-col items-end gap-2">
-                      <button
-                        class="text-amber-500 text-sm"
-                        @click="openEditModal(e)"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        class="text-slate-400 text-sm"
-                        @click="handleDeleteEmployee(e.id)"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
+                <button
+                  class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-amber-600 transition hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+                  type="button"
+                  @click="openEditModal(e)"
+                >
+                  Editar
+                </button>
+                <button
+                  class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40"
+                  type="button"
+                  @click="handleDeleteEmployee(e.id)"
+                >
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile stacked cards -->
+      <div class="sm:hidden space-y-3">
+        <div v-if="loading" class="px-4 py-3">Cargando...</div>
+        <div v-else-if="!employees.length" class="px-4 py-10">
+          <div
+            class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
+            :class="
+              isDark()
+                ? 'border-slate-700/60 bg-slate-900/20 text-slate-200'
+                : 'border-slate-200/70 bg-white/50 text-slate-600'
+            "
+          >
+            <p class="text-base font-semibold">Sin supervisores</p>
+            <p class="mt-1 text-xs text-slate-400">
+              Crea el primero para que aparezca aquí.
+            </p>
+          </div>
+        </div>
+        <div v-else class="space-y-3">
+          <div
+            v-for="e in employees"
+            :key="e.id"
+            class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl"
+            :class="
+              isDark()
+                ? 'border-slate-700/60 bg-slate-900/30'
+                : 'border-slate-200/70 bg-white/60'
+            "
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1">
+                <div class="text-sm font-semibold">{{ e.name }}</div>
+                <div class="text-xs text-slate-400 mt-1">
+                  {{ e.documentId || "—" }} •
+                  {{ e.jobRole || (e.role === "admin" ? "Admin" : "Empleado") }}
+                </div>
+                <div class="text-xs text-slate-400">
+                  {{ getEmployeeMachinesLabel(e) }}
+                </div>
+              </div>
+              <div class="flex flex-col items-end">
+                <div
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
+                  :class="
+                    isDark()
+                      ? 'bg-slate-800 text-slate-200'
+                      : 'bg-slate-100 text-slate-700'
+                  "
+                >
+                  {{ e.shift || "—" }}
+                </div>
+                <div class="mt-2 flex flex-col items-end gap-2">
+                  <button
+                    class="text-amber-500 text-sm"
+                    @click="openEditModal(e)"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    class="text-slate-400 text-sm"
+                    @click="handleDeleteEmployee(e.id)"
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   </div>
 </template>

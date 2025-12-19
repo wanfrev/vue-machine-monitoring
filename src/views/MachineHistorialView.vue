@@ -182,30 +182,30 @@ watch(search, () => {
 <template>
   <section class="space-y-4">
     <div
-      class="rounded-2xl border bg-white p-4 shadow-sm sm:p-6 border-slate-200"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
     >
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-sm font-semibold">
           Historial detallado de transacciones
         </h2>
         <div
-          class="mb-4 flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm border-slate-200 bg-white text-slate-600"
+          class="mb-4 flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm border-slate-200/70 bg-white/50 backdrop-blur text-slate-600"
         >
           <input
             v-model="startDate"
             type="date"
-            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
         </div>
       </div>
       <div
-        class="mb-6 flex items-center gap-2 rounded-full border px-3 py-2 text-sm border-slate-200 bg-slate-50 text-slate-500"
+        class="mb-6 flex items-center gap-2 rounded-full border px-3 py-2 text-sm border-slate-200/70 bg-white/50 backdrop-blur text-slate-600"
       >
         <span class="flex items-center">
           <svg
@@ -235,7 +235,7 @@ watch(search, () => {
       <div class="lg:hidden space-y-3">
         <div
           v-if="visible.length === 0"
-          class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-400"
+          class="rounded-2xl border border-dashed border-slate-200/70 bg-white/40 backdrop-blur p-4 text-center text-sm text-slate-500"
         >
           No hay registros en el historial para este rango de fechas.
         </div>
@@ -243,7 +243,7 @@ watch(search, () => {
           v-else
           v-for="(t, i) in visible"
           :key="i"
-          class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          class="rounded-2xl border border-slate-200/70 bg-white/60 backdrop-blur-xl p-4 shadow-sm"
         >
           <div class="mb-2 flex items-center justify-between">
             <span
@@ -285,7 +285,7 @@ watch(search, () => {
           </h3>
           <p class="text-xs text-slate-400">{{ t.date }} {{ t.time }}</p>
           <div
-            class="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+            class="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur px-3 py-3"
           >
             <div>
               <p class="text-xs text-slate-500">Monto</p>
@@ -312,10 +312,10 @@ watch(search, () => {
 
       <!-- Desktop table (lg and up) -->
       <div
-        class="hidden overflow-hidden rounded-xl border border-slate-200 lg:block"
+        class="hidden overflow-hidden rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur-xl lg:block"
       >
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-500">
+          <thead class="bg-red-50/70 backdrop-blur text-slate-700">
             <tr>
               <th class="px-4 py-2 text-left">Tipo</th>
               <th class="px-4 py-2 text-left">Descripción</th>
@@ -328,7 +328,7 @@ watch(search, () => {
             <tr
               v-for="(t, i) in visible"
               :key="i"
-              class="border-t border-slate-100"
+              class="border-t border-slate-100 transition-colors hover:bg-red-100/50"
             >
               <td class="px-4 py-2">
                 <span
@@ -401,7 +401,7 @@ watch(search, () => {
 
       <div class="mt-4 grid gap-3 sm:grid-cols-2">
         <div
-          class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+          class="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 text-sm"
         >
           <p class="text-slate-400">Registros mostrados</p>
           <p class="text-slate-800">
@@ -410,7 +410,7 @@ watch(search, () => {
           </p>
         </div>
         <div
-          class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+          class="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 text-sm"
         >
           <p class="text-slate-400">
             {{
@@ -429,7 +429,7 @@ watch(search, () => {
         v-if="filtered.length > 0"
       >
         <button
-          class="rounded-lg border px-3 py-1.5 border-slate-200 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+          class="rounded-lg border px-3 py-1.5 border-slate-200/70 bg-white/50 backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/70"
           :disabled="currentPage === 1"
           @click="currentPage = currentPage - 1"
         >
@@ -442,7 +442,7 @@ watch(search, () => {
           <span class="font-semibold">{{ totalPages }}</span>
         </span>
         <button
-          class="rounded-lg border px-3 py-1.5 border-slate-200 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+          class="rounded-lg border px-3 py-1.5 border-slate-200/70 bg-white/50 backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/70"
           :disabled="currentPage === totalPages"
           @click="currentPage = currentPage + 1"
         >

@@ -7,6 +7,7 @@ export async function updateUser(
     password?: string;
     jobRole: string;
     shift?: string;
+    role?: "employee" | "admin" | "operator";
     // Arreglo de IDs de máquinas asignadas
     assignedMachineIds?: string[];
     // Compatibilidad: un solo ID
@@ -19,6 +20,9 @@ export async function updateUser(
     document_id: payload.documentId,
     job_role: payload.jobRole,
   };
+  if (payload.role) {
+    body.role = payload.role;
+  }
   const ids =
     payload.assignedMachineIds ??
     (payload.assignedMachineId ? [payload.assignedMachineId] : undefined);

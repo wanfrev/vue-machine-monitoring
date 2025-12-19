@@ -686,11 +686,11 @@ watch(notificationPanelOpen, (open) => {
   >
     <!-- Header principal -->
     <header
-      class="flex flex-col gap-4 rounded-2xl border bg-white px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      class="flex flex-col gap-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
       :class="
         isDark()
-          ? 'bg-slate-900/60 border-slate-800 text-white'
-          : 'bg-white border-slate-200 text-slate-900'
+          ? 'bg-slate-900/40 border-slate-700/60 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
       <div class="flex items-start justify-between gap-4">
@@ -774,11 +774,11 @@ watch(notificationPanelOpen, (open) => {
 
             <div
               v-if="notificationPanelOpen"
-              class="absolute right-0 mt-2 w-80 max-h-72 overflow-auto rounded-xl border bg-white shadow-lg z-50"
+              class="absolute right-0 mt-2 w-80 max-h-72 overflow-auto rounded-xl border bg-white/70 backdrop-blur-xl shadow-lg z-50"
               :class="
                 isDark()
-                  ? 'bg-slate-900 border-slate-800 text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
+                  ? 'bg-slate-900/60 border-slate-700/60 text-white'
+                  : 'bg-white/70 border-slate-200/70 text-slate-900'
               "
             >
               <div class="p-3">
@@ -833,11 +833,11 @@ watch(notificationPanelOpen, (open) => {
       <!-- Tarjetas métricas superiores -->
       <div class="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-4">
         <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
             isDark()
-              ? 'border-slate-800 bg-slate-900/60 text-slate-100'
-              : 'border-slate-200 bg-slate-50 text-slate-700'
+              ? 'border-slate-700/60 bg-slate-900/30 text-slate-100'
+              : 'border-slate-200/70 bg-white/50 text-slate-700'
           "
         >
           <p
@@ -849,11 +849,11 @@ watch(notificationPanelOpen, (open) => {
         </div>
 
         <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
             isDark()
               ? 'border-green-900/60 bg-green-950/40 text-green-200'
-              : 'border-green-100 bg-green-50 text-green-700'
+              : 'border-green-100/80 bg-green-50/60 text-green-700'
           "
         >
           <p
@@ -867,11 +867,11 @@ watch(notificationPanelOpen, (open) => {
         </div>
 
         <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
             isDark()
               ? 'border-red-900/60 bg-red-950/40 text-red-200'
-              : 'border-red-100 bg-red-50 text-red-700'
+              : 'border-red-100/80 bg-red-50/60 text-red-700'
           "
         >
           <p
@@ -886,11 +886,11 @@ watch(notificationPanelOpen, (open) => {
 
         <div
           v-if="!isOperator"
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm"
+          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
           :class="
             isDark()
-              ? 'border-slate-800 bg-slate-950/40 text-slate-200'
-              : 'border-slate-200 bg-white text-slate-700'
+              ? 'border-slate-700/60 bg-slate-950/30 text-slate-200'
+              : 'border-slate-200/70 bg-white/50 text-slate-700'
           "
         >
           <p
@@ -908,19 +908,19 @@ watch(notificationPanelOpen, (open) => {
     <!-- Barra de búsqueda y acciones -->
     <section class="space-y-4">
       <div
-        class="flex flex-col gap-3 rounded-2xl border bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6"
+        class="flex flex-col gap-3 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6"
         :class="
           isDark()
-            ? 'bg-slate-900/60 border-slate-800'
-            : 'bg-white border-slate-200'
+            ? 'bg-slate-900/40 border-slate-700/60'
+            : 'bg-white/60 border-slate-200/70'
         "
       >
         <div
           class="flex flex-1 items-center gap-3 rounded-full border px-3 py-2 text-sm"
           :class="
             isDark()
-              ? 'border-slate-700 bg-slate-900/80 text-slate-200'
-              : 'border-slate-200 bg-slate-50 text-slate-500'
+              ? 'border-slate-700/60 bg-slate-900/30 text-slate-200'
+              : 'border-slate-200/70 bg-white/50 text-slate-600'
           "
         >
           <svg
@@ -962,8 +962,8 @@ watch(notificationPanelOpen, (open) => {
             class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 sm:text-sm cursor-pointer"
             :class="
               isDark()
-                ? 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800'
-                : 'border-slate-200 bg-white text-slate-700'
+                ? 'border-slate-700/60 bg-slate-900/40 backdrop-blur-xl text-slate-100 hover:bg-slate-900/60'
+                : 'border-slate-200/70 bg-white/50 backdrop-blur-xl text-slate-700 hover:bg-white/70'
             "
             @click="
               filterOpen = !filterOpen;
@@ -1039,7 +1039,7 @@ watch(notificationPanelOpen, (open) => {
           'px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
           selectedFilter === filter
             ? 'bg-slate-900 text-white hover:bg-slate-800'
-            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50',
+            : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70',
         ]"
       >
         {{ filter.charAt(0).toUpperCase() + filter.slice(1) }}
@@ -1051,11 +1051,11 @@ watch(notificationPanelOpen, (open) => {
       <article
         v-for="machine in filteredMachines"
         :key="machine.name"
-        class="relative flex flex-col justify-between rounded-2xl border bg-white p-4 text-sm shadow-sm"
+        class="relative flex flex-col justify-between rounded-2xl border bg-white/60 backdrop-blur-xl p-4 text-sm shadow-sm"
         :class="
           isDark()
-            ? 'bg-slate-900/70 border-slate-800 text-slate-100'
-            : 'bg-white border-slate-200 text-slate-700'
+            ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-700'
         "
       >
         <header class="mb-3 flex items-start justify-between gap-2">
@@ -1102,7 +1102,12 @@ watch(notificationPanelOpen, (open) => {
         <!-- Menú de cambio de estado (solo admin) -->
         <div
           v-if="statusMenuOpenId === machine.id && isAdmin"
-          class="absolute right-4 top-12 z-20 w-48 rounded-xl border border-slate-200 bg-white text-xs shadow-lg"
+          class="absolute right-4 top-12 z-20 w-48 rounded-xl border text-xs shadow-lg"
+          :class="
+            isDark()
+              ? 'border-slate-700/60 bg-slate-900/70 backdrop-blur-xl text-slate-100'
+              : 'border-slate-200/70 bg-white/70 backdrop-blur-xl text-slate-700'
+          "
           data-status-menu
         >
           <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400">

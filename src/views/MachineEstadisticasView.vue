@@ -176,7 +176,7 @@ watch([startDate, endDate, machine], async () => {
     <!-- Metric cards -->
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <div
-        class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
+        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tiempo promedio activo
@@ -187,7 +187,7 @@ watch([startDate, endDate, machine], async () => {
         <p class="text-xs text-slate-400">Por sesión</p>
       </div>
       <div
-        class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
+        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tiempo total activo
@@ -198,7 +198,7 @@ watch([startDate, endDate, machine], async () => {
         <p class="text-xs text-slate-400">Este período</p>
       </div>
       <div
-        class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
+        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tasa de uso
@@ -215,7 +215,7 @@ watch([startDate, endDate, machine], async () => {
       </div>
 
       <div
-        class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
+        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Monedas totales
@@ -226,7 +226,7 @@ watch([startDate, endDate, machine], async () => {
         <p class="text-xs text-slate-400">Histórico</p>
       </div>
       <div
-        class="rounded-2xl border bg-white px-4 py-4 shadow-sm border-slate-200"
+        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Sesiones totales
@@ -240,12 +240,12 @@ watch([startDate, endDate, machine], async () => {
 
     <!-- Power logs table -->
     <div
-      class="rounded-2xl border bg-white p-4 shadow-sm sm:p-6 border-slate-200"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
     >
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-sm font-semibold">Registro de encendido/apagado</h2>
         <div
-          class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white border-slate-200"
+          class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
         >
           <span class="hidden sm:inline">Rango:</span>
           <input
@@ -261,9 +261,11 @@ watch([startDate, endDate, machine], async () => {
           />
         </div>
       </div>
-      <div class="overflow-hidden rounded-xl border border-slate-200">
+      <div
+        class="overflow-hidden rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur"
+      >
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-500">
+          <thead class="bg-red-50/70 backdrop-blur text-slate-700">
             <tr>
               <th class="px-4 py-2 text-left">Evento</th>
               <th class="px-4 py-2 text-left">Fecha y hora</th>
@@ -274,7 +276,7 @@ watch([startDate, endDate, machine], async () => {
             <tr
               v-for="(row, i) in powerLogs"
               :key="i"
-              class="border-t border-slate-100"
+              class="border-t border-slate-100 transition-colors hover:bg-red-100/50"
             >
               <td class="px-4 py-2">
                 <span
