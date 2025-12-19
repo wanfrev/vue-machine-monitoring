@@ -61,6 +61,52 @@ const endDate = ref(formatDate(today));
 type ChartMode = "day" | "hour";
 const chartMode = ref<ChartMode>("day");
 
+const rangeStorageKey = computed(() => {
+  const id = String(route.params.id ?? "");
+  return `mm:range:machine-resumen:${id}`;
+});
+
+function readSavedRange() {
+  try {
+    const raw = localStorage.getItem(rangeStorageKey.value);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as {
+      startDate?: string;
+      endDate?: string;
+      chartMode?: ChartMode;
+    };
+    if (parsed.startDate) startDate.value = parsed.startDate;
+    if (parsed.endDate) endDate.value = parsed.endDate;
+    if (parsed.chartMode === "day" || parsed.chartMode === "hour") {
+      chartMode.value = parsed.chartMode;
+      // Mantener consistencia en modo por hora (un solo día)
+      if (chartMode.value === "hour" && startDate.value) {
+        endDate.value = startDate.value;
+      }
+    }
+  } catch {
+    // ignorar datos corruptos
+  }
+}
+
+function writeSavedRange() {
+  try {
+    localStorage.setItem(
+      rangeStorageKey.value,
+      JSON.stringify({
+        startDate: startDate.value,
+        endDate: endDate.value,
+        chartMode: chartMode.value,
+      })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+// Restaurar inmediatamente al cargar el componente
+readSavedRange();
+
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
 const hourlyIncome = ref<{ hour: number; income: number }[]>([]);
 const hourlyCoins = ref<{ hour: number; coins: number }[]>([]);
@@ -142,6 +188,7 @@ function setChartMode(mode: ChartMode) {
       endDate.value = startDate.value;
     }
   }
+  writeSavedRange();
 }
 
 async function loadDailyIncome() {
@@ -223,6 +270,7 @@ watch([startDate, endDate, machine, chartMode], async () => {
   if (startDate.value && endDate.value && startDate.value > endDate.value) {
     return;
   }
+  writeSavedRange();
   if (chartMode.value === "hour") {
     await loadHourlyIncome();
   } else {

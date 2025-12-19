@@ -48,6 +48,36 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
+const rangeStorageKey = computed(() => {
+  const id = String(route.params.id ?? "");
+  return `mm:range:machine-historial:${id}`;
+});
+
+function readSavedRange() {
+  try {
+    const raw = localStorage.getItem(rangeStorageKey.value);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { startDate?: string; endDate?: string };
+    if (parsed.startDate) startDate.value = parsed.startDate;
+    if (parsed.endDate) endDate.value = parsed.endDate;
+  } catch {
+    // ignore
+  }
+}
+
+function writeSavedRange() {
+  try {
+    localStorage.setItem(
+      rangeStorageKey.value,
+      JSON.stringify({ startDate: startDate.value, endDate: endDate.value })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+readSavedRange();
+
 const search = ref("");
 
 const pageSize = 20;
@@ -171,6 +201,7 @@ watch([startDate, endDate, machine], async () => {
     return;
   }
   currentPage.value = 1;
+  writeSavedRange();
   await loadHistory();
 });
 

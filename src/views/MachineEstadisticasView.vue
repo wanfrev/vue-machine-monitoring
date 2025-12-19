@@ -41,6 +41,36 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
+const rangeStorageKey = computed(() => {
+  const id = String(route.params.id ?? "");
+  return `mm:range:machine-estadisticas:${id}`;
+});
+
+function readSavedRange() {
+  try {
+    const raw = localStorage.getItem(rangeStorageKey.value);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { startDate?: string; endDate?: string };
+    if (parsed.startDate) startDate.value = parsed.startDate;
+    if (parsed.endDate) endDate.value = parsed.endDate;
+  } catch {
+    // ignore
+  }
+}
+
+function writeSavedRange() {
+  try {
+    localStorage.setItem(
+      rangeStorageKey.value,
+      JSON.stringify({ startDate: startDate.value, endDate: endDate.value })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+readSavedRange();
+
 // Ingresos diarios en el rango, para métricas de ingreso/hora
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
 
@@ -167,6 +197,7 @@ watch([startDate, endDate, machine], async () => {
   if (startDate.value && endDate.value && startDate.value > endDate.value) {
     return;
   }
+  writeSavedRange();
   await loadStats();
 });
 </script>
