@@ -491,27 +491,52 @@ const hasChartData = computed(() => {
               title: {
                 display: true,
                 text: chartMode === 'hour' ? 'Hora' : 'Fecha',
+                color: 'rgba(71, 85, 105, 0.9)',
+                font: { size: 12, weight: '600' },
+                padding: { top: 6 },
               },
+              offset: true,
               ticks: {
                 color: 'rgba(71, 85, 105, 0.9)',
                 font: { size: 10 },
                 autoSkip: true,
                 maxTicksLimit: chartMode === 'hour' ? 12 : 10,
+                padding: 8,
+                maxRotation: 0,
+                minRotation: 0,
               },
-              grid: { display: false },
+              grid: {
+                display: false,
+                drawTicks: false,
+              },
+              border: {
+                display: true,
+                color: 'rgba(148, 163, 184, 0.35)',
+              },
             },
             y: {
               title: {
                 display: true,
                 text: isOperator ? 'Monedas' : 'Ingresos ($)',
+                color: 'rgba(71, 85, 105, 0.9)',
+                font: { size: 12, weight: '600' },
+                padding: { bottom: 6 },
               },
               beginAtZero: true,
               ticks: {
                 color: 'rgba(71, 85, 105, 0.9)',
                 font: { size: 10 },
                 precision: 0,
+                padding: 10,
               },
-              grid: { color: 'rgba(220, 38, 38, 0.10)' },
+              grid: {
+                color: 'rgba(220, 38, 38, 0.10)',
+                drawTicks: false,
+              },
+              border: {
+                display: true,
+                color: 'rgba(148, 163, 184, 0.35)',
+              },
             },
           },
         }"

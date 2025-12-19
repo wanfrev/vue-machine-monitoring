@@ -135,14 +135,15 @@ async function loadHistory() {
     const mapped = (history || [])
       .filter((h: any) => h.type === "coin_inserted")
       .map((h: any) => {
-        const cantidad = h.data?.cantidad ?? h.data?.amount ?? 1;
+        const coins = Number(h.data?.cantidad ?? h.data?.amount ?? 1);
+        const amount = isOperator.value ? coins : coins * valuePerCoin.value;
         const { date, time } = toLocalDateTime(h.timestamp);
         return {
           kind: "Ingreso",
           description: "Ingreso de moneda",
           date,
           time,
-          amount: cantidad,
+          amount,
           ok: true,
         } as Tx;
       })
