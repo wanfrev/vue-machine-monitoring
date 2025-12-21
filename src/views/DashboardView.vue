@@ -763,6 +763,20 @@ onMounted(async () => {
         timestamp: String(ts),
       });
 
+      // Update local coin counters so UI updates immediately
+      try {
+        coinsByMachine.value = {
+          ...coinsByMachine.value,
+          [machineId]: (coinsByMachine.value[machineId] || 0) + amount,
+        };
+        dailyCoinsByMachine.value = {
+          ...dailyCoinsByMachine.value,
+          [machineId]: (dailyCoinsByMachine.value[machineId] || 0) + amount,
+        };
+      } catch (e) {
+        // ignore
+      }
+
       // Reproducir sonido en la página (si está visible)
       try {
         playNotificationSound();
@@ -794,30 +808,68 @@ onMounted(async () => {
     };
     coinSocket.on("coin_inserted", coinHandler);
 
-    // Encendido / apagado
-    machineOnHandler = (payload: any) => {
-      const machineId = String(payload.machineId ?? payload.machine_id ?? "");
-      const ts = payload.timestamp || payload.ts || new Date().toISOString();
-      addDashboardNotification({
-        type: "machine_on",
-        machineId,
-        machineName: payload.machineName,
-        location: payload.location,
-        timestamp: String(ts),
-        detail: payload.data?.reason ? String(payload.data.reason) : undefined,
-      });
+    // Encendido / apagado: actualizar estado localmente para evitar esperar al polling
+    machineOnHandler = async (payload: any) => {
+      try {
+        const machineId = String(payload.machineId ?? payload.machine_id ?? "");
+        const ts = payload.timestamp || payload.ts || new Date().toISOString();
+        const idx = machines.value.findIndex((m) => String(m.id) === machineId);
+        if (idx >= 0) {
+          const updated = {
+            ...machines.value[idx],
+            status: "active",
+            last_on: String(ts),
+          };
+          machines.value = machines.value.map((m, i) =>
+            i === idx ? updated : m
+          );
+        } else {
+          await loadDashboardData();
+        }
+        addDashboardNotification({
+          type: "machine_on",
+          machineId,
+          machineName: payload.machineName,
+          location: payload.location,
+          timestamp: String(ts),
+          detail: payload.data?.reason
+            ? String(payload.data.reason)
+            : undefined,
+        });
+      } catch (e) {
+        /* ignore */
+      }
     };
-    machineOffHandler = (payload: any) => {
-      const machineId = String(payload.machineId ?? payload.machine_id ?? "");
-      const ts = payload.timestamp || payload.ts || new Date().toISOString();
-      addDashboardNotification({
-        type: "machine_off",
-        machineId,
-        machineName: payload.machineName,
-        location: payload.location,
-        timestamp: String(ts),
-        detail: payload.data?.reason ? String(payload.data.reason) : undefined,
-      });
+    machineOffHandler = async (payload: any) => {
+      try {
+        const machineId = String(payload.machineId ?? payload.machine_id ?? "");
+        const ts = payload.timestamp || payload.ts || new Date().toISOString();
+        const idx = machines.value.findIndex((m) => String(m.id) === machineId);
+        if (idx >= 0) {
+          const updated = {
+            ...machines.value[idx],
+            status: "inactive",
+            last_off: String(ts),
+          };
+          machines.value = machines.value.map((m, i) =>
+            i === idx ? updated : m
+          );
+        } else {
+          await loadDashboardData();
+        }
+        addDashboardNotification({
+          type: "machine_off",
+          machineId,
+          machineName: payload.machineName,
+          location: payload.location,
+          timestamp: String(ts),
+          detail: payload.data?.reason
+            ? String(payload.data.reason)
+            : undefined,
+        });
+      } catch (e) {
+        /* ignore */
+      }
     };
     coinSocket.on("machine_on", machineOnHandler);
     coinSocket.on("machine_off", machineOffHandler);
