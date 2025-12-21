@@ -1570,7 +1570,9 @@ onUnmounted(() => {
         class="flex flex-col gap-2 mb-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <h2 class="text-sm font-semibold">Historial de notificaciones</h2>
-        <div class="flex items-center gap-2">
+        <div
+          class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+        >
           <button
             type="button"
             class="px-3 py-1 rounded-full text-xs font-semibold border transition"
@@ -1591,22 +1593,28 @@ onUnmounted(() => {
             Hoy
           </button>
 
-          <div class="flex items-center gap-2">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto"
+          >
             <input
               type="date"
               v-model="notificationFrom"
-              class="px-2 py-1 rounded text-xs border"
+              class="px-3 py-2 rounded text-sm border w-full sm:w-36"
               :class="
                 isDark()
                   ? 'bg-slate-900 text-slate-200 border-slate-700/60'
                   : 'bg-white text-slate-700 border-slate-200/70'
               "
             />
-            <span class="text-xs text-slate-400">a</span>
+            <div
+              class="flex items-center justify-center text-xs text-slate-400 py-1"
+            >
+              a
+            </div>
             <input
               type="date"
               v-model="notificationTo"
-              class="px-2 py-1 rounded text-xs border"
+              class="px-3 py-2 rounded text-sm border w-full sm:w-36"
               :class="
                 isDark()
                   ? 'bg-slate-900 text-slate-200 border-slate-700/60'
@@ -1615,7 +1623,7 @@ onUnmounted(() => {
             />
             <button
               type="button"
-              class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+              class="px-3 py-2 rounded-full text-sm font-semibold border transition w-full sm:w-auto"
               :class="
                 isTodayOnly
                   ? isDark()
@@ -1624,8 +1632,10 @@ onUnmounted(() => {
                   : 'bg-slate-900 text-white border-slate-900'
               "
               @click="
-                isTodayOnly = false;
-                loadNotificationsFromServer(1);
+                () => {
+                  isTodayOnly = false;
+                  loadNotificationsFromServer(1);
+                }
               "
             >
               Aplicar
