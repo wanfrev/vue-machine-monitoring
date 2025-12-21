@@ -95,6 +95,10 @@ onMounted(async () => {
   await Promise.all([loadEmployees(), loadMachines()]);
 });
 
+async function refreshPage() {
+  await Promise.all([loadEmployees(), loadMachines()]);
+}
+
 function openCreateModal() {
   modalMode.value = "create";
   employeeToEdit.value = null;
@@ -231,14 +235,52 @@ async function handleDeleteEmployee(id: number) {
           </p>
         </div>
 
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
-          @click="openCreateModal"
-        >
-          <span class="mr-1">+</span>
-          <span>Nuevo supervisor</span>
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
+            :class="
+              isDark()
+                ? 'border-red-400/30 bg-red-950/10 text-red-100 hover:bg-red-950/20'
+                : 'border-red-200/80 bg-red-50/60 text-red-700 hover:bg-red-50/80'
+            "
+            aria-label="Refrescar"
+            title="Refrescar"
+            @click="refreshPage"
+          >
+            <svg
+              class="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M21 12a9 9 0 1 1-3.27-6.93"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M21 3v6h-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+            @click="openCreateModal"
+          >
+            <span class="mr-1">+</span>
+            <span>Nuevo supervisor</span>
+          </button>
+        </div>
       </div>
 
       <div

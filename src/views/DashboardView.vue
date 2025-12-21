@@ -59,6 +59,10 @@ const isAdmin = ref(false);
 const isOperator = computed(() => currentRole.value === "operator");
 const statusMenuOpenId = ref<string | null>(null);
 
+function refreshPage() {
+  window.location.reload();
+}
+
 const filterButtonEl = ref<HTMLElement | null>(null);
 const filterPopoverStyle = ref<Record<string, string>>({});
 
@@ -129,19 +133,103 @@ type Machine = {
 };
 const machines = ref<Machine[]>([]);
 
-type CoinNotification = {
+type DashboardNotificationType =
+  | "coin_inserted"
+  | "machine_on"
+  | "machine_off"
+  | "event";
+
+type DashboardNotification = {
   id: number;
+  type: DashboardNotificationType;
   machineId: string;
   machineName: string;
   location?: string;
-  amount: number;
   timestamp: string;
+  amount?: number;
+  detail?: string;
 };
 
-const notifications = ref<CoinNotification[]>([]);
+const notifications = ref<DashboardNotification[]>([]);
 const unreadCount = ref(0);
 let notificationCounter = 1;
-const notificationPanelOpen = ref(false);
+
+type NotificationRange = "7d" | "30d" | "all";
+const notificationRange = ref<NotificationRange>("7d");
+
+function normalizeTimestamp(ts: unknown): string {
+  const raw = String(ts ?? "").trim();
+  if (!raw) return new Date().toISOString();
+
+  const direct = new Date(raw);
+  if (!Number.isNaN(direct.getTime())) return direct.toISOString();
+
+  // Legacy: only time like "HH:mm" or "HH:mm:ss" -> assume today
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (m) {
+    const now = new Date();
+    const h = Math.min(23, Math.max(0, Number(m[1])));
+    const min = Math.min(59, Math.max(0, Number(m[2])));
+    const s = Math.min(59, Math.max(0, Number(m[3] ?? 0)));
+    const d = new Date(now);
+    d.setHours(h, min, s, 0);
+    return d.toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
+function notificationTimestampMs(n: DashboardNotification): number {
+  const d = new Date(n.timestamp);
+  const ms = d.getTime();
+  return Number.isNaN(ms) ? Date.now() : ms;
+}
+
+function cutoffMsForRange(range: NotificationRange): number {
+  if (range === "all") return 0;
+  const days = range === "7d" ? 7 : 30;
+  return Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
+const visibleNotifications = computed(() => {
+  if (notificationRange.value === "all") return notifications.value;
+  const cutoff = cutoffMsForRange(notificationRange.value);
+  return notifications.value.filter(
+    (n) => notificationTimestampMs(n) >= cutoff
+  );
+});
+
+const notificationPageSize = 20;
+const notificationPage = ref(1);
+
+const notificationTotalPages = computed(() => {
+  const total = visibleNotifications.value.length;
+  return Math.max(1, Math.ceil(total / notificationPageSize));
+});
+
+watch(
+  [notificationRange, visibleNotifications],
+  () => {
+    // Reset to first page when range/list changes
+    notificationPage.value = 1;
+  },
+  { deep: false }
+);
+
+watch(
+  [notificationTotalPages, notificationPage],
+  ([totalPages, page]) => {
+    // Clamp page when list shrinks
+    if (page > totalPages) notificationPage.value = totalPages;
+    if (page < 1) notificationPage.value = 1;
+  },
+  { immediate: true }
+);
+
+const pagedNotifications = computed(() => {
+  const start = (notificationPage.value - 1) * notificationPageSize;
+  return visibleNotifications.value.slice(start, start + notificationPageSize);
+});
 
 // In-page notification sound (put a short audio file at public/sounds/coin.mp3)
 const notificationSound = new Audio("/sounds/coin.mp3");
@@ -162,9 +250,17 @@ const stateFilters = [
   "activas",
   "inactivas",
   "mantenimiento",
+  "notificaciones",
 ] as const;
 type Filter = (typeof stateFilters)[number];
 const selectedFilter = ref<Filter>("todas");
+
+function setSelectedFilter(filter: Filter) {
+  selectedFilter.value = filter;
+  if (filter === "notificaciones") {
+    unreadCount.value = 0;
+  }
+}
 
 const availableLocations = computed(() => {
   const set = new Set<string>();
@@ -461,25 +557,85 @@ function handleGlobalClick(event: MouseEvent) {
   if (!insideStatus) {
     statusMenuOpenId.value = null;
   }
-  const insideNotif = target.closest("[data-notification-panel]");
-  if (!insideNotif) {
-    notificationPanelOpen.value = false;
-  }
 }
 
-function clearNotifications() {
-  notifications.value = [];
+function getNotificationTitle(n: DashboardNotification) {
+  if (n.type === "machine_on") return "Máquina encendida";
+  if (n.type === "machine_off") return "Máquina apagada";
+  if (n.type === "coin_inserted") return "Moneda ingresada";
+  return "Nuevo evento";
+}
+
+function getNotificationDetailLine(n: DashboardNotification) {
+  if (n.type === "coin_inserted") {
+    const amount = Number(n.amount ?? 1) || 1;
+    return `+${amount} moneda(s)`;
+  }
+  return (n.detail || "").trim();
+}
+
+function addDashboardNotification(input: {
+  type: DashboardNotificationType;
+  machineId: string;
+  machineName?: string;
+  location?: string;
+  timestamp?: string;
+  amount?: number;
+  detail?: string;
+}) {
+  const machineId = String(input.machineId ?? "");
+  if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+
+  const machine = machines.value.find((m) => String(m.id) === machineId);
+  const machineName =
+    input.machineName || machine?.name || `Máquina ${machineId}`;
+  const location = input.location || machine?.location;
+  const ts = normalizeTimestamp(input.timestamp || new Date().toISOString());
+
+  const id = notificationCounter++;
+  const n: DashboardNotification = {
+    id,
+    type: input.type,
+    machineId,
+    machineName,
+    location,
+    timestamp: String(ts),
+    ...(input.amount !== undefined ? { amount: input.amount } : {}),
+    ...(input.detail ? { detail: input.detail } : {}),
+  };
+
+  notifications.value.unshift(n);
+
+  // Incrementar no-leídas solo si no está viendo la vista de notificaciones
+  if (selectedFilter.value !== "notificaciones") {
+    unreadCount.value = (unreadCount.value || 0) + 1;
+  }
+
+  // Mantener historial en localStorage (persistente)
   try {
-    localStorage.removeItem("notifications");
+    localStorage.setItem("notifications", JSON.stringify(notifications.value));
   } catch (e) {
-    console.warn("No se pudo limpiar localStorage de notificaciones", e);
+    console.warn("No se pudo guardar notificaciones en localStorage", e);
   }
 }
 
-function toggleNotificationPanel() {
-  notificationPanelOpen.value = !notificationPanelOpen.value;
-  if (notificationPanelOpen.value) {
-    unreadCount.value = 0;
+function formatNotificationDate(ts: string) {
+  try {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString();
+  } catch {
+    return "";
+  }
+}
+
+function formatNotificationTime(ts: string) {
+  try {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return ts;
+    return d.toLocaleTimeString();
+  } catch {
+    return ts;
   }
 }
 
@@ -558,6 +714,8 @@ async function loadDashboardData() {
 let refreshTimer: number | undefined;
 let coinSocket: ReturnType<typeof getSocket> | null = null;
 let coinHandler: ((payload: any) => void) | null = null;
+let machineOnHandler: ((payload: any) => void) | null = null;
+let machineOffHandler: ((payload: any) => void) | null = null;
 let swMessageHandler: ((ev: MessageEvent) => void) | null = null;
 
 onMounted(async () => {
@@ -587,41 +745,23 @@ onMounted(async () => {
   try {
     coinSocket = getSocket();
     coinHandler = (payload: any) => {
-      const machineId = String(payload.machineId ?? "");
-      if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+      const machineId = String(payload.machineId ?? payload.machine_id ?? "");
+      const amount = Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
+      const ts = payload.timestamp || payload.ts || new Date().toISOString();
 
       const machine = machines.value.find((m) => String(m.id) === machineId);
       const machineName =
         payload.machineName || machine?.name || `Máquina ${machineId}`;
       const location = payload.location || machine?.location;
-      const amount = Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
-      const ts = payload.timestamp || new Date().toISOString();
-      const timeStr = new Date(ts).toLocaleTimeString();
 
-      const id = notificationCounter++;
-      notifications.value.unshift({
-        id,
+      addDashboardNotification({
+        type: "coin_inserted",
         machineId,
         machineName,
         location,
         amount,
-        timestamp: timeStr,
+        timestamp: String(ts),
       });
-
-      // Increment unread counter only if panel is closed
-      if (!notificationPanelOpen.value) {
-        unreadCount.value = (unreadCount.value || 0) + 1;
-      }
-
-      // Mantener historial en localStorage (persistente)
-      try {
-        localStorage.setItem(
-          "notifications",
-          JSON.stringify(notifications.value)
-        );
-      } catch (e) {
-        console.warn("No se pudo guardar notificaciones en localStorage", e);
-      }
 
       // Reproducir sonido en la página (si está visible)
       try {
@@ -638,7 +778,7 @@ onMounted(async () => {
             const bodyParts = [machineName];
             if (location) bodyParts.push(`• ${location}`);
             bodyParts.push(`+${amount} moneda(s)`);
-            bodyParts.push(`• ${timeStr}`);
+            bodyParts.push(`• ${formatNotificationTime(String(ts))}`);
             const body = bodyParts.join(" ");
             new Notification(title, {
               body,
@@ -653,6 +793,34 @@ onMounted(async () => {
       }
     };
     coinSocket.on("coin_inserted", coinHandler);
+
+    // Encendido / apagado
+    machineOnHandler = (payload: any) => {
+      const machineId = String(payload.machineId ?? payload.machine_id ?? "");
+      const ts = payload.timestamp || payload.ts || new Date().toISOString();
+      addDashboardNotification({
+        type: "machine_on",
+        machineId,
+        machineName: payload.machineName,
+        location: payload.location,
+        timestamp: String(ts),
+        detail: payload.data?.reason ? String(payload.data.reason) : undefined,
+      });
+    };
+    machineOffHandler = (payload: any) => {
+      const machineId = String(payload.machineId ?? payload.machine_id ?? "");
+      const ts = payload.timestamp || payload.ts || new Date().toISOString();
+      addDashboardNotification({
+        type: "machine_off",
+        machineId,
+        machineName: payload.machineName,
+        location: payload.location,
+        timestamp: String(ts),
+        detail: payload.data?.reason ? String(payload.data.reason) : undefined,
+      });
+    };
+    coinSocket.on("machine_on", machineOnHandler);
+    coinSocket.on("machine_off", machineOffHandler);
   } catch (e) {
     console.error("No se pudo conectar al socket de tiempo real:", e);
   }
@@ -677,9 +845,53 @@ onMounted(async () => {
       swMessageHandler = (ev: MessageEvent) => {
         try {
           const msg = ev.data;
-          if (msg && msg.type === "coin_notification") {
-            // reproducir sonido en la página si corresponde
+          if (!msg) return;
+          // Compatibilidad: mensajes viejos (coin_notification)
+          if (msg.type === "coin_notification") {
             playNotificationSound();
+            return;
+          }
+          // Nuevo: el SW envía { type: 'event_notification', payload }
+          if (msg.type === "event_notification") {
+            const payload = msg.payload || {};
+            const eventType = String(
+              payload.eventType || payload.type || ""
+            ) as DashboardNotificationType;
+            const machineId = String(
+              payload.machine_id ?? payload.machineId ?? ""
+            );
+            const ts =
+              payload.timestamp || payload.ts || new Date().toISOString();
+            if (eventType === "coin_inserted") {
+              const amount =
+                Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
+              addDashboardNotification({
+                type: "coin_inserted",
+                machineId,
+                amount,
+                timestamp: String(ts),
+              });
+              playNotificationSound();
+              return;
+            }
+            if (eventType === "machine_on" || eventType === "machine_off") {
+              addDashboardNotification({
+                type: eventType,
+                machineId,
+                timestamp: String(ts),
+                detail: payload.data?.reason
+                  ? String(payload.data.reason)
+                  : undefined,
+              });
+              return;
+            }
+            // Otros eventos (si llegan)
+            addDashboardNotification({
+              type: "event",
+              machineId,
+              timestamp: String(ts),
+              detail: payload.type ? `Evento: ${payload.type}` : undefined,
+            });
           }
         } catch (e) {
           // ignore
@@ -696,8 +908,49 @@ onMounted(async () => {
     const stored = localStorage.getItem("notifications");
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed))
-        notifications.value = parsed as CoinNotification[];
+      if (Array.isArray(parsed)) {
+        // Compatibilidad con estructura antigua (sin 'type')
+        const normalized: DashboardNotification[] = parsed
+          .map((raw: any, idx: number) => {
+            const machineId = String(raw.machineId ?? raw.machine_id ?? "");
+            if (!machineId) return null;
+            const id = Number(raw.id ?? idx + 1);
+            const type = String(
+              raw.type || "coin_inserted"
+            ) as DashboardNotificationType;
+            const ts = normalizeTimestamp(raw.timestamp ?? raw.ts ?? "");
+            return {
+              id,
+              type,
+              machineId,
+              machineName: String(
+                raw.machineName ?? raw.machine_name ?? `Máquina ${machineId}`
+              ),
+              location: raw.location ?? undefined,
+              timestamp: ts,
+              ...(raw.amount !== undefined
+                ? { amount: Number(raw.amount) }
+                : {}),
+              ...(raw.detail ? { detail: String(raw.detail) } : {}),
+            } as DashboardNotification;
+          })
+          .filter(Boolean) as DashboardNotification[];
+        notifications.value = normalized;
+
+        // Persistir normalización
+        try {
+          localStorage.setItem(
+            "notifications",
+            JSON.stringify(notifications.value)
+          );
+        } catch {
+          /* ignore */
+        }
+
+        // Ajustar contador incremental
+        const maxId = normalized.reduce((m, n) => Math.max(m, n.id || 0), 0);
+        notificationCounter = Math.max(notificationCounter, maxId + 1);
+      }
     }
   } catch (e) {
     console.warn("Error cargando notificaciones desde localStorage", e);
@@ -724,6 +977,12 @@ onUnmounted(() => {
   if (coinSocket && coinHandler) {
     coinSocket.off("coin_inserted", coinHandler);
   }
+  if (coinSocket && machineOnHandler) {
+    coinSocket.off("machine_on", machineOnHandler);
+  }
+  if (coinSocket && machineOffHandler) {
+    coinSocket.off("machine_off", machineOffHandler);
+  }
   if (
     swMessageHandler &&
     navigator.serviceWorker &&
@@ -735,11 +994,6 @@ onUnmounted(() => {
       /* ignore */
     }
   }
-});
-
-// Asegurar que al abrir el panel se resetea el contador (por si se abre desde elsewhere)
-watch(notificationPanelOpen, (open) => {
-  if (open) unreadCount.value = 0;
 });
 </script>
 
@@ -814,103 +1068,42 @@ watch(notificationPanelOpen, (open) => {
             >.
           </p>
         </div>
-        <!-- Botón salir movido a Sidebar -->
-        <div class="flex items-center gap-2">
-          <div class="relative overflow-visible" data-notification-panel>
-            <button
-              @click="toggleNotificationPanel()"
-              class="relative inline-flex h-10 w-10 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group"
-              :class="
-                isDark()
-                  ? 'border-slate-700 hover:bg-transparent hover:text-white'
-                  : 'border-slate-200 hover:bg-transparent hover:text-red-700'
-              "
-              aria-label="Notificaciones"
+        <!-- Refrescar (antes: botón de notificaciones) -->
+        <div class="shrink-0">
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
+            :class="
+              isDark()
+                ? 'border-red-400/30 bg-red-950/10 text-red-100 hover:bg-red-950/20'
+                : 'border-red-200/80 bg-red-50/60 text-red-700 hover:bg-red-50/80'
+            "
+            aria-label="Refrescar"
+            @click="refreshPage"
+          >
+            <svg
+              class="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
             >
-              <svg
-                class="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6 6 0 1 0-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M13.73 21a2 2 0 0 1-3.46 0"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              <span
-                v-if="unreadCount"
-                class="absolute top-0 right-0 translate-x-1/2 -translate-y-1/2 inline-flex items-center justify-center bg-red-600 text-white text-xs font-bold px-2 py-0.5 min-w-[18px] min-h-[18px] border-2 border-white shadow-lg rounded-full"
-                >{{ unreadCount }}</span
-              >
-            </button>
-
-            <div
-              v-if="notificationPanelOpen"
-              class="absolute right-0 mt-2 w-80 max-h-72 overflow-auto rounded-xl border bg-white/70 backdrop-blur-xl shadow-lg z-50"
-              :class="
-                isDark()
-                  ? 'bg-slate-900/60 border-slate-700/60 text-white'
-                  : 'bg-white/70 border-slate-200/70 text-slate-900'
-              "
-            >
-              <div class="p-3">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-semibold">Notificaciones</h3>
-                  <button
-                    class="text-xs text-slate-400 hover:underline"
-                    @click="clearNotifications"
-                  >
-                    Borrar
-                  </button>
-                </div>
-                <div class="space-y-2">
-                  <div
-                    v-if="!notifications.length"
-                    class="text-xs text-slate-400"
-                  >
-                    No hay notificaciones recientes
-                  </div>
-                  <div
-                    v-for="n in notifications"
-                    :key="n.id"
-                    class="flex items-start gap-2 rounded-md p-2"
-                    :class="
-                      isDark() ? 'hover:bg-slate-800' : 'hover:bg-slate-50'
-                    "
-                  >
-                    <span
-                      class="mt-1 h-2 w-2 rounded-full bg-emerald-500"
-                    ></span>
-                    <div class="flex-1 text-xs">
-                      <p class="font-medium">Moneda ingresada</p>
-                      <p
-                        class="text-[12px] text-slate-500"
-                        :class="isDark() ? 'text-slate-400' : ''"
-                      >
-                        {{ n.machineName }}
-                        <span v-if="n.location">• {{ n.location }}</span>
-                      </p>
-                      <p class="text-[11px] text-slate-400">
-                        +{{ n.amount }} • {{ n.timestamp }}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              <path
+                d="M21 12a9 9 0 1 1-3.27-6.93"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M21 3v6h-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -1136,11 +1329,11 @@ watch(notificationPanelOpen, (open) => {
     </section>
 
     <!-- Grid de tarjetas de máquinas -->
-    <div class="flex gap-2 mb-4">
+    <div class="flex flex-wrap items-center gap-2 mb-4">
       <button
         v-for="filter in stateFilters"
         :key="filter"
-        @click="selectedFilter = filter"
+        @click="setSelectedFilter(filter)"
         :class="[
           'px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
           selectedFilter === filter
@@ -1148,10 +1341,178 @@ watch(notificationPanelOpen, (open) => {
             : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70',
         ]"
       >
-        {{ filter.charAt(0).toUpperCase() + filter.slice(1) }}
+        <span class="inline-flex items-center gap-2">
+          <span>
+            {{
+              filter === "notificaciones"
+                ? "Notificaciones"
+                : filter.charAt(0).toUpperCase() + filter.slice(1)
+            }}
+          </span>
+          <span
+            v-if="filter === 'notificaciones' && unreadCount"
+            class="inline-flex items-center justify-center bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 min-w-[16px] min-h-[16px] rounded-full"
+            >{{ unreadCount }}</span
+          >
+        </span>
       </button>
     </div>
+
+    <!-- Vista de notificaciones (inline, como Activas/Inactivas) -->
     <section
+      v-if="selectedFilter === 'notificaciones'"
+      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
+      :class="
+        isDark()
+          ? 'bg-slate-900/40 border-slate-700/60 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <div
+        class="flex flex-col gap-2 mb-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <h2 class="text-sm font-semibold">Historial de notificaciones</h2>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+            :class="
+              notificationRange === '7d'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : isDark()
+                ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+                : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
+            "
+            @click="notificationRange = '7d'"
+          >
+            Últimos 7 días
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+            :class="
+              notificationRange === '30d'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : isDark()
+                ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+                : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
+            "
+            @click="notificationRange = '30d'"
+          >
+            Último mes
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+            :class="
+              notificationRange === 'all'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : isDark()
+                ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+                : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
+            "
+            @click="notificationRange = 'all'"
+          >
+            Todo
+          </button>
+        </div>
+      </div>
+
+      <div v-if="!visibleNotifications.length" class="text-xs text-slate-400">
+        No hay notificaciones
+      </div>
+
+      <div v-else class="space-y-2 max-h-[520px] overflow-auto pr-1">
+        <div
+          v-for="n in pagedNotifications"
+          :key="n.id"
+          class="rounded-xl border p-3"
+          :class="
+            isDark()
+              ? 'border-slate-700/60 bg-slate-950/20'
+              : 'border-slate-200/70 bg-white/40'
+          "
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold">{{ getNotificationTitle(n) }}</p>
+              <p
+                class="text-[12px] text-slate-500 truncate"
+                :class="isDark() ? 'text-slate-400' : ''"
+              >
+                {{ n.machineName }}
+                <span v-if="n.location">• {{ n.location }}</span>
+              </p>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-[11px] text-slate-400">
+                {{ formatNotificationDate(n.timestamp) }}
+              </p>
+              <p class="text-[11px] text-slate-400">
+                {{ formatNotificationTime(n.timestamp) }}
+              </p>
+            </div>
+          </div>
+          <p
+            v-if="getNotificationDetailLine(n)"
+            class="mt-1 text-xs"
+            :class="isDark() ? 'text-slate-300' : 'text-slate-600'"
+          >
+            {{ getNotificationDetailLine(n) }}
+          </p>
+        </div>
+      </div>
+
+      <div
+        v-if="visibleNotifications.length && notificationTotalPages > 1"
+        class="mt-4 flex items-center justify-between gap-2"
+      >
+        <button
+          type="button"
+          class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+          :disabled="notificationPage <= 1"
+          :class="[
+            notificationPage <= 1
+              ? 'opacity-50 cursor-not-allowed'
+              : 'cursor-pointer',
+            isDark()
+              ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+              : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60',
+          ]"
+          @click="notificationPage = Math.max(1, notificationPage - 1)"
+        >
+          Anterior
+        </button>
+
+        <p class="text-[11px] text-slate-400">
+          Página {{ notificationPage }} de {{ notificationTotalPages }}
+        </p>
+
+        <button
+          type="button"
+          class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+          :disabled="notificationPage >= notificationTotalPages"
+          :class="[
+            notificationPage >= notificationTotalPages
+              ? 'opacity-50 cursor-not-allowed'
+              : 'cursor-pointer',
+            isDark()
+              ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+              : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60',
+          ]"
+          @click="
+            notificationPage = Math.min(
+              notificationTotalPages,
+              notificationPage + 1
+            )
+          "
+        >
+          Siguiente
+        </button>
+      </div>
+    </section>
+    <section
+      v-else
       class="grid grid-cols-2 gap-3 pb-6 auto-rows-fr sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3"
     >
       <article
