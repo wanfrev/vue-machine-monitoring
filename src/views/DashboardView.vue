@@ -21,6 +21,7 @@ import {
   updateMachine,
   getMachineDailyIncome,
   getMachinePowerLogs,
+  getIotEvents,
 } from "../api/client";
 import { getSocket } from "../api/realtime";
 
@@ -41,8 +42,8 @@ const initialAssignedMachineIds: string[] = (() => {
       if (Array.isArray(parsed)) {
         return parsed.map((v) => String(v));
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      void e;
     }
   }
   const single = localStorage.getItem("assignedMachineId");
@@ -619,6 +620,38 @@ function addDashboardNotification(input: {
   }
 }
 
+// Variante silenciosa: añade notificación sin afectar contador de no-leídos
+function addDashboardNotificationSilent(
+  input: Parameters<typeof addDashboardNotification>[0]
+) {
+  const machineId = String(input.machineId ?? "");
+  if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+
+  const machine = machines.value.find((m) => String(m.id) === machineId);
+  const machineName =
+    input.machineName || machine?.name || `Máquina ${machineId}`;
+  const location = input.location || machine?.location;
+  const ts = normalizeTimestamp(input.timestamp || new Date().toISOString());
+
+  const id = notificationCounter++;
+  const n: DashboardNotification = {
+    id,
+    type: input.type,
+    machineId,
+    machineName,
+    location,
+    timestamp: String(ts),
+    ...(input.amount !== undefined ? { amount: input.amount } : {}),
+    ...(input.detail ? { detail: input.detail } : {}),
+  };
+  notifications.value.unshift(n);
+  try {
+    localStorage.setItem("notifications", JSON.stringify(notifications.value));
+  } catch (e) {
+    void e;
+  }
+}
+
 function formatNotificationDate(ts: string) {
   try {
     const d = new Date(ts);
@@ -995,8 +1028,8 @@ onMounted(async () => {
             "notifications",
             JSON.stringify(notifications.value)
           );
-        } catch {
-          /* ignore */
+        } catch (e) {
+          void e;
         }
 
         // Ajustar contador incremental
@@ -1006,6 +1039,88 @@ onMounted(async () => {
     }
   } catch (e) {
     console.warn("Error cargando notificaciones desde localStorage", e);
+  }
+
+  // Traer eventos recientes del backend y mezclarlos en las notificaciones
+  try {
+    const events = await getIotEvents();
+    if (Array.isArray(events) && events.length) {
+      // normalizar y añadir sin duplicados (por machineId + timestamp + type)
+      const existingSet = new Set(
+        notifications.value.map(
+          (n) => `${n.machineId}::${n.timestamp}::${n.type}`
+        )
+      );
+      for (const ev of events.reverse()) {
+        try {
+          const type = String(ev.type || ev.event || "event");
+          const machineId = String(ev.machine_id || ev.machineId || "");
+          const ts = String(ev.timestamp || ev.ts || new Date().toISOString());
+          const key = `${machineId}::${ts}::${type}`;
+          if (existingSet.has(key)) continue;
+          existingSet.add(key);
+          if (type === "coin_inserted") {
+            addDashboardNotificationSilent({
+              type: "coin_inserted",
+              machineId,
+              machineName: ev.machine_name || ev.machineName,
+              location: ev.location,
+              amount: Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1,
+              timestamp: ts,
+            });
+            // update local counters
+            coinsByMachine.value = {
+              ...coinsByMachine.value,
+              [machineId]:
+                (coinsByMachine.value[machineId] || 0) +
+                (Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1),
+            };
+            dailyCoinsByMachine.value = {
+              ...dailyCoinsByMachine.value,
+              [machineId]:
+                (dailyCoinsByMachine.value[machineId] || 0) +
+                (Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1),
+            };
+          } else if (type === "machine_on" || type === "machine_off") {
+            addDashboardNotificationSilent({
+              type: type as any,
+              machineId,
+              machineName: ev.machine_name || ev.machineName,
+              location: ev.location,
+              timestamp: ts,
+              detail: ev.data?.reason || undefined,
+            });
+            const idx = machines.value.findIndex(
+              (m) => String(m.id) === machineId
+            );
+            if (idx >= 0) {
+              machines.value = machines.value.map((m, i) =>
+                i === idx
+                  ? {
+                      ...m,
+                      status: type === "machine_on" ? "active" : "inactive",
+                      last_on: type === "machine_on" ? ts : m.last_on,
+                      last_off: type === "machine_off" ? ts : m.last_off,
+                    }
+                  : m
+              );
+            }
+          } else {
+            addDashboardNotificationSilent({
+              type: "event",
+              machineId,
+              timestamp: ts,
+              detail: ev.type || ev.event || undefined,
+            });
+          }
+        } catch (e) {
+          /* ignore event parse errors */
+        }
+      }
+    }
+  } catch (e) {
+    // no bloquear la carga del dashboard si falla
+    console.warn("No se pudieron obtener eventos del backend:", e);
   }
 
   // Inicializar contador de no-leídos según historial (si hay)
