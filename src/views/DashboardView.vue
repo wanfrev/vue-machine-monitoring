@@ -60,8 +60,27 @@ const isAdmin = ref(false);
 const isOperator = computed(() => currentRole.value === "operator");
 const statusMenuOpenId = ref<string | null>(null);
 
-function refreshPage() {
-  window.location.reload();
+async function refreshPage() {
+  // Forzar recarga equivalente a Ctrl/Shift+Refresh: intentar invalidar SW y evitar caché
+  try {
+    // Unregister all service workers so they won't serve cached assets
+    if (navigator && "serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch (e) {
+    // ignore errors unregistering
+  }
+
+  // Navegar a la misma URL con cache-buster para forzar recarga completa de recursos
+  try {
+    const href = window.location.href.split("#")[0];
+    const sep = href.includes("?") ? "&" : "?";
+    window.location.replace(href + sep + "_cb=" + Date.now());
+  } catch (e) {
+    // Fallback simple
+    window.location.reload();
+  }
 }
 
 const filterButtonEl = ref<HTMLElement | null>(null);
