@@ -613,11 +613,7 @@ function addDashboardNotification(input: {
   }
 
   // Mantener historial en localStorage (persistente)
-  try {
-    localStorage.setItem("notifications", JSON.stringify(notifications.value));
-  } catch (e) {
-    console.warn("No se pudo guardar notificaciones en localStorage", e);
-  }
+  // persistencia local deshabilitada; historial solo viene del backend en cada carga
 }
 
 // Variante silenciosa: añade notificación sin afectar contador de no-leídos
@@ -645,11 +641,7 @@ function addDashboardNotificationSilent(
     ...(input.detail ? { detail: input.detail } : {}),
   };
   notifications.value.unshift(n);
-  try {
-    localStorage.setItem("notifications", JSON.stringify(notifications.value));
-  } catch (e) {
-    void e;
-  }
+  // persistencia local deshabilitada
 }
 
 function formatNotificationDate(ts: string) {
@@ -988,58 +980,7 @@ onMounted(async () => {
     console.warn("No se pudo registrar listener de SW messages", e);
   }
 
-  // Cargar notificaciones persistentes
-  try {
-    const stored = localStorage.getItem("notifications");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        // Compatibilidad con estructura antigua (sin 'type')
-        const normalized: DashboardNotification[] = parsed
-          .map((raw: any, idx: number) => {
-            const machineId = String(raw.machineId ?? raw.machine_id ?? "");
-            if (!machineId) return null;
-            const id = Number(raw.id ?? idx + 1);
-            const type = String(
-              raw.type || "coin_inserted"
-            ) as DashboardNotificationType;
-            const ts = normalizeTimestamp(raw.timestamp ?? raw.ts ?? "");
-            return {
-              id,
-              type,
-              machineId,
-              machineName: String(
-                raw.machineName ?? raw.machine_name ?? `Máquina ${machineId}`
-              ),
-              location: raw.location ?? undefined,
-              timestamp: ts,
-              ...(raw.amount !== undefined
-                ? { amount: Number(raw.amount) }
-                : {}),
-              ...(raw.detail ? { detail: String(raw.detail) } : {}),
-            } as DashboardNotification;
-          })
-          .filter(Boolean) as DashboardNotification[];
-        notifications.value = normalized;
-
-        // Persistir normalización
-        try {
-          localStorage.setItem(
-            "notifications",
-            JSON.stringify(notifications.value)
-          );
-        } catch (e) {
-          void e;
-        }
-
-        // Ajustar contador incremental
-        const maxId = normalized.reduce((m, n) => Math.max(m, n.id || 0), 0);
-        notificationCounter = Math.max(notificationCounter, maxId + 1);
-      }
-    }
-  } catch (e) {
-    console.warn("Error cargando notificaciones desde localStorage", e);
-  }
+  // No se cargan notificaciones desde localStorage: el historial proviene del backend
 
   // Traer eventos recientes del backend y mezclarlos en las notificaciones
   try {
