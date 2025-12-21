@@ -203,19 +203,18 @@ const visibleNotifications = computed(() => {
 const notificationPageSize = 20;
 const notificationPage = ref(1);
 
+const serverNotificationTotalPages = ref<number | null>(null);
 const notificationTotalPages = computed(() => {
+  if (serverNotificationTotalPages.value != null)
+    return serverNotificationTotalPages.value;
   const total = visibleNotifications.value.length;
   return Math.max(1, Math.ceil(total / notificationPageSize));
 });
 
-watch(
-  [notificationRange, visibleNotifications],
-  () => {
-    // Reset to first page when range/list changes
-    notificationPage.value = 1;
-  },
-  { deep: false }
-);
+// Cuando cambia el rango, la lógica que persiste/recarga ya se encarga de
+// reiniciar la página y solicitar los datos al servidor. Evitamos reiniciar
+// la página al actualizar `visibleNotifications` para no forzar regresar a
+// la página 1 cuando cargamos una página desde el servidor.
 
 watch(
   [notificationTotalPages, notificationPage],
@@ -227,7 +226,18 @@ watch(
   { immediate: true }
 );
 
+// Cuando se cambia de página y estamos en la vista de notificaciones, pedirla al servidor
+watch(notificationPage, (p) => {
+  if (selectedFilter.value === "notificaciones") {
+    void loadNotificationsFromServer(p);
+  }
+});
+
 const pagedNotifications = computed(() => {
+  // If server provides pagination, notifications already contain current page
+  if (serverNotificationTotalPages.value != null) {
+    return notifications.value;
+  }
   const start = (notificationPage.value - 1) * notificationPageSize;
   return visibleNotifications.value.slice(start, start + notificationPageSize);
 });
@@ -265,6 +275,8 @@ function setSelectedFilter(filter: Filter) {
     } catch (e) {
       void e;
     }
+    // Al abrir notificaciones, cargar la página actual desde el servidor
+    void loadNotificationsFromServer(notificationPage.value);
   }
 }
 
@@ -669,6 +681,78 @@ function formatNotificationTime(ts: string) {
   }
 }
 
+// Cargar notificaciones desde el backend con paginación
+async function loadNotificationsFromServer(page = 1) {
+  try {
+    const rangeParam =
+      notificationRange.value === "all" ? "all" : notificationRange.value;
+    const resp = await getIotEvents({
+      range: rangeParam as any,
+      page,
+      pageSize: notificationPageSize,
+    });
+    const evs = resp.events || [];
+    // Mapear eventos a la estructura de notificaciones
+    const mapped: DashboardNotification[] = evs.map((ev: any, idx: number) => {
+      const type = String(
+        ev.type || ev.event || "event"
+      ) as DashboardNotificationType;
+      const machineId = String(ev.machine_id || ev.machineId || "");
+      const ts = String(ev.timestamp || ev.ts || new Date().toISOString());
+      return {
+        id: Number(ev.id ?? 0) || notificationCounter++,
+        type,
+        machineId,
+        machineName:
+          ev.machine_name || ev.machineName || `Máquina ${machineId}`,
+        location: ev.location,
+        timestamp: ts,
+        ...(ev.data?.cantidad || ev.amount
+          ? { amount: Number(ev.data?.cantidad ?? ev.amount) }
+          : {}),
+        ...(ev.data?.reason ? { detail: String(ev.data.reason) } : {}),
+      } as DashboardNotification;
+    });
+
+    notifications.value = mapped;
+    serverNotificationTotalPages.value = resp.totalPages || 1;
+    notificationPage.value = resp.page || page;
+
+    // Ajustar counter por seguridad para evitar ids duplicados
+    try {
+      const maxId = notifications.value.reduce(
+        (mx, n) => Math.max(mx, Number(n.id) || 0),
+        0
+      );
+      notificationCounter = Math.max(notificationCounter, maxId + 1);
+    } catch (e) {
+      /* ignore */
+    }
+
+    // Recalcular no-leídos según último visto
+    try {
+      const lastSeen = localStorage.getItem("notifications_last_seen");
+      if (!lastSeen) {
+        unreadCount.value = 0;
+      } else {
+        const last = new Date(lastSeen).getTime();
+        if (Number.isNaN(last)) {
+          unreadCount.value = 0;
+        } else {
+          unreadCount.value = notifications.value.filter((n) => {
+            const t = new Date(n.timestamp).getTime();
+            return !Number.isNaN(t) && t > last;
+          }).length;
+        }
+      }
+    } catch (e) {
+      unreadCount.value = 0;
+    }
+  } catch (e) {
+    console.warn("No se pudieron obtener eventos del backend:", e);
+  }
+}
+
 async function loadDashboardData() {
   try {
     machines.value = await getMachines();
@@ -987,98 +1071,25 @@ onMounted(async () => {
 
   // No se cargan notificaciones desde localStorage: el historial proviene del backend
 
-  // Traer eventos recientes del backend y mezclarlos en las notificaciones
+  // Cargar notificaciones/página inicial desde el backend
   try {
-    const events = await getIotEvents();
-    if (Array.isArray(events) && events.length) {
-      // normalizar y añadir sin duplicados (por machineId + timestamp + type)
-      const existingSet = new Set(
-        notifications.value.map(
-          (n) => `${n.machineId}::${n.timestamp}::${n.type}`
-        )
-      );
-      for (const ev of events.reverse()) {
-        try {
-          const type = String(ev.type || ev.event || "event");
-          const machineId = String(ev.machine_id || ev.machineId || "");
-          const ts = String(ev.timestamp || ev.ts || new Date().toISOString());
-          const key = `${machineId}::${ts}::${type}`;
-          if (existingSet.has(key)) continue;
-          existingSet.add(key);
-          if (type === "coin_inserted") {
-            addDashboardNotificationSilent({
-              type: "coin_inserted",
-              machineId,
-              machineName: ev.machine_name || ev.machineName,
-              location: ev.location,
-              amount: Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1,
-              timestamp: ts,
-            });
-            // Evitar duplicar totales: si ya cargamos los totales desde la API
-            // no debemos sumar de nuevo al mezclar eventos históricos.
-            const amount = Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1;
-            if (
-              !Object.prototype.hasOwnProperty.call(
-                coinsByMachine.value,
-                machineId
-              )
-            ) {
-              coinsByMachine.value = {
-                ...coinsByMachine.value,
-                [machineId]: amount,
-              };
-            }
-            if (
-              !Object.prototype.hasOwnProperty.call(
-                dailyCoinsByMachine.value,
-                machineId
-              )
-            ) {
-              dailyCoinsByMachine.value = {
-                ...dailyCoinsByMachine.value,
-                [machineId]: amount,
-              };
-            }
-          } else if (type === "machine_on" || type === "machine_off") {
-            addDashboardNotificationSilent({
-              type: type as any,
-              machineId,
-              machineName: ev.machine_name || ev.machineName,
-              location: ev.location,
-              timestamp: ts,
-              detail: ev.data?.reason || undefined,
-            });
-            const idx = machines.value.findIndex(
-              (m) => String(m.id) === machineId
-            );
-            if (idx >= 0) {
-              machines.value = machines.value.map((m, i) =>
-                i === idx
-                  ? {
-                      ...m,
-                      status: type === "machine_on" ? "active" : "inactive",
-                      last_on: type === "machine_on" ? ts : m.last_on,
-                      last_off: type === "machine_off" ? ts : m.last_off,
-                    }
-                  : m
-              );
-            }
-          } else {
-            addDashboardNotificationSilent({
-              type: "event",
-              machineId,
-              timestamp: ts,
-              detail: ev.type || ev.event || undefined,
-            });
-          }
-        } catch (e) {
-          /* ignore event parse errors */
-        }
-      }
+    await loadNotificationsFromServer(notificationPage.value);
+  } catch (e) {
+    console.warn("No se pudieron obtener eventos del backend:", e);
+  }
+
+  // Restaurar rango de notificaciones previamente seleccionado (persistencia)
+  try {
+    const storedRange = localStorage.getItem("notification_range");
+    if (
+      storedRange === "7d" ||
+      storedRange === "30d" ||
+      storedRange === "all"
+    ) {
+      notificationRange.value = storedRange as NotificationRange;
     }
   } catch (e) {
-    // no bloquear la carga del dashboard si falla
-    console.warn("No se pudieron obtener eventos del backend:", e);
+    /* ignore */
   }
 
   // Inicializar contador de no-leídos según historial (si hay)
@@ -1101,6 +1112,22 @@ onMounted(async () => {
   } catch (e) {
     unreadCount.value = 0;
   }
+
+  // Persistir cambios en el rango de notificaciones y resetear la página
+  watch(
+    notificationRange,
+    (val) => {
+      try {
+        localStorage.setItem("notification_range", String(val));
+      } catch (e) {
+        /* ignore */
+      }
+      notificationPage.value = 1;
+      // Recargar página 1 desde el backend cuando cambie el rango
+      void loadNotificationsFromServer(1);
+    },
+    { immediate: false }
+  );
 
   // Recarga automática del dashboard cada 15 segundos
   refreshTimer = window.setInterval(() => {

@@ -147,9 +147,24 @@ export async function getMachinePowerLogs(
 }
 
 // Obtener eventos recientes desde el backend (máquinas, monedas, pings)
-export async function getIotEvents() {
-  const res = await api.get(`/api/iot/events`);
-  return res.data?.events || [];
+export async function getIotEvents(
+  params: {
+    range?: "7d" | "30d" | "all";
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
+) {
+  const res = await api.get(`/api/iot/events`, { params });
+  // Expect { events, total, page, pageSize, totalPages }
+  return {
+    events: res.data?.events || [],
+    total: res.data?.total || 0,
+    page: res.data?.page || 1,
+    pageSize: res.data?.pageSize || 20,
+    totalPages: res.data?.totalPages || 1,
+  };
 }
 
 // Users / Employees
