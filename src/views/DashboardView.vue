@@ -1014,19 +1014,31 @@ onMounted(async () => {
               amount: Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1,
               timestamp: ts,
             });
-            // update local counters
-            coinsByMachine.value = {
-              ...coinsByMachine.value,
-              [machineId]:
-                (coinsByMachine.value[machineId] || 0) +
-                (Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1),
-            };
-            dailyCoinsByMachine.value = {
-              ...dailyCoinsByMachine.value,
-              [machineId]:
-                (dailyCoinsByMachine.value[machineId] || 0) +
-                (Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1),
-            };
+            // Evitar duplicar totales: si ya cargamos los totales desde la API
+            // no debemos sumar de nuevo al mezclar eventos históricos.
+            const amount = Number(ev.data?.cantidad ?? ev.amount ?? 1) || 1;
+            if (
+              !Object.prototype.hasOwnProperty.call(
+                coinsByMachine.value,
+                machineId
+              )
+            ) {
+              coinsByMachine.value = {
+                ...coinsByMachine.value,
+                [machineId]: amount,
+              };
+            }
+            if (
+              !Object.prototype.hasOwnProperty.call(
+                dailyCoinsByMachine.value,
+                machineId
+              )
+            ) {
+              dailyCoinsByMachine.value = {
+                ...dailyCoinsByMachine.value,
+                [machineId]: amount,
+              };
+            }
           } else if (type === "machine_on" || type === "machine_off") {
             addDashboardNotificationSilent({
               type: type as any,
