@@ -155,8 +155,8 @@ const notifications = ref<DashboardNotification[]>([]);
 const unreadCount = ref(0);
 let notificationCounter = 1;
 
-type NotificationRange = "7d" | "30d" | "all";
-const notificationRange = ref<NotificationRange>("7d");
+// Deprecated: notificationRange replaced by isTodayOnly + date range
+// kept here for compatibility comments only
 
 function normalizeTimestamp(ts: unknown): string {
   const raw = String(ts ?? "").trim();
@@ -180,25 +180,13 @@ function normalizeTimestamp(ts: unknown): string {
   return new Date().toISOString();
 }
 
-function notificationTimestampMs(n: DashboardNotification): number {
-  const d = new Date(n.timestamp);
-  const ms = d.getTime();
-  return Number.isNaN(ms) ? Date.now() : ms;
-}
+// Visible notifications come directly from server pagination/filtering
+const visibleNotifications = computed(() => notifications.value);
 
-function cutoffMsForRange(range: NotificationRange): number {
-  if (range === "all") return 0;
-  const days = range === "7d" ? 7 : 30;
-  return Date.now() - days * 24 * 60 * 60 * 1000;
-}
-
-const visibleNotifications = computed(() => {
-  if (notificationRange.value === "all") return notifications.value;
-  const cutoff = cutoffMsForRange(notificationRange.value);
-  return notifications.value.filter(
-    (n) => notificationTimestampMs(n) >= cutoff
-  );
-});
+// Nuevo selector: 'Hoy' o rango de fechas
+const isTodayOnly = ref(true);
+const notificationFrom = ref<string | null>(null); // ISO date string
+const notificationTo = ref<string | null>(null); // ISO date string
 
 const notificationPageSize = 20;
 const notificationPage = ref(1);
@@ -684,13 +672,48 @@ function formatNotificationTime(ts: string) {
 // Cargar notificaciones desde el backend con paginación
 async function loadNotificationsFromServer(page = 1) {
   try {
-    const rangeParam =
-      notificationRange.value === "all" ? "all" : notificationRange.value;
-    const resp = await getIotEvents({
-      range: rangeParam as any,
-      page,
-      pageSize: notificationPageSize,
-    });
+    const params: any = { page, pageSize: notificationPageSize };
+    if (isTodayOnly.value) {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      params.startDate = start.toISOString();
+      params.endDate = new Date().toISOString();
+    } else {
+      if (notificationFrom.value) {
+        // Parse YYYY-MM-DD explicitly to avoid Date(string) timezone quirks
+        const parts = String(notificationFrom.value).split("-").map(Number);
+        if (parts.length === 3) {
+          const s = new Date(
+            parts[0],
+            (parts[1] || 1) - 1,
+            parts[2],
+            0,
+            0,
+            0,
+            0
+          );
+          params.startDate = s.toISOString();
+        }
+      }
+      if (notificationTo.value) {
+        // Construct end-of-day locally to include the full selected day
+        const parts = String(notificationTo.value).split("-").map(Number);
+        if (parts.length === 3) {
+          const t = new Date(
+            parts[0],
+            (parts[1] || 1) - 1,
+            parts[2],
+            23,
+            59,
+            59,
+            999
+          );
+          params.endDate = t.toISOString();
+        }
+      }
+    }
+
+    const resp = await getIotEvents(params);
     const evs = resp.events || [];
     // Mapear eventos a la estructura de notificaciones
     const mapped: DashboardNotification[] = evs.map((ev: any, idx: number) => {
@@ -1071,25 +1094,29 @@ onMounted(async () => {
 
   // No se cargan notificaciones desde localStorage: el historial proviene del backend
 
-  // Cargar notificaciones/página inicial desde el backend
+  // Restaurar preferencia de notificaciones: 'Hoy' o rango desde/hasta
+  try {
+    const storedToday = localStorage.getItem("notifications_today");
+    const storedFrom = localStorage.getItem("notifications_from");
+    const storedTo = localStorage.getItem("notifications_to");
+    if (storedToday === "true") {
+      isTodayOnly.value = true;
+      notificationFrom.value = null;
+      notificationTo.value = null;
+    } else {
+      isTodayOnly.value = false;
+      notificationFrom.value = storedFrom || null;
+      notificationTo.value = storedTo || null;
+    }
+  } catch (e) {
+    /* ignore */
+  }
+
+  // Cargar notificaciones/página inicial desde el backend usando la preferencia restaurada
   try {
     await loadNotificationsFromServer(notificationPage.value);
   } catch (e) {
     console.warn("No se pudieron obtener eventos del backend:", e);
-  }
-
-  // Restaurar rango de notificaciones previamente seleccionado (persistencia)
-  try {
-    const storedRange = localStorage.getItem("notification_range");
-    if (
-      storedRange === "7d" ||
-      storedRange === "30d" ||
-      storedRange === "all"
-    ) {
-      notificationRange.value = storedRange as NotificationRange;
-    }
-  } catch (e) {
-    /* ignore */
   }
 
   // Inicializar contador de no-leídos según historial (si hay)
@@ -1113,17 +1140,22 @@ onMounted(async () => {
     unreadCount.value = 0;
   }
 
-  // Persistir cambios en el rango de notificaciones y resetear la página
+  // Persistir cambios en la preferencia de notificaciones y recargar
   watch(
-    notificationRange,
-    (val) => {
+    [isTodayOnly, notificationFrom, notificationTo],
+    () => {
       try {
-        localStorage.setItem("notification_range", String(val));
+        localStorage.setItem("notifications_today", String(isTodayOnly.value));
+        if (notificationFrom.value)
+          localStorage.setItem("notifications_from", notificationFrom.value);
+        else localStorage.removeItem("notifications_from");
+        if (notificationTo.value)
+          localStorage.setItem("notifications_to", notificationTo.value);
+        else localStorage.removeItem("notifications_to");
       } catch (e) {
         /* ignore */
       }
       notificationPage.value = 1;
-      // Recargar página 1 desde el backend cuando cambie el rango
       void loadNotificationsFromServer(1);
     },
     { immediate: false }
@@ -1543,44 +1575,62 @@ onUnmounted(() => {
             type="button"
             class="px-3 py-1 rounded-full text-xs font-semibold border transition"
             :class="
-              notificationRange === '7d'
+              isTodayOnly
                 ? 'bg-slate-900 text-white border-slate-900'
                 : isDark()
                 ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
                 : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
             "
-            @click="notificationRange = '7d'"
-          >
-            Últimos 7 días
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1 rounded-full text-xs font-semibold border transition"
-            :class="
-              notificationRange === '30d'
-                ? 'bg-slate-900 text-white border-slate-900'
-                : isDark()
-                ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
-                : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
+            @click="
+              isTodayOnly = true;
+              notificationFrom = null;
+              notificationTo = null;
+              loadNotificationsFromServer(1);
             "
-            @click="notificationRange = '30d'"
           >
-            Último mes
+            Hoy
           </button>
-          <button
-            type="button"
-            class="px-3 py-1 rounded-full text-xs font-semibold border transition"
-            :class="
-              notificationRange === 'all'
-                ? 'bg-slate-900 text-white border-slate-900'
-                : isDark()
-                ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
-                : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
-            "
-            @click="notificationRange = 'all'"
-          >
-            Todo
-          </button>
+
+          <div class="flex items-center gap-2">
+            <input
+              type="date"
+              v-model="notificationFrom"
+              class="px-2 py-1 rounded text-xs border"
+              :class="
+                isDark()
+                  ? 'bg-slate-900 text-slate-200 border-slate-700/60'
+                  : 'bg-white text-slate-700 border-slate-200/70'
+              "
+            />
+            <span class="text-xs text-slate-400">a</span>
+            <input
+              type="date"
+              v-model="notificationTo"
+              class="px-2 py-1 rounded text-xs border"
+              :class="
+                isDark()
+                  ? 'bg-slate-900 text-slate-200 border-slate-700/60'
+                  : 'bg-white text-slate-700 border-slate-200/70'
+              "
+            />
+            <button
+              type="button"
+              class="px-3 py-1 rounded-full text-xs font-semibold border transition"
+              :class="
+                isTodayOnly
+                  ? isDark()
+                    ? 'bg-slate-950/10 text-slate-200 border-slate-700/60'
+                    : 'bg-white/40 text-slate-700 border-slate-200/70'
+                  : 'bg-slate-900 text-white border-slate-900'
+              "
+              @click="
+                isTodayOnly = false;
+                loadNotificationsFromServer(1);
+              "
+            >
+              Aplicar
+            </button>
+          </div>
         </div>
       </div>
 
