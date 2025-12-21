@@ -135,3 +135,17 @@ self.addEventListener("notificationclick", function (event) {
     })
   );
 });
+
+// Listen for messages from the page (e.g., SKIP_WAITING)
+self.addEventListener("message", (event) => {
+  try {
+    const data = event.data;
+    if (!data || typeof data !== "object") return;
+    if (data.type === "SKIP_WAITING") {
+      // Activate this SW immediately
+      self.skipWaiting();
+    }
+  } catch (e) {
+    /* ignore */
+  }
+});

@@ -20,8 +20,16 @@ if (process.env.NODE_ENV === "production") {
     updatefound() {
       console.log("New content is downloading.");
     },
-    updated() {
+    updated(registration) {
       console.log("New content is available; please refresh.");
+      try {
+        // Notify the app that there's an updated service worker waiting
+        window.dispatchEvent(
+          new CustomEvent("swUpdated", { detail: registration })
+        );
+      } catch (e) {
+        console.warn("Could not dispatch swUpdated event", e);
+      }
     },
     offline() {
       console.log(
