@@ -260,6 +260,11 @@ function setSelectedFilter(filter: Filter) {
   selectedFilter.value = filter;
   if (filter === "notificaciones") {
     unreadCount.value = 0;
+    try {
+      localStorage.setItem("notifications_last_seen", new Date().toISOString());
+    } catch (e) {
+      void e;
+    }
   }
 }
 
@@ -1066,7 +1071,21 @@ onMounted(async () => {
 
   // Inicializar contador de no-leídos según historial (si hay)
   try {
-    unreadCount.value = notifications.value.length || 0;
+    const lastSeen = localStorage.getItem("notifications_last_seen");
+    if (!lastSeen) {
+      // Si no hay referencia de lectura previa asumimos que ya se leyeron
+      unreadCount.value = 0;
+    } else {
+      const last = new Date(lastSeen).getTime();
+      if (Number.isNaN(last)) {
+        unreadCount.value = 0;
+      } else {
+        unreadCount.value = notifications.value.filter((n) => {
+          const t = new Date(n.timestamp).getTime();
+          return !Number.isNaN(t) && t > last;
+        }).length;
+      }
+    }
   } catch (e) {
     unreadCount.value = 0;
   }
