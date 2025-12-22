@@ -941,21 +941,27 @@ onMounted(async () => {
       }
 
       // Además del toast en la UI, mostrar notificación del sistema
+      // Sólo si la página NO está visible para evitar duplicados con el SW
       try {
-        if ("Notification" in window) {
-          if (Notification.permission === "granted") {
-            const title = "Moneda ingresada";
-            const bodyParts = [machineName];
-            if (location) bodyParts.push(`• ${location}`);
-            bodyParts.push(`+${amount} moneda(s)`);
-            bodyParts.push(`• ${formatNotificationTime(String(ts))}`);
-            const body = bodyParts.join(" ");
-            new Notification(title, {
-              body,
-              icon: "/img/icons/K11BOX.webp",
-            });
-          } else if (Notification.permission === "default") {
-            Notification.requestPermission();
+        if (
+          typeof document !== "undefined" &&
+          document.visibilityState !== "visible"
+        ) {
+          if ("Notification" in window) {
+            if (Notification.permission === "granted") {
+              const title = "Moneda ingresada";
+              const bodyParts = [machineName];
+              if (location) bodyParts.push(`• ${location}`);
+              bodyParts.push(`+${amount} moneda(s)`);
+              bodyParts.push(`• ${formatNotificationTime(String(ts))}`);
+              const body = bodyParts.join(" ");
+              new Notification(title, {
+                body,
+                icon: "/img/icons/K11BOX.webp",
+              });
+            } else if (Notification.permission === "default") {
+              Notification.requestPermission();
+            }
           }
         }
       } catch (e) {
@@ -1073,13 +1079,20 @@ onMounted(async () => {
             if (eventType === "coin_inserted") {
               const amount =
                 Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
-              addDashboardNotification({
-                type: "coin_inserted",
-                machineId,
-                amount,
-                timestamp: String(ts),
-              });
-              playNotificationSound();
+              // Sólo procesar mensaje del SW si la página NO está visible,
+              // en caso contrario el socket ya lo habrá manejado y evitamos duplicados.
+              if (
+                typeof document === "undefined" ||
+                document.visibilityState !== "visible"
+              ) {
+                addDashboardNotification({
+                  type: "coin_inserted",
+                  machineId,
+                  amount,
+                  timestamp: String(ts),
+                });
+                playNotificationSound();
+              }
               return;
             }
             if (eventType === "machine_on" || eventType === "machine_off") {
