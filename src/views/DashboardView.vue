@@ -638,6 +638,22 @@ function addDashboardNotification(input: {
 
   // Mantener historial en localStorage (persistente)
   // persistencia local deshabilitada; historial solo viene del backend en cada carga
+  // Si estamos usando paginación servidor (serverNotificationTotalPages != null)
+  // y el usuario está viendo la vista de notificaciones, recargar la página 1
+  // desde el servidor para que el historial se actualice inmediatamente.
+  try {
+    if (
+      typeof serverNotificationTotalPages.value !== "undefined" &&
+      serverNotificationTotalPages.value != null &&
+      typeof selectedFilter.value !== "undefined" &&
+      selectedFilter.value === "notificaciones"
+    ) {
+      // loadNotificationsFromServer está definida en este módulo más abajo
+      void loadNotificationsFromServer(1);
+    }
+  } catch (e) {
+    // no bloquear en fallos de refresco
+  }
 }
 
 // Variante silenciosa: añade notificación sin afectar contador de no-leídos
