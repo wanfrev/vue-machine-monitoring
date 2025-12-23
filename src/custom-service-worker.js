@@ -79,6 +79,37 @@ self.addEventListener("push", function (event) {
       tag,
       requireInteraction,
     };
+
+    // If payload includes a timestamp in data, append a localized time
+    // string to the body so the notification shows the event time.
+    try {
+      const ts = options.data && (options.data.timestamp || options.data.ts);
+      if (ts) {
+        let d;
+        try {
+          d = new Date(ts);
+          if (Number.isNaN(d.getTime())) d = null;
+        } catch (e) {
+          d = null;
+        }
+        if (d) {
+          try {
+            const timeStr = d.toLocaleString("es-VE", {
+              timeZone: "America/Caracas",
+            });
+            if (options.body && !options.body.includes(timeStr)) {
+              options.body = `${options.body} • ${timeStr}`;
+            } else if (!options.body) {
+              options.body = timeStr;
+            }
+          } catch (e) {
+            // ignore formatting errors
+          }
+        }
+      }
+    } catch (e) {
+      // ignore any errors
+    }
     console.log("[SW] showing notification", title, options);
     // Notify open window clients so they can play a sound if appropriate
     try {
