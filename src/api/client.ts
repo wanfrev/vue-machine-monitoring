@@ -74,6 +74,7 @@ export async function getMachines() {
 export async function createMachine(machine: {
   name: string;
   location: string;
+  type?: string;
   id?: string;
 }) {
   const res = await api.post("/api/machines", machine);
@@ -82,7 +83,7 @@ export async function createMachine(machine: {
 
 export async function updateMachine(
   id: string,
-  machine: { name?: string; location?: string; status?: string }
+  machine: { name?: string; location?: string; status?: string; type?: string }
 ) {
   const res = await api.put(`/api/machines/${id}`, machine);
   return res.data;

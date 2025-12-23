@@ -18,19 +18,24 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "create", machine: { name: string; location: string }): void;
-  (e: "update", machine: { id: string; location: string }): void;
+  (
+    e: "create",
+    machine: { name: string; location: string; type?: string }
+  ): void;
+  (
+    e: "update",
+    machine: { id: string; name?: string; location: string; type?: string }
+  ): void;
 }>();
 
 const location = ref("");
 const type = ref("Boxeo");
+const editableName = ref("");
 const isDark = computed(() => !!props.dark);
 // Usar la prop machines directamente
 
 const name = computed(() => {
-  if (props.mode === "edit" && props.machineToEdit) {
-    return props.machineToEdit.name;
-  }
+  // computed default name (used for creation)
   // Buscar el mayor número usado para el tipo seleccionado
   const prefix = type.value;
   const regex = new RegExp(`^${prefix} (\\d+)$`);
@@ -42,7 +47,6 @@ const name = computed(() => {
       if (num > maxNum) maxNum = num;
     }
   }
-  // Formato con ceros a la izquierda
   const nextNum = (maxNum + 1).toString().padStart(2, "0");
   return `${prefix} ${nextNum}`;
 });
@@ -53,10 +57,20 @@ watch(
   (open) => {
     if (open && props.mode === "edit" && props.machineToEdit) {
       location.value = props.machineToEdit.location || "";
+      editableName.value = props.machineToEdit.name || "";
+      // If backend/client didn't include explicit `type`, infer from the name
+      const inferredType = props.machineToEdit.type
+        ? props.machineToEdit.type
+        : props.machineToEdit.name &&
+          props.machineToEdit.name.startsWith("Boxeo")
+        ? "Boxeo"
+        : "Agilidad";
+      type.value = inferredType || type.value;
     }
     if (open && props.mode !== "edit") {
       location.value = "";
       type.value = "Boxeo";
+      editableName.value = name.value;
     }
   }
 );
@@ -81,19 +95,35 @@ function submit() {
   if (!location.value.trim()) return;
 
   if (props.mode === "edit" && props.machineToEdit) {
-    emit("update", {
+    const payload = {
       id: props.machineToEdit.id,
+      name: editableName.value,
       location: location.value,
-    });
+      type: type.value,
+    };
+    try {
+      console.log("NewMachine emit update:", payload);
+    } catch (e) {
+      /* ignore */
+    }
+    emit("update", payload);
   } else {
-    emit("create", {
-      name: name.value,
+    const payload = {
+      name: editableName.value || name.value,
       location: location.value,
-    });
+      type: type.value,
+    };
+    try {
+      console.log("NewMachine emit create:", payload);
+    } catch (e) {
+      /* ignore */
+    }
+    emit("create", payload);
   }
 
   location.value = "";
   type.value = "Boxeo";
+  editableName.value = "";
   close();
 }
 </script>
@@ -187,9 +217,8 @@ function submit() {
             >
             <input
               type="text"
-              :value="name"
-              readonly
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-400 cursor-not-allowed"
+              v-model="editableName"
+              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
             />
           </div>
           <div>
@@ -221,8 +250,7 @@ function submit() {
             >
             <select
               v-model="type"
-              :disabled="props.mode === 'edit'"
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
+              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer"
               required
             >
               <option value="Boxeo">Boxeo</option>

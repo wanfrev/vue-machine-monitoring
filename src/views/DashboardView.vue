@@ -4,10 +4,10 @@ import {
   type Ref,
   ref,
   computed,
-  nextTick,
   onMounted,
   onUnmounted,
   watch,
+  nextTick,
 } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
@@ -55,6 +55,8 @@ const router = useRouter();
 
 const sidebarOpen = ref(false);
 const newMachineOpen = ref(false);
+const newMachineMode = ref<"create" | "edit">("create");
+const machineToEdit = ref<Machine | null>(null);
 const filterOpen = ref(false);
 const isAdmin = ref(false);
 const isOperator = computed(() => currentRole.value === "operator");
@@ -81,6 +83,12 @@ async function refreshPage() {
     // Fallback simple
     window.location.reload();
   }
+}
+
+function closeNewMachine() {
+  newMachineOpen.value = false;
+  machineToEdit.value = null;
+  newMachineMode.value = "create";
 }
 
 const filterButtonEl = ref<HTMLElement | null>(null);
@@ -173,6 +181,43 @@ type DashboardNotification = {
 const notifications = ref<DashboardNotification[]>([]);
 const unreadCount = ref(0);
 let notificationCounter = 1;
+
+// Toast para notificaciones entrantes (UI flotante)
+type Toast = {
+  id: number;
+  title: string;
+  body?: string;
+  type?: DashboardNotificationType;
+} | null;
+const toast = ref<Toast>(null);
+let toastTimer: number | null = null;
+function showToast(
+  title: string,
+  body?: string,
+  type?: DashboardNotificationType,
+  duration = 4000
+) {
+  try {
+    toast.value = { id: Date.now(), title, body, type };
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+    toastTimer = window.setTimeout(() => {
+      toast.value = null;
+      toastTimer = null;
+    }, duration);
+  } catch (e) {
+    toast.value = null;
+  }
+}
+function hideToast() {
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+  toast.value = null;
+}
 
 // Deprecated: notificationRange replaced by isTodayOnly + date range
 // kept here for compatibility comments only
@@ -293,6 +338,11 @@ const stateFilters = [
 ] as const;
 type Filter = (typeof stateFilters)[number];
 const selectedFilter = ref<Filter>("todas");
+
+// Filters visible in the tabs (exclude 'notificaciones' from the inline tabs)
+const visibleStateFilters = computed(() =>
+  stateFilters.filter((f) => f !== "notificaciones")
+);
 
 function setSelectedFilter(filter: Filter) {
   selectedFilter.value = filter;
@@ -474,6 +524,13 @@ const totalIncomeToday = computed(() =>
   )
 );
 
+// Total de monedas recolectadas hoy (suma de `dailyCoinsByMachine`)
+const totalCoinsToday = computed(() =>
+  machines.value.reduce((sum, machine) => {
+    return sum + (dailyCoinsByMachine.value[machine.id] || 0);
+  }, 0)
+);
+
 const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
 const isDark = () => {
   if (typeof injectedDark === "boolean") return injectedDark;
@@ -563,11 +620,94 @@ async function handleNewMachine(machine: {
     await apiCreateMachine({
       name: machine.name,
       location: machine.location,
+      type: machine.type,
       id: machine.id,
     });
     machines.value = await getMachines();
   } catch (err: unknown) {
     console.error("Error al crear máquina:", err);
+  }
+}
+
+async function handleUpdateMachine(payload: {
+  id: string;
+  name?: string;
+  location: string;
+  type?: string;
+}) {
+  try {
+    const { id, name, location } = payload;
+    // Build payload only with meaningful changes (avoid overwriting with empty strings)
+    const updatePayload: any = {};
+    if (
+      location !== undefined &&
+      location !== null &&
+      String(location).trim() !== ""
+    ) {
+      updatePayload.location = String(location);
+    }
+    if (name !== undefined && name !== null && String(name).trim() !== "") {
+      updatePayload.name = String(name);
+    }
+    if (
+      payload.type !== undefined &&
+      payload.type !== null &&
+      String(payload.type).trim() !== ""
+    ) {
+      updatePayload.type = String(payload.type);
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      showToast(
+        "Sin cambios",
+        "No se detectaron campos modificados",
+        "event",
+        3000
+      );
+      return;
+    }
+
+    console.log("Updating machine", id, updatePayload);
+    const resp = await updateMachine(id, updatePayload);
+    console.log("updateMachine response", resp);
+
+    // Try to refresh the specific machine from server to ensure backend state is reflected
+    try {
+      const fresh = await getMachines();
+      machines.value = fresh;
+      showToast(
+        "Máquina actualizada",
+        `Se guardaron los cambios en ${resp.name || id}`,
+        "event",
+        3000
+      );
+    } catch (e) {
+      // fallback: update local entry
+      machines.value = machines.value.map((m) =>
+        m.id === id ? { ...m, ...(updatePayload as any) } : m
+      );
+      showToast(
+        "Máquina actualizada (cache)",
+        `Se actualizaron los datos localmente.`,
+        "event",
+        3000
+      );
+    }
+  } catch (e) {
+    console.error("Error actualizando máquina:", e);
+    try {
+      const anyE = e as any;
+      const msg =
+        anyE?.response?.data?.message || anyE?.message || "Error desconocido";
+      showToast("Error al actualizar", String(msg), "event", 5000);
+    } catch (ee) {
+      showToast("Error al actualizar", "Error desconocido", "event", 5000);
+    }
+  } finally {
+    // close modal
+    newMachineOpen.value = false;
+    machineToEdit.value = null;
+    newMachineMode.value = "create";
   }
 }
 
@@ -690,6 +830,31 @@ function addDashboardNotification(input: {
   };
 
   notifications.value.unshift(n);
+
+  // Mostrar toast breve para la notificación entrante (más descriptivo)
+  try {
+    const title = getNotificationTitle(n);
+    let body = "";
+    if (n.type === "coin_inserted") {
+      const amt = Number(n.amount ?? 1) || 1;
+      body = `${n.machineName} • +${amt} moneda(s) • ${formatNotificationTime(
+        String(n.timestamp)
+      )}`;
+    } else if (n.type === "machine_on" || n.type === "machine_off") {
+      body = `${n.machineName} • ${formatNotificationTime(
+        String(n.timestamp)
+      )}`;
+      if (n.detail) body += ` • ${n.detail}`;
+    } else {
+      body = `${n.machineName} • ${formatNotificationTime(
+        String(n.timestamp)
+      )}`;
+      if (n.detail) body += ` • ${n.detail}`;
+    }
+    showToast(title, body, n.type);
+  } catch (e) {
+    /* ignore */
+  }
 
   // Incrementar no-leídas solo si no está viendo la vista de notificaciones
   if (selectedFilter.value !== "notificaciones") {
@@ -1335,12 +1500,63 @@ onUnmounted(() => {
   <NewMachine
     v-if="!isOperator"
     :open="newMachineOpen"
+    :mode="newMachineMode"
+    :machine-to-edit="machineToEdit || undefined"
     :count="machines.length"
     :machines="machines"
     :dark="isDark()"
-    @close="newMachineOpen = false"
+    @close="closeNewMachine"
     @create="handleNewMachine"
+    @update="handleUpdateMachine"
   />
+
+  <Teleport to="body">
+    <div v-if="toast" class="fixed top-4 right-4 z-[9999]">
+      <div
+        :class="[
+          'rounded-lg px-4 py-3 shadow-lg w-auto max-w-xs',
+          // base light/dark
+          isDark() ? 'text-white' : 'text-slate-800',
+          // type-specific accents
+          toast?.type === 'coin_inserted'
+            ? isDark()
+              ? 'bg-amber-900/20 border border-amber-700 text-amber-200'
+              : 'bg-amber-50 border border-amber-200 text-amber-800'
+            : toast?.type === 'machine_on'
+            ? isDark()
+              ? 'bg-emerald-900/20 border border-emerald-700 text-emerald-200'
+              : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+            : toast?.type === 'machine_off'
+            ? isDark()
+              ? 'bg-red-900/20 border border-red-700 text-red-200'
+              : 'bg-red-50 border border-red-200 text-red-800'
+            : isDark()
+            ? 'bg-slate-900 border border-slate-700/60 text-white'
+            : 'bg-white border border-slate-200/70 text-slate-800',
+        ]"
+      >
+        <div class="flex items-start gap-3">
+          <div class="flex-1">
+            <p class="font-semibold text-sm">{{ toast.title }}</p>
+            <p
+              v-if="toast.body"
+              class="text-xs"
+              :class="isDark() ? 'text-slate-300' : 'text-slate-600'"
+            >
+              {{ toast.body }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="ml-2 text-slate-400 hover:text-slate-600"
+            @click="hideToast"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 
   <!-- Notificaciones: icono y panel en el header -->
 
@@ -1503,10 +1719,10 @@ onUnmounted(() => {
           <p
             class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
           >
-            Dinero recolectado hoy
+            Monedas recolectadas hoy
           </p>
           <p class="text-2xl font-semibold text-slate-900">
-            $ {{ totalIncomeToday }}
+            {{ totalCoinsToday }}
           </p>
         </div>
       </div>
@@ -1657,9 +1873,9 @@ onUnmounted(() => {
     </section>
 
     <!-- Grid de tarjetas de máquinas -->
-    <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex flex-wrap items-center gap-2 mb-4 relative">
       <button
-        v-for="filter in stateFilters"
+        v-for="filter in visibleStateFilters"
         :key="filter"
         @click="setSelectedFilter(filter)"
         :class="[
@@ -1671,19 +1887,56 @@ onUnmounted(() => {
       >
         <span class="inline-flex items-center gap-2">
           <span>
-            {{
-              filter === "notificaciones"
-                ? "Notificaciones"
-                : filter.charAt(0).toUpperCase() + filter.slice(1)
-            }}
+            {{ filter.charAt(0).toUpperCase() + filter.slice(1) }}
           </span>
-          <span
-            v-if="filter === 'notificaciones' && unreadCount"
-            class="inline-flex items-center justify-center bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 min-w-[16px] min-h-[16px] rounded-full"
-            >{{ unreadCount }}</span
-          >
         </span>
       </button>
+
+      <!-- Campanita con etiqueta: fija al lado de las tabs (visible en móvil y escritorio) -->
+      <div
+        class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2"
+      >
+        <div class="relative">
+          <button
+            type="button"
+            @click.stop="setSelectedFilter('notificaciones')"
+            class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition"
+            :class="
+              isDark()
+                ? 'bg-slate-900 text-white border border-slate-700/60'
+                : 'bg-white/50 text-slate-700 border border-slate-200/70'
+            "
+          >
+            <svg
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6 6 0 1 0-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M13.73 21a2 2 0 0 1-3.46 0"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <span
+            v-if="unreadCount"
+            class="absolute -top-2 -right-2 inline-flex items-center justify-center bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5"
+            >{{ unreadCount }}</span
+          >
+        </div>
+      </div>
     </div>
 
     <!-- Vista de notificaciones (inline, como Activas/Inactivas) -->
@@ -2019,6 +2272,7 @@ onUnmounted(() => {
               />
             </svg>
           </button>
+          <!-- Edit action removed to avoid runtime error assigning refs -->
           <button
             type="button"
             class="w-full px-3 py-1.5 text-left text-[11px] text-slate-400 hover:bg-slate-50"

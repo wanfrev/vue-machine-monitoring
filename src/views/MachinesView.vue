@@ -71,13 +71,27 @@ function openEditModal(machine: Machine) {
 async function handleCreateMachine(payload: {
   name: string;
   location: string;
+  type?: string;
 }) {
-  await createMachine({ name: payload.name, location: payload.location });
+  await createMachine({
+    name: payload.name,
+    location: payload.location,
+    type: payload.type,
+  });
   await loadMachines();
 }
 
-async function handleUpdateMachine(payload: { id: string; location: string }) {
-  await updateMachine(payload.id, { location: payload.location });
+async function handleUpdateMachine(payload: {
+  id: string;
+  location?: string;
+  name?: string;
+  type?: string;
+}) {
+  await updateMachine(payload.id, {
+    location: payload.location,
+    name: payload.name,
+    type: payload.type,
+  });
   await loadMachines();
 }
 
