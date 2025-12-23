@@ -599,6 +599,45 @@ function getNotificationDetailLine(n: DashboardNotification) {
   return (n.detail || "").trim();
 }
 
+function getNotificationCardClass(n: DashboardNotification) {
+  const dark = isDark();
+  if (n.type === "machine_on") {
+    return dark
+      ? "border-emerald-900/60 bg-emerald-950/20"
+      : "border-emerald-100/80 bg-emerald-50/40";
+  }
+  if (n.type === "machine_off") {
+    return dark
+      ? "border-red-900/60 bg-red-950/20"
+      : "border-red-100/80 bg-red-50/40";
+  }
+  if (n.type === "coin_inserted") {
+    return dark
+      ? "border-amber-900/60 bg-amber-950/20"
+      : "border-amber-100/80 bg-amber-50/40";
+  }
+  return dark
+    ? "border-slate-700/60 bg-slate-950/20"
+    : "border-slate-200/70 bg-white/40";
+}
+
+function getNotificationDotClass(n: DashboardNotification) {
+  if (n.type === "machine_on") return "bg-emerald-500";
+  if (n.type === "machine_off") return "bg-red-500";
+  if (n.type === "coin_inserted") return "bg-amber-400";
+  return isDark() ? "bg-slate-500" : "bg-slate-400";
+}
+
+function getNotificationTitleTextClass(n: DashboardNotification) {
+  const dark = isDark();
+  if (n.type === "machine_on")
+    return dark ? "text-emerald-200" : "text-emerald-700";
+  if (n.type === "machine_off") return dark ? "text-red-200" : "text-red-700";
+  if (n.type === "coin_inserted")
+    return dark ? "text-amber-200" : "text-amber-700";
+  return "";
+}
+
 function addDashboardNotification(input: {
   type: DashboardNotificationType;
   machineId: string;
@@ -1701,15 +1740,23 @@ onUnmounted(() => {
           v-for="n in pagedNotifications"
           :key="n.id"
           class="rounded-xl border p-3"
-          :class="
-            isDark()
-              ? 'border-slate-700/60 bg-slate-950/20'
-              : 'border-slate-200/70 bg-white/40'
-          "
+          :class="getNotificationCardClass(n)"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="text-xs font-semibold">{{ getNotificationTitle(n) }}</p>
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="mt-0.5 h-2.5 w-2.5 rounded-full shrink-0"
+                  :class="getNotificationDotClass(n)"
+                  aria-hidden="true"
+                ></span>
+                <p
+                  class="text-xs font-semibold truncate"
+                  :class="getNotificationTitleTextClass(n)"
+                >
+                  {{ getNotificationTitle(n) }}
+                </p>
+              </div>
               <p
                 class="text-[12px] text-slate-500 truncate"
                 :class="isDark() ? 'text-slate-400' : ''"
