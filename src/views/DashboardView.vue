@@ -249,18 +249,39 @@ const pagedNotifications = computed(() => {
   return visibleNotifications.value.slice(start, start + notificationPageSize);
 });
 
-// In-page notification sound (put a short audio file at public/sounds/coin.mp3)
-const notificationSound = new Audio("/sounds/coin.mp3");
-notificationSound.preload = "auto";
-function playNotificationSound() {
+// In-page notification sounds (place files at public/sounds/coin.mp3, on.mp3, off.mp3)
+const soundMap: Partial<Record<DashboardNotificationType, HTMLAudioElement>> = {
+  coin_inserted: new Audio("/sounds/coin.mp3"),
+  machine_on: new Audio("/sounds/on.mp3"),
+  machine_off: new Audio("/sounds/off.mp3"),
+};
+Object.values(soundMap).forEach((s) => {
   try {
-    if (document.visibilityState === "visible") {
-      notificationSound.currentTime = 0;
-      void notificationSound.play();
-    }
+    s.preload = "auto";
+  } catch (e) {
+    /* ignore */
+  }
+});
+
+function playSound(type: DashboardNotificationType) {
+  try {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    )
+      return;
+    const audio = soundMap[type] ?? soundMap.coin_inserted;
+    if (!audio) return;
+    audio.currentTime = 0;
+    void audio.play();
   } catch (e) {
     // ignore playback errors
   }
+}
+
+// backwards-compatible alias
+function playNotificationSound() {
+  playSound("coin_inserted");
 }
 
 const stateFilters = [
@@ -1053,6 +1074,11 @@ onMounted(async () => {
             ? String(payload.data.reason)
             : undefined,
         });
+        try {
+          playSound("machine_on");
+        } catch (e) {
+          /* ignore */
+        }
       } catch (e) {
         /* ignore */
       }
@@ -1084,6 +1110,11 @@ onMounted(async () => {
             ? String(payload.data.reason)
             : undefined,
         });
+        try {
+          playSound("machine_off");
+        } catch (e) {
+          /* ignore */
+        }
       } catch (e) {
         /* ignore */
       }
@@ -1151,14 +1182,26 @@ onMounted(async () => {
               return;
             }
             if (eventType === "machine_on" || eventType === "machine_off") {
-              addDashboardNotification({
-                type: eventType,
-                machineId,
-                timestamp: String(ts),
-                detail: payload.data?.reason
-                  ? String(payload.data.reason)
-                  : undefined,
-              });
+              // Only let the Service Worker drive UI updates when the page
+              // is not visible (socket will handle visible clients).
+              const shouldProcessFromSW =
+                typeof document === "undefined" ||
+                document.visibilityState !== "visible";
+              if (shouldProcessFromSW) {
+                addDashboardNotification({
+                  type: eventType,
+                  machineId,
+                  timestamp: String(ts),
+                  detail: payload.data?.reason
+                    ? String(payload.data.reason)
+                    : undefined,
+                });
+                try {
+                  playSound(eventType as DashboardNotificationType);
+                } catch (e) {
+                  /* ignore */
+                }
+              }
               return;
             }
             // Otros eventos (si llegan)
