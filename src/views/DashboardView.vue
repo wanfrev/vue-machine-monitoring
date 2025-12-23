@@ -1982,11 +1982,11 @@ onUnmounted(() => {
             <input
               type="date"
               v-model="notificationFrom"
-              class="px-3 py-2 rounded text-sm border w-full sm:w-36"
+              class="px-3 py-2 rounded text-sm border w-full sm:w-36 placeholder-slate-400"
               :class="
                 isDark()
-                  ? 'bg-slate-900 text-slate-200 border-slate-700/60'
-                  : 'bg-white text-slate-700 border-slate-200/70'
+                  ? 'bg-slate-900 text-slate-200 border-slate-700/60 placeholder-slate-400'
+                  : 'bg-white/90 text-slate-700 border-slate-200/70 placeholder-slate-400'
               "
             />
             <div
@@ -1997,11 +1997,11 @@ onUnmounted(() => {
             <input
               type="date"
               v-model="notificationTo"
-              class="px-3 py-2 rounded text-sm border w-full sm:w-36"
+              class="px-3 py-2 rounded text-sm border w-full sm:w-36 placeholder-slate-400"
               :class="
                 isDark()
-                  ? 'bg-slate-900 text-slate-200 border-slate-700/60'
-                  : 'bg-white text-slate-700 border-slate-200/70'
+                  ? 'bg-slate-900 text-slate-200 border-slate-700/60 placeholder-slate-400'
+                  : 'bg-white/90 text-slate-700 border-slate-200/70 placeholder-slate-400'
               "
             />
             <button
