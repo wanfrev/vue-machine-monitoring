@@ -17,7 +17,6 @@ import FilterPanel from "@/components/FilterPanel.vue";
 import {
   getMachines,
   createMachine as apiCreateMachine,
-  getCoinsByMachine,
   updateMachine,
   getMachineDailyIncome,
   getMachinePowerLogs,
@@ -388,6 +387,13 @@ function getTodayLocalStr() {
   return `${year}-${month}-${day}`;
 }
 
+function getMonthStartLocalStr() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}
+
 function minutesSinceStartOfDay() {
   const now = new Date();
   const start = new Date(now);
@@ -504,7 +510,7 @@ function onApplyFilters(payload: DashboardFilters) {
   }
 }
 
-// monedas por máquina (histórico total): { [machineId]: total_coins }
+// monedas por máquina (acumulado del mes actual): { [machineId]: coins_month_to_date }
 const coinsByMachine = ref<Record<string, number>>({});
 // monedas de HOY por máquina: { [machineId]: coins_today }
 const dailyCoinsByMachine = ref<Record<string, number>>({});
@@ -1039,63 +1045,52 @@ async function loadNotificationsFromServer(page = 1) {
 async function loadDashboardData() {
   try {
     machines.value = await getMachines();
-    // cargar monedas agrupadas por máquina (total histórico)
+    // Cargar monedas por máquina (mes actual) + monedas de HOY (usando fecha local)
     try {
-      const coinsPerMachine = await getCoinsByMachine();
-      const map: Record<string, number> = {};
-      for (const row of coinsPerMachine) {
-        map[row.machine_id] = Number(row.total_coins ?? 0);
-      }
-      coinsByMachine.value = map;
-    } catch (e) {
-      console.error("Error obteniendo monedas por máquina:", e);
-      coinsByMachine.value = {};
-    }
-
-    // cargar monedas de HOY por máquina para los contadores diarios (usando fecha local)
-    try {
-      const today = new Date();
-      // Obtener YYYY-MM-DD local
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, "0");
-      const day = String(today.getDate()).padStart(2, "0");
-      const todayLocalStr = `${year}-${month}-${day}`;
+      const todayLocalStr = getTodayLocalStr();
+      const monthStartLocalStr = getMonthStartLocalStr();
+      const monthMap: Record<string, number> = {};
       const dailyMap: Record<string, number> = {};
 
       await Promise.all(
         machines.value.map(async (machine) => {
           try {
-            const daily = await getMachineDailyIncome(machine.id, {
-              startDate: todayLocalStr,
+            const rows = await getMachineDailyIncome(machine.id, {
+              startDate: monthStartLocalStr,
               endDate: todayLocalStr,
             });
-            // El backend ya devuelve la fecha agrupada en zona local (YYYY-MM-DD),
-            // así que comparamos usando directamente la cadena sin crear Date (evita desfase de día).
+
+            let coinsMonth = 0;
             let coinsToday = 0;
-            if (Array.isArray(daily) && daily.length) {
-              // Buscar el registro que coincida con la fecha local
-              const found = daily.find((d) => {
-                if (!d.date) return false;
-                const dateStr = String(d.date).slice(0, 10);
-                return dateStr === todayLocalStr;
-              });
-              coinsToday = found ? Number(found.income ?? 0) : 0;
+            if (Array.isArray(rows) && rows.length) {
+              for (const r of rows) {
+                const dateStr = String((r as any)?.date ?? "").slice(0, 10);
+                const inc = Number((r as any)?.income ?? 0);
+                if (!Number.isFinite(inc)) continue;
+                coinsMonth += inc;
+                if (dateStr === todayLocalStr) coinsToday = inc;
+              }
             }
+
+            monthMap[machine.id] = coinsMonth;
             dailyMap[machine.id] = coinsToday;
           } catch (err) {
             console.error(
-              "Error obteniendo monedas de hoy para máquina:",
+              "Error obteniendo monedas del mes para máquina:",
               machine.id,
               err
             );
+            monthMap[machine.id] = 0;
             dailyMap[machine.id] = 0;
           }
         })
       );
 
+      coinsByMachine.value = monthMap;
       dailyCoinsByMachine.value = dailyMap;
     } catch (e) {
-      console.error("Error obteniendo monedas diarias por máquina:", e);
+      console.error("Error obteniendo monedas del mes por máquina:", e);
+      coinsByMachine.value = {};
       dailyCoinsByMachine.value = {};
     }
   } catch (err: unknown) {
@@ -1146,6 +1141,21 @@ onMounted(async () => {
       const amount = Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
       const ts = payload.timestamp || payload.ts || new Date().toISOString();
 
+      // Fecha local del evento para saber si cuenta como "hoy"
+      let eventLocalDate = "";
+      try {
+        const d = new Date(String(ts));
+        if (!Number.isNaN(d.getTime())) {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          eventLocalDate = `${year}-${month}-${day}`;
+        }
+      } catch (e) {
+        void e;
+      }
+      const todayLocalStr = getTodayLocalStr();
+
       const machine = machines.value.find((m) => String(m.id) === machineId);
       const machineName =
         payload.machineName || machine?.name || `Máquina ${machineId}`;
@@ -1166,10 +1176,12 @@ onMounted(async () => {
           ...coinsByMachine.value,
           [machineId]: (coinsByMachine.value[machineId] || 0) + amount,
         };
-        dailyCoinsByMachine.value = {
-          ...dailyCoinsByMachine.value,
-          [machineId]: (dailyCoinsByMachine.value[machineId] || 0) + amount,
-        };
+        if (!eventLocalDate || eventLocalDate === todayLocalStr) {
+          dailyCoinsByMachine.value = {
+            ...dailyCoinsByMachine.value,
+            [machineId]: (dailyCoinsByMachine.value[machineId] || 0) + amount,
+          };
+        }
       } catch (e) {
         // ignore
       }

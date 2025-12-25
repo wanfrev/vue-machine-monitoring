@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import {
-  getMachines,
-  getCoinsByMachine,
-  getMachineHistory,
-} from "../api/client";
+import { getMachines, getMachineHistory } from "../api/client";
 
 type Tx = {
   kind: "Ingreso" | "Evento";
@@ -13,6 +9,7 @@ type Tx = {
   date: string;
   time?: string;
   amount: number;
+  coins: number;
   ok: boolean;
 };
 
@@ -48,6 +45,32 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
+function defaultDateRangeForNow() {
+  const now = new Date();
+  const end = formatDate(now);
+  const startObj = new Date(now);
+  startObj.setDate(startObj.getDate() - 30);
+  const start = formatDate(startObj);
+  return { start, end };
+}
+
+const hasActiveDateFilter = computed(() => {
+  const def = defaultDateRangeForNow();
+  return startDate.value !== def.start || endDate.value !== def.end;
+});
+
+function resetDateRange() {
+  const def = defaultDateRangeForNow();
+  startDate.value = def.start;
+  endDate.value = def.end;
+  currentPage.value = 1;
+  try {
+    localStorage.removeItem(rangeStorageKey.value);
+  } catch {
+    // ignore
+  }
+}
+
 const rangeStorageKey = computed(() => {
   const id = String(route.params.id ?? "");
   return `mm:range:machine-historial:${id}`;
@@ -67,6 +90,10 @@ function readSavedRange() {
 
 function writeSavedRange() {
   try {
+    if (!hasActiveDateFilter.value) {
+      localStorage.removeItem(rangeStorageKey.value);
+      return;
+    }
     localStorage.setItem(
       rangeStorageKey.value,
       JSON.stringify({ startDate: startDate.value, endDate: endDate.value })
@@ -104,6 +131,7 @@ const visible = computed(() => {
   return filtered.value.slice(start, start + pageSize);
 });
 const machine = ref<Machine | null>(null);
+// Total de monedas para el rango seleccionado
 const totalCoins = ref(0);
 
 const valuePerCoin = computed(() => {
@@ -132,6 +160,7 @@ async function loadHistory() {
       endDate: endDate.value,
     });
     // Solo mapear eventos de monedas (coin_inserted)
+    let sumCoins = 0;
     const mapped = (history || [])
       .filter((h: any) => h.type === "coin_inserted")
       .map((h: any) => {
@@ -144,6 +173,7 @@ async function loadHistory() {
           date,
           time,
           amount,
+          coins,
           ok: true,
         } as Tx;
       })
@@ -153,12 +183,15 @@ async function loadHistory() {
         if (!d) return false;
         if (startDate.value && d < startDate.value) return false;
         if (endDate.value && d > endDate.value) return false;
+        sumCoins += Number.isFinite(t.coins) ? t.coins : 0;
         return true;
       });
     txs.value = mapped;
+    totalCoins.value = sumCoins;
   } catch (e) {
     console.error("Error cargando historial de máquina:", e);
     txs.value = [];
+    totalCoins.value = 0;
   }
 }
 
@@ -173,9 +206,6 @@ async function fetchAllData() {
     );
     if (current) {
       machine.value = current;
-      const coinsPerMachine = await getCoinsByMachine();
-      const row = coinsPerMachine.find((r) => r.machine_id === current.id);
-      totalCoins.value = Number(row?.total_coins ?? 0);
       await loadHistory();
     }
   } catch (e) {
@@ -234,6 +264,15 @@ watch(search, () => {
             type="date"
             class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
+
+          <button
+            v-if="hasActiveDateFilter"
+            type="button"
+            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            @click="resetDateRange"
+          >
+            Borrar filtro
+          </button>
         </div>
       </div>
       <div

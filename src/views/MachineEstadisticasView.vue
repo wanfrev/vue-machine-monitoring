@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { getCoinsByMachine } from "../api/client";
-const totalCoins = ref(0);
-import { computed, onMounted, ref, watch, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import {
   getMachines,
   getMachinePowerLogs,
   getMachineDailyIncome,
 } from "../api/client";
+
+const totalCoins = ref(0);
 
 type Machine = {
   id: string;
@@ -41,6 +41,31 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
+function defaultDateRangeForNow() {
+  const now = new Date();
+  const end = formatDate(now);
+  const startObj = new Date(now);
+  startObj.setDate(startObj.getDate() - 30);
+  const start = formatDate(startObj);
+  return { start, end };
+}
+
+const hasActiveDateFilter = computed(() => {
+  const def = defaultDateRangeForNow();
+  return startDate.value !== def.start || endDate.value !== def.end;
+});
+
+function resetDateRange() {
+  const def = defaultDateRangeForNow();
+  startDate.value = def.start;
+  endDate.value = def.end;
+  try {
+    localStorage.removeItem(rangeStorageKey.value);
+  } catch {
+    // ignore
+  }
+}
+
 const rangeStorageKey = computed(() => {
   const id = String(route.params.id ?? "");
   return `mm:range:machine-estadisticas:${id}`;
@@ -60,6 +85,10 @@ function readSavedRange() {
 
 function writeSavedRange() {
   try {
+    if (!hasActiveDateFilter.value) {
+      localStorage.removeItem(rangeStorageKey.value);
+      return;
+    }
     localStorage.setItem(
       rangeStorageKey.value,
       JSON.stringify({ startDate: startDate.value, endDate: endDate.value })
@@ -134,7 +163,7 @@ async function loadStats() {
   if (!machine.value) return;
   loading.value = true;
   try {
-    const [logs, income, coinsPerMachine] = await Promise.all([
+    const [logs, income] = await Promise.all([
       getMachinePowerLogs(machine.value.id, {
         startDate: startDate.value,
         endDate: endDate.value,
@@ -143,7 +172,6 @@ async function loadStats() {
         startDate: startDate.value,
         endDate: endDate.value,
       }),
-      getCoinsByMachine(),
     ]);
     powerLogs.value = (logs || []).map((log: any) => ({
       event: log.event,
@@ -151,15 +179,16 @@ async function loadStats() {
       dur: log.dur,
     }));
     dailyIncome.value = income;
-    // Buscar monedas totales para esta máquina
-    const row = Array.isArray(coinsPerMachine)
-      ? coinsPerMachine.find((r) => r.machine_id === machine.value?.id)
-      : null;
-    totalCoins.value = row ? Number(row.total_coins ?? 0) : 0;
+
+    // Monedas totales SOLO en el rango seleccionado
+    totalCoins.value = Array.isArray(income)
+      ? income.reduce((sum: number, d: any) => sum + Number(d?.income ?? 0), 0)
+      : 0;
   } catch (e) {
     console.error("Error cargando estadísticas de máquina:", e);
     powerLogs.value = [];
     dailyIncome.value = [];
+    totalCoins.value = 0;
   } finally {
     loading.value = false;
   }
@@ -254,7 +283,7 @@ watch([startDate, endDate, machine], async () => {
         <p class="mt-1 text-3xl font-semibold text-red-600">
           {{ totalCoins }}
         </p>
-        <p class="text-xs text-slate-400">Histórico</p>
+        <p class="text-xs text-slate-400">En este período</p>
       </div>
       <div
         class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
@@ -292,6 +321,15 @@ watch([startDate, endDate, machine], async () => {
             type="date"
             class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
+
+          <button
+            v-if="hasActiveDateFilter"
+            type="button"
+            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            @click="resetDateRange"
+          >
+            Borrar filtro
+          </button>
         </div>
       </div>
       <div

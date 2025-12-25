@@ -58,8 +58,52 @@ thirtyDaysAgo.setDate(today.getDate() - 30);
 const startDate = ref(formatDate(thirtyDaysAgo));
 const endDate = ref(formatDate(today));
 
-type ChartMode = "day" | "hour";
+type ChartMode = "day" | "hour" | "month";
 const chartMode = ref<ChartMode>("day");
+
+// Modo mensual: seleccionar mes principal y (opcional) mes para comparar
+const monthPrimary = ref<string>(formatDate(today).slice(0, 7)); // YYYY-MM
+const monthCompare = ref<string>("");
+
+function defaultDateRangeForNow() {
+  const now = new Date();
+  const end = formatDate(now);
+  const startObj = new Date(now);
+  startObj.setDate(startObj.getDate() - 30);
+  const start = formatDate(startObj);
+  return { start, end };
+}
+
+function defaultMonthForNow() {
+  return formatDate(new Date()).slice(0, 7);
+}
+
+const hasActiveChartFilter = computed(() => {
+  if (chartMode.value === "hour") return true;
+  if (chartMode.value === "month") {
+    return (
+      monthCompare.value.trim() !== "" ||
+      monthPrimary.value !== defaultMonthForNow()
+    );
+  }
+
+  const def = defaultDateRangeForNow();
+  return startDate.value !== def.start || endDate.value !== def.end;
+});
+
+function resetChartFilter() {
+  const def = defaultDateRangeForNow();
+  chartMode.value = "day";
+  startDate.value = def.start;
+  endDate.value = def.end;
+  monthPrimary.value = defaultMonthForNow();
+  monthCompare.value = "";
+  try {
+    localStorage.removeItem(rangeStorageKey.value);
+  } catch {
+    // ignore
+  }
+}
 
 const rangeStorageKey = computed(() => {
   const id = String(route.params.id ?? "");
@@ -74,15 +118,27 @@ function readSavedRange() {
       startDate?: string;
       endDate?: string;
       chartMode?: ChartMode;
+      monthPrimary?: string;
+      monthCompare?: string;
     };
     if (parsed.startDate) startDate.value = parsed.startDate;
     if (parsed.endDate) endDate.value = parsed.endDate;
-    if (parsed.chartMode === "day" || parsed.chartMode === "hour") {
+    if (
+      parsed.chartMode === "day" ||
+      parsed.chartMode === "hour" ||
+      parsed.chartMode === "month"
+    ) {
       chartMode.value = parsed.chartMode;
       // Mantener consistencia en modo por hora (un solo día)
       if (chartMode.value === "hour" && startDate.value) {
         endDate.value = startDate.value;
       }
+    }
+    if (typeof parsed.monthPrimary === "string" && parsed.monthPrimary) {
+      monthPrimary.value = parsed.monthPrimary;
+    }
+    if (typeof parsed.monthCompare === "string") {
+      monthCompare.value = parsed.monthCompare;
     }
   } catch {
     // ignorar datos corruptos
@@ -91,12 +147,18 @@ function readSavedRange() {
 
 function writeSavedRange() {
   try {
+    if (!hasActiveChartFilter.value) {
+      localStorage.removeItem(rangeStorageKey.value);
+      return;
+    }
     localStorage.setItem(
       rangeStorageKey.value,
       JSON.stringify({
         startDate: startDate.value,
         endDate: endDate.value,
         chartMode: chartMode.value,
+        monthPrimary: monthPrimary.value,
+        monthCompare: monthCompare.value,
       })
     );
   } catch {
@@ -110,6 +172,9 @@ readSavedRange();
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
 const hourlyIncome = ref<{ hour: number; income: number }[]>([]);
 const hourlyCoins = ref<{ hour: number; coins: number }[]>([]);
+
+const monthlyPrimary = ref<{ day: number; income: number }[]>([]);
+const monthlyCompare = ref<{ day: number; income: number }[]>([]);
 
 const valuePerCoin = computed(() => {
   const name = machine.value?.name ?? "";
@@ -140,6 +205,48 @@ function addDaysYmd(ymd: string, days: number) {
   const date = new Date(y, (m || 1) - 1, d || 1);
   date.setDate(date.getDate() + days);
   return formatDate(date);
+}
+
+function daysInMonth(ym: string) {
+  // ym: YYYY-MM
+  const [y, m] = ym.split("-").map((v) => Number(v));
+  if (!y || !m) return 30;
+  return new Date(y, m, 0).getDate();
+}
+
+function ymdFromMonthDay(ym: string, day: number) {
+  const safeDay = Math.max(1, Math.min(31, day));
+  return `${ym}-${pad2(safeDay)}`;
+}
+
+async function loadMonthlyIncome(ym: string) {
+  if (!machine.value) return [] as { day: number; income: number }[];
+  const maxDay = daysInMonth(ym);
+  const start = `${ym}-01`;
+  const end = `${ym}-${pad2(maxDay)}`;
+  try {
+    const data = await getMachineDailyIncome(machine.value.id, {
+      startDate: start,
+      endDate: end,
+    });
+    const mapped = (data || []).map((d) => {
+      const dateStr = d.date ? String(d.date).slice(0, 10) : "";
+      const coins = Number(d.income);
+      const value = isOperator.value ? coins : coins * valuePerCoin.value;
+      return { date: dateStr, income: Number.isFinite(value) ? value : 0 };
+    });
+
+    const out: { day: number; income: number }[] = [];
+    for (let day = 1; day <= maxDay; day++) {
+      const ymd = ymdFromMonthDay(ym, day);
+      const found = mapped.find((m) => m.date === ymd);
+      out.push({ day, income: found ? found.income : 0 });
+    }
+    return out;
+  } catch (e) {
+    console.error("Error cargando ingresos mensuales de la máquina:", e);
+    return [];
+  }
 }
 
 async function loadHourlyIncome() {
@@ -245,8 +352,13 @@ async function fetchAllData() {
       totalCoins.value = coinsToday;
       if (chartMode.value === "hour") {
         await loadHourlyIncome();
-      } else {
+      } else if (chartMode.value === "day") {
         await loadDailyIncome();
+      } else {
+        monthlyPrimary.value = await loadMonthlyIncome(monthPrimary.value);
+        monthlyCompare.value = monthCompare.value
+          ? await loadMonthlyIncome(monthCompare.value)
+          : [];
       }
     }
   } catch (e) {
@@ -265,35 +377,113 @@ onUnmounted(() => {
   if (refreshInterval) clearInterval(refreshInterval);
 });
 
-watch([startDate, endDate, machine, chartMode], async () => {
-  if (!machine.value) return;
-  if (startDate.value && endDate.value && startDate.value > endDate.value) {
-    return;
+watch(
+  [startDate, endDate, machine, chartMode, monthPrimary, monthCompare],
+  async () => {
+    if (!machine.value) return;
+    writeSavedRange();
+
+    if (chartMode.value !== "month") {
+      if (startDate.value && endDate.value && startDate.value > endDate.value) {
+        return;
+      }
+    }
+
+    if (chartMode.value === "hour") {
+      await loadHourlyIncome();
+    } else if (chartMode.value === "day") {
+      await loadDailyIncome();
+    } else {
+      // monthly
+      monthlyPrimary.value = await loadMonthlyIncome(monthPrimary.value);
+      monthlyCompare.value = monthCompare.value
+        ? await loadMonthlyIncome(monthCompare.value)
+        : [];
+    }
   }
-  writeSavedRange();
-  if (chartMode.value === "hour") {
-    await loadHourlyIncome();
-  } else {
-    await loadDailyIncome();
-  }
+);
+
+const maxMonthlyDays = computed(() => {
+  const d1 = daysInMonth(monthPrimary.value);
+  const d2 = monthCompare.value ? daysInMonth(monthCompare.value) : 0;
+  return Math.max(d1, d2 || 0);
 });
 
 const chartLabels = computed(() => {
-  return chartMode.value === "hour"
-    ? hourlyIncome.value.map((d) => `${pad2(d.hour)}:00`)
-    : dailyIncome.value.map((d) => d.date);
+  if (chartMode.value === "hour") {
+    return hourlyIncome.value.map((d) => `${pad2(d.hour)}:00`);
+  }
+  if (chartMode.value === "day") {
+    return dailyIncome.value.map((d) => d.date);
+  }
+  // month
+  return Array.from({ length: maxMonthlyDays.value }, (_, i) => pad2(i + 1));
 });
 
 const chartValues = computed(() => {
-  return chartMode.value === "hour"
-    ? hourlyIncome.value.map((d) => d.income)
-    : dailyIncome.value.map((d) => d.income);
+  if (chartMode.value === "hour")
+    return hourlyIncome.value.map((d) => d.income);
+  if (chartMode.value === "day") return dailyIncome.value.map((d) => d.income);
+  const max = maxMonthlyDays.value;
+  const map1 = new Map(monthlyPrimary.value.map((r) => [r.day, r.income]));
+  return Array.from({ length: max }, (_, i) => map1.get(i + 1) ?? 0);
+});
+
+const chartCompareValues = computed(() => {
+  if (chartMode.value !== "month") return [] as number[];
+  if (!monthCompare.value) return [] as number[];
+  const max = maxMonthlyDays.value;
+  const map2 = new Map(monthlyCompare.value.map((r) => [r.day, r.income]));
+  return Array.from({ length: max }, (_, i) => map2.get(i + 1) ?? 0);
+});
+
+const chartDatasets = computed(() => {
+  const datasets: any[] = [
+    {
+      label:
+        chartMode.value === "month"
+          ? `${isOperator.value ? "Monedas" : "Ingresos"} (${
+              monthPrimary.value
+            })`
+          : isOperator.value
+          ? "Monedas"
+          : "Ingresos",
+      backgroundColor: "rgba(220, 38, 38, 0.55)",
+      hoverBackgroundColor: "rgba(220, 38, 38, 0.75)",
+      borderColor: "rgba(220, 38, 38, 0.9)",
+      borderWidth: 1,
+      data: chartValues.value,
+      borderRadius: 6,
+      maxBarThickness: 16,
+      categoryPercentage: 0.9,
+      barPercentage: 0.9,
+    },
+  ];
+
+  if (chartMode.value === "month" && monthCompare.value) {
+    datasets.push({
+      label: `${isOperator.value ? "Monedas" : "Ingresos"} (${
+        monthCompare.value
+      })`,
+      backgroundColor: "rgba(71, 85, 105, 0.35)",
+      hoverBackgroundColor: "rgba(71, 85, 105, 0.55)",
+      borderColor: "rgba(71, 85, 105, 0.75)",
+      borderWidth: 1,
+      data: chartCompareValues.value,
+      borderRadius: 6,
+      maxBarThickness: 16,
+      categoryPercentage: 0.9,
+      barPercentage: 0.9,
+    });
+  }
+
+  return datasets;
 });
 
 const hasChartData = computed(() => {
-  return chartMode.value === "hour"
-    ? hourlyIncome.value.length > 0
-    : dailyIncome.value.length > 0;
+  if (chartMode.value === "hour") return hourlyIncome.value.length > 0;
+  if (chartMode.value === "day") return dailyIncome.value.length > 0;
+  return monthlyPrimary.value.length > 0;
 });
 </script>
 
@@ -362,9 +552,17 @@ const hasChartData = computed(() => {
           isOperator
             ? chartMode === "hour"
               ? "Monedas por hora – Rango seleccionado"
+              : chartMode === "month"
+              ? `Monedas por mes – ${
+                  monthCompare ? "Comparación" : "Mes seleccionado"
+                }`
               : "Monedas por día – Último mes"
             : chartMode === "hour"
             ? "$ Ingresos por hora – Rango seleccionado"
+            : chartMode === "month"
+            ? `$ Ingresos por mes – ${
+                monthCompare ? "Comparación" : "Mes seleccionado"
+              }`
             : "$ Ingresos por día – Último mes"
         }}
       </h2>
@@ -404,9 +602,25 @@ const hasChartData = computed(() => {
           >
             Por hora
           </button>
+
+          <button
+            type="button"
+            class="rounded-full px-3 py-1.5 transition"
+            :class="
+              chartMode === 'month'
+                ? 'bg-red-600 text-white'
+                : 'text-slate-600 hover:bg-white/40'
+            "
+            role="tab"
+            :aria-selected="chartMode === 'month'"
+            @click="setChartMode('month')"
+          >
+            Por mes
+          </button>
         </div>
 
         <div
+          v-if="chartMode !== 'month'"
           class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
         >
           <span class="hidden sm:inline">Rango:</span>
@@ -421,6 +635,42 @@ const hasChartData = computed(() => {
             type="date"
             class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
           />
+
+          <button
+            v-if="hasActiveChartFilter"
+            type="button"
+            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            @click="resetChartFilter"
+          >
+            Borrar filtro
+          </button>
+        </div>
+
+        <div
+          v-else
+          class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+        >
+          <span class="hidden sm:inline">Mes:</span>
+          <input
+            v-model="monthPrimary"
+            type="month"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+          <span class="hidden sm:inline text-slate-400">vs</span>
+          <input
+            v-model="monthCompare"
+            type="month"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+          />
+
+          <button
+            v-if="hasActiveChartFilter"
+            type="button"
+            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            @click="resetChartFilter"
+          >
+            Borrar filtro
+          </button>
         </div>
       </div>
     </div>
@@ -431,20 +681,7 @@ const hasChartData = computed(() => {
         v-if="hasChartData"
         :chartData="{
           labels: chartLabels,
-          datasets: [
-            {
-              label: isOperator ? 'Monedas' : 'Ingresos',
-              backgroundColor: 'rgba(220, 38, 38, 0.55)',
-              hoverBackgroundColor: 'rgba(220, 38, 38, 0.75)',
-              borderColor: 'rgba(220, 38, 38, 0.9)',
-              borderWidth: 1,
-              data: chartValues,
-              borderRadius: 6,
-              maxBarThickness: 16,
-              categoryPercentage: 0.9,
-              barPercentage: 0.9,
-            },
-          ],
+          datasets: chartDatasets,
         }"
         :chartOptions="{
           responsive: true,
@@ -461,15 +698,18 @@ const hasChartData = computed(() => {
               padding: 10,
               cornerRadius: 10,
               callbacks: {
-                title: (items) => {
+                title: (items: any[]) => {
                   const label = items?.[0]?.label ?? '';
                   if (chartMode === 'hour') {
                     // Mostrar solo el día (no el rango)
                     return `${startDate} ${label}`.trim();
                   }
+                  if (chartMode === 'month') {
+                    return `${monthPrimary} • Día ${label}`;
+                  }
                   return label;
                 },
-                label: (ctx) => {
+                label: (ctx: any) => {
                   const raw = (ctx as any)?.parsed?.y ?? (ctx as any)?.raw;
                   const yValue = typeof raw === 'number' ? raw : Number(raw);
                   const safeY = Number.isFinite(yValue) ? yValue : 0;
@@ -480,7 +720,8 @@ const hasChartData = computed(() => {
                     return [`Monedas: ${coins}`, `Ingresos: $ ${safeY}`];
                   }
 
-                  const prefix = isOperator ? 'Monedas' : 'Ingresos';
+                  const dsLabel = (ctx as any)?.dataset?.label;
+                  const prefix = typeof dsLabel === 'string' && dsLabel ? dsLabel : isOperator ? 'Monedas' : 'Ingresos';
                   return `${prefix}: ${safeY}`;
                 },
               },
@@ -490,7 +731,7 @@ const hasChartData = computed(() => {
             x: {
               title: {
                 display: true,
-                text: chartMode === 'hour' ? 'Hora' : 'Fecha',
+                text: chartMode === 'hour' ? 'Hora' : chartMode === 'month' ? 'Día' : 'Fecha',
                 color: 'rgba(71, 85, 105, 0.9)',
                 font: { size: 12, weight: '600' },
                 padding: { top: 6 },
@@ -500,7 +741,7 @@ const hasChartData = computed(() => {
                 color: 'rgba(71, 85, 105, 0.9)',
                 font: { size: 10 },
                 autoSkip: true,
-                maxTicksLimit: chartMode === 'hour' ? 12 : 10,
+                maxTicksLimit: chartMode === 'hour' ? 12 : chartMode === 'month' ? 12 : 10,
                 padding: 8,
                 maxRotation: 0,
                 minRotation: 0,
@@ -552,7 +793,22 @@ const hasChartData = computed(() => {
     </div>
     <div class="mt-4 text-sm text-slate-600">
       <span class="inline-block h-3 w-3 rounded-sm bg-red-600"></span>
-      <span class="ml-2">{{ isOperator ? "Monedas" : "Ingresos" }}</span>
+      <span class="ml-2">
+        {{
+          chartMode === "month"
+            ? `${isOperator ? "Monedas" : "Ingresos"} (${monthPrimary})`
+            : isOperator
+            ? "Monedas"
+            : "Ingresos"
+        }}
+      </span>
+
+      <template v-if="chartMode === 'month' && monthCompare">
+        <span class="ml-6 inline-block h-3 w-3 rounded-sm bg-slate-500"></span>
+        <span class="ml-2">{{
+          `${isOperator ? "Monedas" : "Ingresos"} (${monthCompare})`
+        }}</span>
+      </template>
     </div>
   </section>
 </template>
