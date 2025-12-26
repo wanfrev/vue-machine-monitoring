@@ -378,6 +378,8 @@ const maxIncome = computed(() => {
 const activeMinutesTodayByMachine = ref<Record<string, number>>({});
 const usageLoading = ref(false);
 const usageLastLoadedAt = ref<number | null>(null);
+// Primer inicio (encendido) del día por máquina (si existe)
+const firstOnTodayByMachine = ref<Record<string, string>>({});
 
 function getTodayLocalStr() {
   const today = new Date();
@@ -419,6 +421,7 @@ async function ensureUsageDataFresh() {
   try {
     const todayLocalStr = getTodayLocalStr();
     const map: Record<string, number> = {};
+    const firstMap: Record<string, string> = {};
     await Promise.all(
       machines.value.map(async (machine) => {
         try {
@@ -430,12 +433,22 @@ async function ensureUsageDataFresh() {
             .filter((l) => l.event === "Encendido" && l.dur)
             .reduce((sum, l) => sum + Number(l.dur || 0), 0);
           map[machine.id] = activeMinutes;
+
+          // Buscar el primer evento 'Encendido' del día (orden ascendente)
+          const onEvents = (logs || [])
+            .filter((l) => l.event === "Encendido" && l.ts)
+            .map((l) => l.ts)
+            .sort();
+          if (onEvents.length) {
+            firstMap[machine.id] = onEvents[0];
+          }
         } catch (e) {
           map[machine.id] = 0;
         }
       })
     );
     activeMinutesTodayByMachine.value = map;
+    firstOnTodayByMachine.value = firstMap;
     usageLastLoadedAt.value = Date.now();
   } finally {
     usageLoading.value = false;
@@ -2366,7 +2379,14 @@ onUnmounted(() => {
         </div>
 
         <div class="mb-3 space-y-1 text-[11px] text-slate-400">
-          <p>Último inicio: {{ formatLastTime(machine.last_on) }}</p>
+          <p>
+            Último inicio:
+            {{
+              formatLastTime(
+                firstOnTodayByMachine[machine.id] || machine.last_on
+              )
+            }}
+          </p>
           <p>Último cierre: {{ formatLastTime(machine.last_off) }}</p>
         </div>
 

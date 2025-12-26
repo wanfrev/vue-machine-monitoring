@@ -66,12 +66,16 @@ const monthPrimary = ref<string>(formatDate(today).slice(0, 7)); // YYYY-MM
 const monthCompare = ref<string>("");
 
 function defaultDateRangeForNow() {
+  // Default to 25th of previous month -> 25th of current month
   const now = new Date();
-  const end = formatDate(now);
-  const startObj = new Date(now);
-  startObj.setDate(startObj.getDate() - 30);
-  const start = formatDate(startObj);
-  return { start, end };
+  // End: 25th of current month
+  let endObj = new Date(now.getFullYear(), now.getMonth(), 25);
+  // If today is before the 25th, treat 'current' as previous month
+  if (now.getDate() < 25) {
+    endObj = new Date(now.getFullYear(), now.getMonth() - 1, 25);
+  }
+  const startObj = new Date(endObj.getFullYear(), endObj.getMonth() - 1, 25);
+  return { start: formatDate(startObj), end: formatDate(endObj) };
 }
 
 function defaultMonthForNow() {
@@ -166,8 +170,8 @@ function writeSavedRange() {
   }
 }
 
-// Restaurar inmediatamente al cargar el componente
-readSavedRange();
+// Nota: no restauramos el rango guardado al cargar el componente
+// para evitar aplicar filtros persistentes automáticamente.
 
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
 const hourlyIncome = ref<{ hour: number; income: number }[]>([]);
@@ -485,6 +489,27 @@ const hasChartData = computed(() => {
   if (chartMode.value === "day") return dailyIncome.value.length > 0;
   return monthlyPrimary.value.length > 0;
 });
+
+const totalMonthlyPrimary = computed(() => {
+  if (chartMode.value !== "month") return 0;
+  return monthlyPrimary.value.reduce(
+    (s, r) => s + (Number.isFinite(r.income) ? r.income : 0),
+    0
+  );
+});
+
+const totalMonthlyCompare = computed(() => {
+  if (chartMode.value !== "month" || !monthCompare.value) return 0;
+  return monthlyCompare.value.reduce(
+    (s, r) => s + (Number.isFinite(r.income) ? r.income : 0),
+    0
+  );
+});
+
+function fmtAmount(n: number) {
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString();
+}
 </script>
 
 <template>
@@ -619,31 +644,54 @@ const hasChartData = computed(() => {
           </button>
         </div>
 
-        <div
-          v-if="chartMode !== 'month'"
-          class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
-        >
-          <span class="hidden sm:inline">Rango:</span>
-          <input
-            v-model="startDate"
-            type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-          />
-          <span class="text-slate-400">a</span>
-          <input
-            v-model="endDate"
-            type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
-          />
-
-          <button
-            v-if="hasActiveChartFilter"
-            type="button"
-            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
-            @click="resetChartFilter"
+        <div v-if="chartMode !== 'month'" class="w-full sm:w-auto">
+          <div
+            class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+            v-if="chartMode === 'day'"
           >
-            Borrar filtro
-          </button>
+            <span class="hidden sm:inline">Rango:</span>
+            <input
+              v-model="startDate"
+              type="date"
+              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+            <span class="text-slate-400">a</span>
+            <input
+              v-model="endDate"
+              type="date"
+              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+
+            <button
+              v-if="hasActiveChartFilter"
+              type="button"
+              class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+              @click="resetChartFilter"
+            >
+              Borrar filtro
+            </button>
+          </div>
+
+          <div
+            class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+            v-else-if="chartMode === 'hour'"
+          >
+            <span class="hidden sm:inline">Fecha:</span>
+            <input
+              v-model="startDate"
+              type="date"
+              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+
+            <button
+              v-if="hasActiveChartFilter"
+              type="button"
+              class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+              @click="resetChartFilter"
+            >
+              Borrar filtro
+            </button>
+          </div>
         </div>
 
         <div
@@ -808,6 +856,23 @@ const hasChartData = computed(() => {
         <span class="ml-2">{{
           `${isOperator ? "Monedas" : "Ingresos"} (${monthCompare})`
         }}</span>
+      </template>
+    </div>
+    <div v-if="chartMode === 'month'" class="mt-3 text-sm text-slate-700">
+      <span class="font-medium"
+        >Total {{ isOperator ? "Monedas" : "Ingresos" }}:</span
+      >
+      <span class="ml-2" v-if="isOperator">{{ totalMonthlyPrimary }}</span>
+      <span class="ml-2" v-else>$ {{ fmtAmount(totalMonthlyPrimary) }}</span>
+
+      <template v-if="monthCompare">
+        <span class="ml-4 text-slate-500">vs</span>
+        <span class="ml-2 text-slate-500" v-if="isOperator">{{
+          totalMonthlyCompare
+        }}</span>
+        <span class="ml-2 text-slate-500" v-else
+          >$ {{ fmtAmount(totalMonthlyCompare) }}</span
+        >
       </template>
     </div>
   </section>
