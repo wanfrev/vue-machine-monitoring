@@ -1101,6 +1101,14 @@ async function loadDashboardData() {
 
       coinsByMachine.value = monthMap;
       dailyCoinsByMachine.value = dailyMap;
+      // Asegurar que tenemos los logs de energía para calcular el primer
+      // encendido del día por máquina, de modo que la UI muestre
+      // ese instante en lugar del último encendido.
+      try {
+        await ensureUsageDataFresh();
+      } catch (e) {
+        // ignorar fallos no bloqueantes
+      }
     } catch (e) {
       console.error("Error obteniendo monedas del mes por máquina:", e);
       coinsByMachine.value = {};
@@ -2380,7 +2388,7 @@ onUnmounted(() => {
 
         <div class="mb-3 space-y-1 text-[11px] text-slate-400">
           <p>
-            Último inicio:
+            Primer inicio:
             {{
               formatLastTime(
                 firstOnTodayByMachine[machine.id] || machine.last_on
