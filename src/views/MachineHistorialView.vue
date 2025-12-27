@@ -144,12 +144,22 @@ const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
 function toLocalDateTime(utcString: string) {
   if (!utcString) return { date: "", time: "" };
   const d = new Date(utcString);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return { date: `${year}-${month}-${day}`, time: `${hours}:${minutes}` };
+  // Force display in America/Caracas to ensure consistent day boundaries
+  const dateFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Caracas",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const timeFmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Caracas",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const date = dateFmt.format(d); // en-CA -> YYYY-MM-DD
+  const time = timeFmt.format(d);
+  return { date, time };
 }
 
 async function loadHistory() {
