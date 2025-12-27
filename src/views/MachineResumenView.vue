@@ -441,6 +441,26 @@ const chartCompareValues = computed(() => {
   return Array.from({ length: max }, (_, i) => map2.get(i + 1) ?? 0);
 });
 
+// Valores de monedas por etiqueta (para añadir serie de monedas en el gráfico)
+const chartCoins = computed(() => {
+  if (chartMode.value === "hour") return hourlyCoins.value.map((d) => d.coins);
+  if (chartMode.value === "day") {
+    // dailyIncome stores converted value; original API 'income' was coins before conversion
+    return dailyIncome.value.map((d) => {
+      const val = Number(d.income || 0);
+      return isOperator.value ? val : Math.round(val / valuePerCoin.value);
+    });
+  }
+  // month
+  const max = maxMonthlyDays.value;
+  // monthlyPrimary holds converted income per day
+  const map1 = new Map(monthlyPrimary.value.map((r) => [r.day, r.income]));
+  return Array.from({ length: max }, (_, i) => {
+    const inc = Number(map1.get(i + 1) ?? 0);
+    return isOperator.value ? inc : Math.round(inc / valuePerCoin.value);
+  });
+});
+
 const chartDatasets = computed(() => {
   const datasets: any[] = [
     {
@@ -461,9 +481,11 @@ const chartDatasets = computed(() => {
       maxBarThickness: 16,
       categoryPercentage: 0.9,
       barPercentage: 0.9,
+      yAxisID: "y",
     },
   ];
 
+  // If comparing months, add compare dataset (shares the same y)
   if (chartMode.value === "month" && monthCompare.value) {
     datasets.push({
       label: `${isOperator.value ? "Monedas" : "Ingresos"} (${
@@ -478,6 +500,24 @@ const chartDatasets = computed(() => {
       maxBarThickness: 16,
       categoryPercentage: 0.9,
       barPercentage: 0.9,
+      yAxisID: "y",
+    });
+  }
+
+  // Add secondary dataset for coins so chart shows both ingresos and monedas
+  if (!isOperator.value) {
+    datasets.push({
+      label: "Monedas",
+      backgroundColor: "rgba(34, 197, 94, 0.65)",
+      hoverBackgroundColor: "rgba(34, 197, 94, 0.85)",
+      borderColor: "rgba(16, 185, 129, 0.9)",
+      borderWidth: 0,
+      data: chartCoins.value,
+      borderRadius: 6,
+      maxBarThickness: 8,
+      categoryPercentage: 0.6,
+      barPercentage: 0.6,
+      yAxisID: "yCoins",
     });
   }
 
@@ -504,6 +544,127 @@ const totalMonthlyCompare = computed(() => {
     (s, r) => s + (Number.isFinite(r.income) ? r.income : 0),
     0
   );
+});
+
+const chartOptions = computed(() => {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+      tooltip: {
+        enabled: true,
+        displayColors: false,
+        backgroundColor: "rgba(15, 23, 42, 0.9)",
+        titleColor: "rgba(248, 250, 252, 0.95)",
+        bodyColor: "rgba(248, 250, 252, 0.9)",
+        padding: 10,
+        cornerRadius: 10,
+        callbacks: {
+          title: (items: any[]) => {
+            const label = items?.[0]?.label ?? "";
+            if (chartMode.value === "hour") {
+              return `${startDate.value} ${label}`.trim();
+            }
+            if (chartMode.value === "month") {
+              return `${monthPrimary.value} • Día ${label}`;
+            }
+            return label;
+          },
+          label: (ctx: any) => {
+            const raw = ctx?.parsed?.y ?? ctx?.raw;
+            const yValue = typeof raw === "number" ? raw : Number(raw);
+            const safeY = Number.isFinite(yValue) ? yValue : 0;
+
+            // If hour mode and viewing money, show coins + ingresos
+            if (chartMode.value === "hour" && !isOperator.value) {
+              const idx = Number(ctx?.dataIndex ?? -1);
+              const coins = hourlyCoins.value[idx]?.coins ?? 0;
+              return [`Monedas: ${coins}`, `Ingresos: $ ${safeY}`];
+            }
+
+            const dsLabel = ctx?.dataset?.label;
+            const prefix =
+              typeof dsLabel === "string" && dsLabel
+                ? dsLabel
+                : isOperator.value
+                ? "Monedas"
+                : "Ingresos";
+            return `${prefix}: ${safeY}`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text:
+            chartMode.value === "hour"
+              ? "Hora"
+              : chartMode.value === "month"
+              ? "Día"
+              : "Fecha",
+          color: "rgba(71, 85, 105, 0.9)",
+          font: { size: 12, weight: "600" },
+          padding: { top: 6 },
+        },
+        offset: true,
+        ticks: {
+          color: "rgba(71, 85, 105, 0.9)",
+          font: { size: 10 },
+          autoSkip: true,
+          maxTicksLimit:
+            chartMode.value === "hour"
+              ? 12
+              : chartMode.value === "month"
+              ? 12
+              : 10,
+          padding: 8,
+          maxRotation: 0,
+          minRotation: 0,
+        },
+        grid: { display: false, drawTicks: false },
+        border: { display: true, color: "rgba(148, 163, 184, 0.35)" },
+      },
+      y: {
+        title: {
+          display: true,
+          text: isOperator.value ? "Monedas" : "Ingresos ($)",
+          color: "rgba(71, 85, 105, 0.9)",
+          font: { size: 12, weight: "600" },
+          padding: { bottom: 6 },
+        },
+        beginAtZero: true,
+        ticks: {
+          color: "rgba(71, 85, 105, 0.9)",
+          font: { size: 10 },
+          precision: 0,
+          padding: 10,
+        },
+        grid: { color: "rgba(220, 38, 38, 0.10)", drawTicks: false },
+        border: { display: true, color: "rgba(148, 163, 184, 0.35)" },
+      },
+      yCoins: {
+        display: true,
+        position: "right",
+        title: {
+          display: true,
+          text: "Monedas",
+          color: "rgba(71,85,105,0.9)",
+          font: { size: 12, weight: "600" },
+        },
+        beginAtZero: true,
+        grid: { drawOnChartArea: false },
+        ticks: {
+          precision: 0,
+          color: "rgba(71,85,105,0.9)",
+          font: { size: 10 },
+        },
+      },
+    },
+  } as any;
 });
 
 function fmtAmount(n: number) {
@@ -731,104 +892,7 @@ function fmtAmount(n: number) {
           labels: chartLabels,
           datasets: chartDatasets,
         }"
-        :chartOptions="{
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            title: { display: false },
-            tooltip: {
-              enabled: true,
-              displayColors: false,
-              backgroundColor: 'rgba(15, 23, 42, 0.9)',
-              titleColor: 'rgba(248, 250, 252, 0.95)',
-              bodyColor: 'rgba(248, 250, 252, 0.9)',
-              padding: 10,
-              cornerRadius: 10,
-              callbacks: {
-                title: (items: any[]) => {
-                  const label = items?.[0]?.label ?? '';
-                  if (chartMode === 'hour') {
-                    // Mostrar solo el día (no el rango)
-                    return `${startDate} ${label}`.trim();
-                  }
-                  if (chartMode === 'month') {
-                    return `${monthPrimary} • Día ${label}`;
-                  }
-                  return label;
-                },
-                label: (ctx: any) => {
-                  const raw = (ctx as any)?.parsed?.y ?? (ctx as any)?.raw;
-                  const yValue = typeof raw === 'number' ? raw : Number(raw);
-                  const safeY = Number.isFinite(yValue) ? yValue : 0;
-
-                  if (chartMode === 'hour' && !isOperator) {
-                    const idx = Number((ctx as any)?.dataIndex ?? -1);
-                    const coins = hourlyCoins[idx]?.coins ?? 0;
-                    return [`Monedas: ${coins}`, `Ingresos: $ ${safeY}`];
-                  }
-
-                  const dsLabel = (ctx as any)?.dataset?.label;
-                  const prefix = typeof dsLabel === 'string' && dsLabel ? dsLabel : isOperator ? 'Monedas' : 'Ingresos';
-                  return `${prefix}: ${safeY}`;
-                },
-              },
-            },
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: chartMode === 'hour' ? 'Hora' : chartMode === 'month' ? 'Día' : 'Fecha',
-                color: 'rgba(71, 85, 105, 0.9)',
-                font: { size: 12, weight: '600' },
-                padding: { top: 6 },
-              },
-              offset: true,
-              ticks: {
-                color: 'rgba(71, 85, 105, 0.9)',
-                font: { size: 10 },
-                autoSkip: true,
-                maxTicksLimit: chartMode === 'hour' ? 12 : chartMode === 'month' ? 12 : 10,
-                padding: 8,
-                maxRotation: 0,
-                minRotation: 0,
-              },
-              grid: {
-                display: false,
-                drawTicks: false,
-              },
-              border: {
-                display: true,
-                color: 'rgba(148, 163, 184, 0.35)',
-              },
-            },
-            y: {
-              title: {
-                display: true,
-                text: isOperator ? 'Monedas' : 'Ingresos ($)',
-                color: 'rgba(71, 85, 105, 0.9)',
-                font: { size: 12, weight: '600' },
-                padding: { bottom: 6 },
-              },
-              beginAtZero: true,
-              ticks: {
-                color: 'rgba(71, 85, 105, 0.9)',
-                font: { size: 10 },
-                precision: 0,
-                padding: 10,
-              },
-              grid: {
-                color: 'rgba(220, 38, 38, 0.10)',
-                drawTicks: false,
-              },
-              border: {
-                display: true,
-                color: 'rgba(148, 163, 184, 0.35)',
-              },
-            },
-          },
-        }"
+        :chartOptions="chartOptions"
         class="w-full h-full"
       />
       <p v-else class="mx-auto text-xs text-slate-400 text-center">
@@ -858,6 +922,7 @@ function fmtAmount(n: number) {
         }}</span>
       </template>
     </div>
+    <!-- monedas-per-label UI removed per user request -->
     <div v-if="chartMode === 'month'" class="mt-3 text-sm text-slate-700">
       <span class="font-medium"
         >Total {{ isOperator ? "Monedas" : "Ingresos" }}:</span
