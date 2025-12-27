@@ -1402,13 +1402,10 @@ onMounted(async () => {
               }
               return;
             }
-            // Otros eventos (si llegan)
-            addDashboardNotification({
-              type: "event",
-              machineId,
-              timestamp: String(ts),
-              detail: payload.type ? `Evento: ${payload.type}` : undefined,
-            });
+            // Ignorar eventos genéricos enviados por el Service Worker
+            // para evitar mostrar notificaciones "Nuevo evento" redundantes
+            // (si se requiere procesar tipos nuevos, añadirlos explícitamente arriba).
+            console.debug("SW: ignoring generic event notification", payload);
           }
         } catch (e) {
           // ignore
