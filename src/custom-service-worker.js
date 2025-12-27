@@ -49,11 +49,9 @@ self.addEventListener("push", function (event) {
             data: { ...ev, eventType: ev.type },
           };
         }
-        return {
-          title: "Nuevo evento",
-          body: `Evento ${ev.type} en ${ev.machine_id}`,
-          data: ev,
-        };
+        // If the event type is unknown, do not generate a generic notification
+        // to avoid duplicate or misleading notifications on clients.
+        return null;
       }
     } catch (err) {
       console.error("[SW] fallback fetch error", err);
@@ -144,11 +142,9 @@ self.addEventListener("push", function (event) {
       const fallback = await fetchFallback();
       if (fallback) return show(fallback);
 
-      // last resort: show a generic notification
-      return show({
-        title: "MachineHub",
-        body: "Tiene un nuevo evento en segundo plano",
-      });
+      // If we couldn't obtain a payload or fallback event, do not show any
+      // generic notification to avoid spurious "Nuevo evento" alerts.
+      return;
     })()
   );
 });
