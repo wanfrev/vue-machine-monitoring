@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
+import { getSocket } from "../api/realtime";
 import { useRoute } from "vue-router";
 import { getMachines, getMachineHistory } from "../api/client";
 
@@ -170,9 +171,19 @@ async function loadHistory() {
       endDate: endDate.value,
     });
     // Solo mapear eventos de monedas (coin_inserted)
+    // Pero excluir monedas marcadas como prueba (`data.test === true`) o
+    // cuando la máquina está actualmente en `test_mode`.
     let sumCoins = 0;
     const mapped = (history || [])
-      .filter((h: any) => h.type === "coin_inserted")
+      .filter((h: any) => {
+        if (h.type !== "coin_inserted") return false;
+        try {
+          if (h.data && h.data.test === true) return false;
+        } catch (e) {
+          /* ignore */
+        }
+        return true;
+      })
       .map((h: any) => {
         const coins = Number(h.data?.cantidad ?? h.data?.amount ?? 1);
         const amount = isOperator.value ? coins : coins * valuePerCoin.value;
@@ -206,6 +217,7 @@ async function loadHistory() {
 }
 
 let refreshInterval: number | undefined;
+let socket: any = null;
 
 async function fetchAllData() {
   try {
@@ -226,10 +238,43 @@ async function fetchAllData() {
 onMounted(() => {
   fetchAllData();
   refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
+  // Subscribe to realtime coin events so the history updates immediately
+  try {
+    socket = getSocket();
+    socket.on("coin_inserted", (p: any) => {
+      if (!machine.value) return;
+      if (p.machineId !== machine.value.id) return;
+      if (p.test) return; // ignore test-mode coins
+      const coins = Number(p.amount ?? 1) || 1;
+      const { date, time } = toLocalDateTime(
+        p.timestamp || new Date().toISOString()
+      );
+      const amount = isOperator.value ? coins : coins * valuePerCoin.value;
+      const tx: Tx = {
+        kind: "Ingreso",
+        description: "Ingreso de moneda",
+        date,
+        time,
+        amount,
+        coins,
+        ok: true,
+      };
+      // Prepend to the list so newest appear first
+      txs.value.unshift(tx);
+      totalCoins.value = totalCoins.value + coins;
+    });
+  } catch (e) {
+    console.error("Error subscribing to coin_inserted socket:", e);
+  }
 });
 
 onUnmounted(() => {
   if (refreshInterval) clearInterval(refreshInterval);
+  try {
+    if (socket) socket.off("coin_inserted");
+  } catch (err) {
+    console.error("Error unsubscribing coin_inserted socket:", err);
+  }
 });
 
 function scoreFor(t: Tx) {

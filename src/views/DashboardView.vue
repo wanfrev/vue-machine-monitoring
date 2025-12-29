@@ -154,6 +154,7 @@ type Machine = {
   name: string;
   status: string;
   location?: string;
+  test_mode?: boolean;
   type?: string;
   last_on?: string | null;
   last_off?: string | null;
@@ -755,6 +756,22 @@ async function toggleMaintenance(machine: Machine) {
   }
 }
 
+async function toggleTestMode(machine: Machine) {
+  if (!isAdmin.value) return;
+  // Toggle a separate test_mode flag so it doesn't affect on/off status
+  const newTest = (machine as any).test_mode ? false : true;
+  try {
+    await updateMachine(machine.id, { test_mode: newTest });
+    machines.value = machines.value.map((m) =>
+      m.id === machine.id ? { ...m, test_mode: newTest } : m
+    );
+  } catch (err) {
+    console.error("Error actualizando modo prueba de máquina:", err);
+  } finally {
+    statusMenuOpenId.value = null;
+  }
+}
+
 function handleGlobalClick(event: MouseEvent) {
   const target = event.target as HTMLElement | null;
   if (!target) return;
@@ -1193,15 +1210,20 @@ onMounted(async () => {
 
       // Update local coin counters so UI updates immediately
       try {
-        coinsByMachine.value = {
-          ...coinsByMachine.value,
-          [machineId]: (coinsByMachine.value[machineId] || 0) + amount,
-        };
-        if (!eventLocalDate || eventLocalDate === todayLocalStr) {
-          dailyCoinsByMachine.value = {
-            ...dailyCoinsByMachine.value,
-            [machineId]: (dailyCoinsByMachine.value[machineId] || 0) + amount,
+        // If the machine is in 'test' mode (test_mode flag), do not count the coin
+        if (!(machine as any)?.test_mode) {
+          coinsByMachine.value = {
+            ...coinsByMachine.value,
+            [machineId]: (coinsByMachine.value[machineId] || 0) + amount,
           };
+          if (!eventLocalDate || eventLocalDate === todayLocalStr) {
+            dailyCoinsByMachine.value = {
+              ...dailyCoinsByMachine.value,
+              [machineId]: (dailyCoinsByMachine.value[machineId] || 0) + amount,
+            };
+          }
+        } else {
+          // Machine in test mode: skip counting. Optionally annotate notification detail.
         }
       } catch (e) {
         // ignore
@@ -2302,6 +2324,42 @@ onUnmounted(() => {
               />
             </svg>
           </button>
+          <button
+            type="button"
+            class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
+            @click="toggleTestMode(machine)"
+          >
+            <div class="flex items-center gap-2">
+              <span
+                v-if="machine && machine.test_mode"
+                class="h-1.5 w-1.5 rounded-full bg-amber-400"
+              ></span>
+              <span class="text-[11px]">
+                {{
+                  machine && machine.test_mode
+                    ? "Quitar modo prueba"
+                    : "Activar modo prueba"
+                }}
+              </span>
+            </div>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              class="text-slate-400"
+            >
+              <path
+                d="M9 18l6-6-6-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
           <!-- Edit action removed to avoid runtime error assigning refs -->
           <button
             type="button"
@@ -2336,6 +2394,18 @@ onUnmounted(() => {
                 ? "Mantenimiento"
                 : "Inactiva"
             }}
+          </span>
+          <span
+            v-if="machine && machine.test_mode"
+            class="ml-2 inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium"
+            :class="
+              isDark()
+                ? 'bg-emerald-900/60 text-emerald-100'
+                : 'bg-emerald-50 text-emerald-700'
+            "
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            Prueba
           </span>
         </div>
 

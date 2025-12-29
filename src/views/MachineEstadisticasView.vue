@@ -150,13 +150,20 @@ const incomePerHour = computed(() => {
 
 function toLocalDateTime(utcString: string) {
   if (!utcString) return "";
-  const d = new Date(utcString);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
+  try {
+    const d = new Date(utcString);
+    return d.toLocaleString("es-VE", {
+      timeZone: "America/Caracas",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch (e) {
+    return String(utcString);
+  }
 }
 
 async function loadStats() {
