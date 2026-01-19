@@ -30,7 +30,7 @@ const route = useRoute();
 const currentRole = ref(localStorage.getItem("role") || "");
 const isOperator = computed(() => currentRole.value === "operator");
 
-// Rango de fechas para el historial (por defecto últimos 30 días)
+// Rango de fechas para el historial (por defecto desde inicio de mes hasta hoy)
 function formatDate(d: Date) {
   // Fecha local YYYY-MM-DD (sin convertir a UTC)
   const year = d.getFullYear();
@@ -40,19 +40,16 @@ function formatDate(d: Date) {
 }
 
 const today = new Date();
-const thirtyDaysAgo = new Date();
-thirtyDaysAgo.setDate(today.getDate() - 30);
+const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-const startDate = ref(formatDate(thirtyDaysAgo));
+const startDate = ref(formatDate(startOfMonth));
 const endDate = ref(formatDate(today));
 
 function defaultDateRangeForNow() {
   const now = new Date();
-  const end = formatDate(now);
-  const startObj = new Date(now);
-  startObj.setDate(startObj.getDate() - 30);
-  const start = formatDate(startObj);
-  return { start, end };
+  const startObj = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endObj = now;
+  return { start: formatDate(startObj), end: formatDate(endObj) };
 }
 
 const hasActiveDateFilter = computed(() => {
@@ -136,8 +133,11 @@ const machine = ref<Machine | null>(null);
 const totalCoins = ref(0);
 
 const valuePerCoin = computed(() => {
-  const name = machine.value?.name ?? "";
-  return name.includes("Boxeo") ? 1 : 2;
+  const name = (machine.value?.name ?? "").toLowerCase();
+  if (name.includes("boxeo") || name.includes("agilidad")) {
+    return 1;
+  }
+  return 2;
 });
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);

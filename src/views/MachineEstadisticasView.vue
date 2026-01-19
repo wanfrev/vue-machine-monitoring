@@ -29,23 +29,21 @@ const machine = ref<Machine | null>(null);
 const powerLogs = ref<PowerLog[]>([]);
 const loading = ref(false);
 
-// Rango de fechas para estadísticas (por defecto últimos 30 días)
+// Rango de fechas para estadísticas (por defecto desde inicio de mes hasta hoy)
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
 const today = new Date();
-const thirtyDaysAgo = new Date();
-thirtyDaysAgo.setDate(today.getDate() - 30);
+const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-const startDate = ref(formatDate(thirtyDaysAgo));
+const startDate = ref(formatDate(startOfMonth));
 const endDate = ref(formatDate(today));
 
 function defaultDateRangeForNow() {
   const now = new Date();
   const end = formatDate(now);
-  const startObj = new Date(now);
-  startObj.setDate(startObj.getDate() - 30);
+  const startObj = new Date(now.getFullYear(), now.getMonth(), 1);
   const start = formatDate(startObj);
   return { start, end };
 }

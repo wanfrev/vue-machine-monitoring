@@ -52,10 +52,9 @@ function formatDate(d: Date) {
 }
 
 const today = new Date();
-const thirtyDaysAgo = new Date();
-thirtyDaysAgo.setDate(today.getDate() - 30);
+const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-const startDate = ref(formatDate(thirtyDaysAgo));
+const startDate = ref(formatDate(startOfMonth));
 const endDate = ref(formatDate(today));
 
 type ChartMode = "day" | "hour" | "month";
@@ -66,15 +65,10 @@ const monthPrimary = ref<string>(formatDate(today).slice(0, 7)); // YYYY-MM
 const monthCompare = ref<string>("");
 
 function defaultDateRangeForNow() {
-  // Default to 25th of previous month -> 25th of current month
+  // Default: from first day of current month to today
   const now = new Date();
-  // End: 25th of current month
-  let endObj = new Date(now.getFullYear(), now.getMonth(), 25);
-  // If today is before the 25th, treat 'current' as previous month
-  if (now.getDate() < 25) {
-    endObj = new Date(now.getFullYear(), now.getMonth() - 1, 25);
-  }
-  const startObj = new Date(endObj.getFullYear(), endObj.getMonth() - 1, 25);
+  const startObj = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endObj = now;
   return { start: formatDate(startObj), end: formatDate(endObj) };
 }
 
@@ -181,8 +175,11 @@ const monthlyPrimary = ref<{ day: number; income: number }[]>([]);
 const monthlyCompare = ref<{ day: number; income: number }[]>([]);
 
 const valuePerCoin = computed(() => {
-  const name = machine.value?.name ?? "";
-  return name.includes("Boxeo") ? 1 : 2;
+  const name = (machine.value?.name ?? "").toLowerCase();
+  if (name.includes("boxeo") || name.includes("agilidad")) {
+    return 1;
+  }
+  return 2;
 });
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
