@@ -9,6 +9,10 @@ import {
   updateMachine,
   deleteMachine,
 } from "../api/client";
+import {
+  filterMachinesForRole,
+  getAssignedMachineIdsFromStorage,
+} from "@/utils/access";
 
 const router = useRouter();
 const sidebarOpen = ref(false);
@@ -23,15 +27,24 @@ type Machine = { id: string; name: string; status: string; location?: string };
 const loading = ref(false);
 const machines = ref<Machine[]>([]);
 
-const totalMachines = computed(() => machines.value.length);
+const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
+
+const scopedMachines = computed(() =>
+  filterMachinesForRole(machines.value, {
+    role: currentRole.value,
+    assignedMachineIds: assignedMachineIds.value,
+  })
+);
+
+const totalMachines = computed(() => scopedMachines.value.length);
 const activeMachines = computed(
-  () => machines.value.filter((m) => m.status === "active").length
+  () => scopedMachines.value.filter((m) => m.status === "active").length
 );
 const inactiveMachines = computed(
-  () => machines.value.filter((m) => m.status === "inactive").length
+  () => scopedMachines.value.filter((m) => m.status === "inactive").length
 );
 const maintenanceMachines = computed(
-  () => machines.value.filter((m) => m.status === "maintenance").length
+  () => scopedMachines.value.filter((m) => m.status === "maintenance").length
 );
 
 const showModal = ref(false);
@@ -331,7 +344,7 @@ async function handleDeleteMachine(id: string) {
             <tr v-if="loading">
               <td class="px-4 py-3" colspan="5">Cargando...</td>
             </tr>
-            <tr v-else-if="!machines.length">
+            <tr v-else-if="!scopedMachines.length">
               <td class="px-4 py-10" colspan="5">
                 <div
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
@@ -349,7 +362,7 @@ async function handleDeleteMachine(id: string) {
               </td>
             </tr>
             <tr
-              v-for="m in machines"
+              v-for="m in scopedMachines"
               :key="m.id"
               class="border-t transition-colors"
               :class="
@@ -419,7 +432,7 @@ async function handleDeleteMachine(id: string) {
       <!-- Mobile list (visible on small screens) -->
       <div class="sm:hidden space-y-3">
         <div v-if="loading" class="px-4 py-3">Cargando...</div>
-        <div v-else-if="!machines.length" class="px-4 py-10">
+        <div v-else-if="!scopedMachines.length" class="px-4 py-10">
           <div
             class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
             :class="
@@ -436,7 +449,7 @@ async function handleDeleteMachine(id: string) {
         </div>
         <div v-else class="space-y-3">
           <div
-            v-for="m in machines"
+            v-for="m in scopedMachines"
             :key="m.id"
             class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl"
             :class="

@@ -24,7 +24,7 @@ const routes: Array<RouteRecordRaw> = [
     path: "/machines",
     name: "machines",
     component: MachinesView,
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true },
   },
   {
     path: "/machines/:id",
