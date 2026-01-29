@@ -23,6 +23,7 @@ import {
   getIotEvents,
 } from "../api/client";
 import { getSocket } from "../api/realtime";
+import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 
 // Datos del usuario autenticado desde localStorage
 const currentRole = ref(localStorage.getItem("role") || "");
@@ -160,6 +161,24 @@ type Machine = {
   last_off?: string | null;
 };
 const machines = ref<Machine[]>([]);
+
+const scopedMachines = computed(() =>
+  filterMachinesForRole(machines.value, {
+    role: currentRole.value,
+    assignedMachineIds: assignedMachineIds.value,
+  })
+);
+
+function canSeeMachineId(machineId: string): boolean {
+  const m = machines.value.find((x) => String(x.id) === String(machineId));
+  return canAccessMachine({
+    role: currentRole.value,
+    assignedMachineIds: assignedMachineIds.value,
+    machineId: String(machineId),
+    // Be conservative when machine isn't resolved: treat as inactive.
+    machineStatus: m?.status ?? "inactive",
+  });
+}
 
 type DashboardNotificationType =
   | "coin_inserted"
@@ -424,7 +443,7 @@ async function ensureUsageDataFresh() {
     const map: Record<string, number> = {};
     const firstMap: Record<string, string> = {};
     await Promise.all(
-      machines.value.map(async (machine) => {
+      scopedMachines.value.map(async (machine) => {
         try {
           const logs = await getMachinePowerLogs(machine.id, {
             startDate: todayLocalStr,
@@ -458,15 +477,7 @@ async function ensureUsageDataFresh() {
 
 // Filtrado de máquinas según rol y filtro seleccionado
 const filteredMachines = computed(() => {
-  let baseMachines = machines.value;
-  // Si es empleado y tiene máquinas asignadas, solo mostrar esas
-  if (
-    (currentRole.value === "employee" || currentRole.value === "operator") &&
-    assignedMachineIds.value.length
-  ) {
-    const idSet = new Set(assignedMachineIds.value.map((id) => String(id)));
-    baseMachines = baseMachines.filter((m) => idSet.has(String(m.id)));
-  }
+  let baseMachines = scopedMachines.value;
 
   // 1) filtro por pestañas de estado
   if (selectedFilter.value === "activas") {
@@ -529,16 +540,16 @@ const coinsByMachine = ref<Record<string, number>>({});
 // monedas de HOY por máquina: { [machineId]: coins_today }
 const dailyCoinsByMachine = ref<Record<string, number>>({});
 
-const totalMachines = computed(() => machines.value.length);
+const totalMachines = computed(() => scopedMachines.value.length);
 const activeMachines = computed(
-  () => machines.value.filter((m) => m.status === "active").length
+  () => scopedMachines.value.filter((m) => m.status === "active").length
 );
 const inactiveMachines = computed(
   () => totalMachines.value - activeMachines.value
 );
 // Ingreso total en dinero HOY (se calcula a partir de las monedas de hoy por máquina)
 const totalIncomeToday = computed(() =>
-  machines.value.reduce(
+  scopedMachines.value.reduce(
     (sum, machine) => sum + getMachineIncomeToday(machine),
     0
   )
@@ -546,7 +557,7 @@ const totalIncomeToday = computed(() =>
 
 // Total de monedas recolectadas hoy (suma de `dailyCoinsByMachine`)
 const totalCoinsToday = computed(() =>
-  machines.value.reduce((sum, machine) => {
+  scopedMachines.value.reduce((sum, machine) => {
     return sum + (dailyCoinsByMachine.value[machine.id] || 0);
   }, 0)
 );
@@ -558,22 +569,21 @@ const isDark = () => {
 };
 
 function shouldShowNotificationForMachine(machineId: string): boolean {
-  const role = currentRole.value;
-  if (role === "admin") return true;
-  if (
-    (role === "employee" || role === "operator") &&
-    assignedMachineIds.value.length
-  ) {
-    return assignedMachineIds.value.includes(String(machineId));
-  }
-  return true;
+  return canAccessMachine({
+    role: currentRole.value,
+    assignedMachineIds: assignedMachineIds.value,
+    machineId: String(machineId),
+    // NOTE: for notifications we only enforce assignment, not current status.
+  });
 }
 
 function getMachineCoins(machineId: string): number {
+  if (!canSeeMachineId(machineId)) return 0;
   return coinsByMachine.value[machineId] || 0;
 }
 
 function getMachineCoinsToday(machineId: string): number {
+  if (!canSeeMachineId(machineId)) return 0;
   return dailyCoinsByMachine.value[machineId] || 0;
 }
 
@@ -1033,7 +1043,10 @@ async function loadNotificationsFromServer(page = 1) {
       } as DashboardNotification;
     });
 
-    notifications.value = mapped;
+    // Restringir notificaciones según máquinas asignadas
+    notifications.value = mapped.filter((n) =>
+      shouldShowNotificationForMachine(String(n.machineId || ""))
+    );
     serverNotificationTotalPages.value = resp.totalPages || 1;
     notificationPage.value = resp.page || page;
 
@@ -1075,6 +1088,8 @@ async function loadNotificationsFromServer(page = 1) {
 async function loadDashboardData() {
   try {
     machines.value = await getMachines();
+
+    const visibleMachines = scopedMachines.value;
     // Cargar monedas por máquina (mes actual) + monedas de HOY (usando fecha local)
     try {
       const todayLocalStr = getTodayLocalStr();
@@ -1083,7 +1098,7 @@ async function loadDashboardData() {
       const dailyMap: Record<string, number> = {};
 
       await Promise.all(
-        machines.value.map(async (machine) => {
+        visibleMachines.map(async (machine) => {
           try {
             const rows = await getMachineDailyIncome(machine.id, {
               startDate: monthStartLocalStr,
@@ -1179,6 +1194,8 @@ onMounted(async () => {
       const amount = Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
       const ts = payload.timestamp || payload.ts || new Date().toISOString();
 
+      if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+
       // Fecha local del evento para saber si cuenta como "hoy"
       let eventLocalDate = "";
       try {
@@ -1271,6 +1288,9 @@ onMounted(async () => {
       try {
         const machineId = String(payload.machineId ?? payload.machine_id ?? "");
         const ts = payload.timestamp || payload.ts || new Date().toISOString();
+
+        if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+
         const idx = machines.value.findIndex((m) => String(m.id) === machineId);
         if (idx >= 0) {
           const updated = {
@@ -1307,6 +1327,9 @@ onMounted(async () => {
       try {
         const machineId = String(payload.machineId ?? payload.machine_id ?? "");
         const ts = payload.timestamp || payload.ts || new Date().toISOString();
+
+        if (!machineId || !shouldShowNotificationForMachine(machineId)) return;
+
         const idx = machines.value.findIndex((m) => String(m.id) === machineId);
         if (idx >= 0) {
           const updated = {
@@ -1368,7 +1391,8 @@ onMounted(async () => {
           if (!msg) return;
           // Compatibilidad: mensajes viejos (coin_notification)
           if (msg.type === "coin_notification") {
-            playNotificationSound();
+            // Mensaje legado sin machineId; evitar notificaciones genéricas en roles restringidos
+            if (currentRole.value === "admin") playNotificationSound();
             return;
           }
           // Nuevo: el SW envía { type: 'event_notification', payload }
@@ -1382,6 +1406,10 @@ onMounted(async () => {
             );
             const ts =
               payload.timestamp || payload.ts || new Date().toISOString();
+
+            if (!machineId || !shouldShowNotificationForMachine(machineId))
+              return;
+
             if (eventType === "coin_inserted") {
               const amount =
                 Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
@@ -1550,7 +1578,7 @@ onUnmounted(() => {
     @open="filterOpen = false"
   />
   <NewMachine
-    v-if="!isOperator"
+    v-if="isAdmin"
     :open="newMachineOpen"
     :mode="newMachineMode"
     :machine-to-edit="machineToEdit || undefined"
@@ -1862,7 +1890,7 @@ onUnmounted(() => {
           </button>
         </div>
         <button
-          v-if="!isOperator"
+          v-if="isAdmin"
           class="col-span-2 inline-flex w-full items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:col-auto sm:w-auto sm:text-sm cursor-pointer"
           @click="newMachineOpen = true"
         >

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
   getMachines,
   getMachineDailyIncome,
   getMachineHistory,
 } from "../api/client";
 import BarChart from "../components/BarChart.vue";
+import {
+  filterMachinesForRole,
+  getAssignedMachineIdsFromStorage,
+} from "@/utils/access";
 
 type Machine = {
   id: string;
@@ -34,6 +38,7 @@ type ApiMachineHistoryEvent = {
 };
 
 const route = useRoute();
+const router = useRouter();
 const loading = ref(false);
 const machine = ref<Machine | null>(null);
 // Monedas de HOY para la máquina seleccionada
@@ -42,6 +47,7 @@ const totalCoins = ref(0);
 // Rol actual para controlar visibilidad de dinero
 const currentRole = ref(localStorage.getItem("role") || "");
 const isOperator = computed(() => currentRole.value === "operator");
+const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
 
 function formatDate(d: Date) {
   // Fecha local YYYY-MM-DD (sin convertir a UTC)
@@ -329,38 +335,60 @@ let refreshInterval: number | undefined;
 async function fetchAllData() {
   loading.value = true;
   try {
-    const all = (await getMachines()) as ApiMachine[];
+    const raw = (await getMachines()) as ApiMachine[];
+    type NormalizedMachine = ApiMachine & { id: string; status: string };
+    const all: NormalizedMachine[] = raw.map((m) => ({
+      ...m,
+      id: String(m.id),
+      status: String(m.status || "inactive"),
+    }));
+    const allowed = filterMachinesForRole<NormalizedMachine>(all, {
+      role: currentRole.value,
+      assignedMachineIds: assignedMachineIds.value,
+    });
     const routeId = route.params.id as string | undefined;
-    const current = all.find((m) => m.name === routeId || m.id === routeId);
-    if (current) {
-      machine.value = current;
-      // Monedas de HOY usando getMachineDailyIncome con rango de un solo día (fecha local)
-      const today = new Date();
-      const todayLocalStr = formatDate(today);
-      const todayData = await getMachineDailyIncome(current.id, {
-        startDate: todayLocalStr,
-        endDate: todayLocalStr,
+    const current = allowed.find(
+      (m) => m.name === routeId || String(m.id) === String(routeId)
+    );
+    if (!current) {
+      machine.value = null;
+      totalCoins.value = 0;
+      dailyIncome.value = [];
+      hourlyIncome.value = [];
+      hourlyCoins.value = [];
+      monthlyPrimary.value = [];
+      monthlyCompare.value = [];
+      router.replace({ name: "dashboard" });
+      return;
+    }
+
+    machine.value = current;
+    // Monedas de HOY usando getMachineDailyIncome con rango de un solo día (fecha local)
+    const today = new Date();
+    const todayLocalStr = formatDate(today);
+    const todayData = await getMachineDailyIncome(current.id, {
+      startDate: todayLocalStr,
+      endDate: todayLocalStr,
+    });
+    let coinsToday = 0;
+    if (Array.isArray(todayData) && todayData.length) {
+      const found = todayData.find((d) => {
+        if (!d.date) return false;
+        const dateStr = String(d.date).slice(0, 10);
+        return dateStr === todayLocalStr;
       });
-      let coinsToday = 0;
-      if (Array.isArray(todayData) && todayData.length) {
-        const found = todayData.find((d) => {
-          if (!d.date) return false;
-          const dateStr = String(d.date).slice(0, 10);
-          return dateStr === todayLocalStr;
-        });
-        coinsToday = found ? Number(found.income ?? 0) : 0;
-      }
-      totalCoins.value = coinsToday;
-      if (chartMode.value === "hour") {
-        await loadHourlyIncome();
-      } else if (chartMode.value === "day") {
-        await loadDailyIncome();
-      } else {
-        monthlyPrimary.value = await loadMonthlyIncome(monthPrimary.value);
-        monthlyCompare.value = monthCompare.value
-          ? await loadMonthlyIncome(monthCompare.value)
-          : [];
-      }
+      coinsToday = found ? Number(found.income ?? 0) : 0;
+    }
+    totalCoins.value = coinsToday;
+    if (chartMode.value === "hour") {
+      await loadHourlyIncome();
+    } else if (chartMode.value === "day") {
+      await loadDailyIncome();
+    } else {
+      monthlyPrimary.value = await loadMonthlyIncome(monthPrimary.value);
+      monthlyCompare.value = monthCompare.value
+        ? await loadMonthlyIncome(monthCompare.value)
+        : [];
     }
   } catch (e) {
     console.error("Error cargando resumen de máquina:", e);

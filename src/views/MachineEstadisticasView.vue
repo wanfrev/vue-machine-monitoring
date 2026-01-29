@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
   getMachines,
   getMachinePowerLogs,
   getMachineDailyIncome,
 } from "../api/client";
+import {
+  filterMachinesForRole,
+  getAssignedMachineIdsFromStorage,
+} from "@/utils/access";
 
 const totalCoins = ref(0);
 
@@ -24,6 +28,10 @@ type PowerLog = {
 };
 
 const route = useRoute();
+const router = useRouter();
+
+const currentRole = ref(localStorage.getItem("role") || "");
+const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
 
 const machine = ref<Machine | null>(null);
 const powerLogs = ref<PowerLog[]>([]);
@@ -203,15 +211,30 @@ let refreshInterval: number | undefined;
 
 async function fetchAllData() {
   try {
-    const all = await getMachines();
-    const routeId = route.params.id as string | undefined;
-    const current = all.find(
-      (m: any) => m.name === routeId || m.id === routeId
+    const all = (await getMachines()) as any[];
+    const allowed = filterMachinesForRole(
+      all.map((m) => ({
+        ...m,
+        id: String(m.id),
+        status: String(m.status || "inactive"),
+      })),
+      { role: currentRole.value, assignedMachineIds: assignedMachineIds.value }
     );
-    if (current) {
-      machine.value = current;
-      await loadStats();
+    const routeId = route.params.id as string | undefined;
+    const current = allowed.find(
+      (m: any) => m.name === routeId || String(m.id) === String(routeId)
+    );
+    if (!current) {
+      machine.value = null;
+      powerLogs.value = [];
+      dailyIncome.value = [];
+      totalCoins.value = 0;
+      router.replace({ name: "dashboard" });
+      return;
     }
+
+    machine.value = current;
+    await loadStats();
   } catch (e) {
     console.error("Error inicializando estadísticas de máquina:", e);
   }

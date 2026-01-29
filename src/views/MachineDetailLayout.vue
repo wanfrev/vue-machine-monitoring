@@ -2,6 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import { getMachines, updateMachine } from "../api/client";
+import {
+  canAccessMachine,
+  filterMachinesForRole,
+  getAssignedMachineIdsFromStorage,
+} from "@/utils/access";
 
 const route = useRoute();
 const router = useRouter();
@@ -13,6 +18,7 @@ const locationText = computed(
 
 const currentRole = ref(localStorage.getItem("role") || "");
 const isAdmin = computed(() => currentRole.value === "admin");
+const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
 
 type ApiMachine = { id: string | number; name: string; status?: string };
 const resolvedMachineId = ref<string | null>(null);
@@ -28,12 +34,35 @@ const statusLabel = computed(() => {
 
 async function resolveMachine() {
   try {
-    const all = (await getMachines()) as ApiMachine[];
+    const raw = (await getMachines()) as ApiMachine[];
+    type NormalizedMachine = ApiMachine & { id: string; status: string };
+    const all: NormalizedMachine[] = raw.map((m) => ({
+      ...m,
+      id: String(m.id),
+      status: String(m.status || "inactive"),
+    }));
+
+    const allowed = filterMachinesForRole<NormalizedMachine>(all, {
+      role: currentRole.value,
+      assignedMachineIds: assignedMachineIds.value,
+    });
     const routeId = route.params.id as string | undefined;
-    const current = all.find(
+    const current = allowed.find(
       (m) => m.name === routeId || String(m.id) === routeId
     );
     if (current) {
+      const ok = canAccessMachine({
+        role: currentRole.value,
+        assignedMachineIds: assignedMachineIds.value,
+        machineId: String(current.id),
+        machineStatus: String(current.status || "inactive"),
+      });
+      if (!ok) {
+        resolvedMachineId.value = null;
+        resolvedStatus.value = "inactive";
+        router.replace({ name: "dashboard" });
+        return;
+      }
       resolvedMachineId.value = String(current.id);
       resolvedStatus.value = String(current.status || "inactive");
       return;

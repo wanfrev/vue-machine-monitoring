@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { getSocket } from "../api/realtime";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { getMachines, getMachineHistory } from "../api/client";
+import {
+  filterMachinesForRole,
+  getAssignedMachineIdsFromStorage,
+} from "@/utils/access";
 
 type Tx = {
   kind: "Ingreso" | "Evento";
@@ -25,10 +29,12 @@ type Machine = {
 };
 
 const route = useRoute();
+const router = useRouter();
 
 // Rol actual para controlar visibilidad de dinero
 const currentRole = ref(localStorage.getItem("role") || "");
 const isOperator = computed(() => currentRole.value === "operator");
+const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
 
 // Rango de fechas para el historial (por defecto desde inicio de mes hasta hoy)
 function formatDate(d: Date) {
@@ -221,15 +227,29 @@ let socket: any = null;
 
 async function fetchAllData() {
   try {
-    const all = await getMachines();
-    const routeId = route.params.id as string | undefined;
-    const current = all.find(
-      (m: any) => m.name === routeId || m.id === routeId
+    const all = (await getMachines()) as any[];
+    const allowed = filterMachinesForRole(
+      all.map((m) => ({
+        ...m,
+        id: String(m.id),
+        status: String(m.status || "inactive"),
+      })),
+      { role: currentRole.value, assignedMachineIds: assignedMachineIds.value }
     );
-    if (current) {
-      machine.value = current;
-      await loadHistory();
+    const routeId = route.params.id as string | undefined;
+    const current = allowed.find(
+      (m: any) => m.name === routeId || String(m.id) === String(routeId)
+    );
+    if (!current) {
+      machine.value = null;
+      txs.value = [];
+      totalCoins.value = 0;
+      router.replace({ name: "dashboard" });
+      return;
     }
+
+    machine.value = current;
+    await loadHistory();
   } catch (e) {
     console.error("Error cargando datos de historial de máquina:", e);
   }

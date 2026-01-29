@@ -24,7 +24,7 @@ const routes: Array<RouteRecordRaw> = [
     path: "/machines",
     name: "machines",
     component: MachinesView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: "/machines/:id",
@@ -60,7 +60,7 @@ const routes: Array<RouteRecordRaw> = [
     path: "/employees",
     name: "employees",
     component: EmployeesView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
 ];
 
@@ -74,6 +74,13 @@ router.beforeEach((to, from, next) => {
   const isAuth = !!token && localStorage.getItem("auth") === "true";
   if (to.meta.requiresAuth && !isAuth) {
     next({ name: "login" });
+  } else if (to.meta.requiresAdmin) {
+    const role = localStorage.getItem("role") || "";
+    if (role !== "admin") {
+      next({ name: "dashboard" });
+    } else {
+      next();
+    }
   } else if (to.name === "login" && isAuth) {
     next({ name: "dashboard" });
   } else {
