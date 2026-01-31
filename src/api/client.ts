@@ -83,7 +83,13 @@ export async function createMachine(machine: {
 
 export async function updateMachine(
   id: string,
-  machine: { name?: string; location?: string; status?: string; type?: string }
+  machine: {
+    name?: string;
+    location?: string;
+    status?: string;
+    type?: string;
+    test_mode?: boolean;
+  }
 ) {
   const res = await api.put(`/api/machines/${id}`, machine);
   return res.data;

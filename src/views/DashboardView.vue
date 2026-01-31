@@ -138,16 +138,10 @@ async function toggleFilters() {
 
 type DashboardFilters = {
   locations: string[];
-  minIncome: number;
-  minUsage: number;
-  maintenanceDate: string;
 };
 
 const dashboardFilters = ref<DashboardFilters>({
   locations: [],
-  minIncome: 0,
-  minUsage: 0,
-  maintenanceDate: "",
 });
 
 type Machine = {
@@ -386,14 +380,6 @@ const availableLocations = computed(() => {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 });
 
-const maxIncome = computed(() => {
-  let maxVal = 0;
-  for (const m of machines.value) {
-    maxVal = Math.max(maxVal, getMachineIncome(m));
-  }
-  return maxVal;
-});
-
 // Uso (tasa) calculado con power logs (backend) - se carga bajo demanda
 const activeMinutesTodayByMachine = ref<Record<string, number>>({});
 const usageLoading = ref(false);
@@ -414,6 +400,16 @@ function getMonthStartLocalStr() {
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}-01`;
+}
+
+function getWeekStartLocalStr() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - 6); // últimos 7 días (incluye hoy)
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function minutesSinceStartOfDay() {
@@ -506,39 +502,20 @@ const filteredMachines = computed(() => {
     );
   }
 
-  if (f.minIncome > 0) {
-    baseMachines = baseMachines.filter(
-      (m) => getMachineIncome(m) >= f.minIncome
-    );
-  }
-
-  if (f.minUsage > 0) {
-    baseMachines = baseMachines.filter(
-      (m) => getUsagePercentToday(m.id) >= f.minUsage
-    );
-  }
-
-  // No hay fecha de mantenimiento en backend; aplicamos el filtro solo como "máquinas en mantenimiento"
-  // cuando el usuario selecciona una fecha.
-  if (f.maintenanceDate) {
-    baseMachines = baseMachines.filter((m) => m.status === "maintenance");
-  }
-
   return baseMachines;
 });
 
 function onApplyFilters(payload: DashboardFilters) {
   dashboardFilters.value = payload;
   filterOpen.value = false;
-  if (payload.minUsage > 0) {
-    ensureUsageDataFresh();
-  }
 }
 
 // monedas por máquina (acumulado del mes actual): { [machineId]: coins_month_to_date }
 const coinsByMachine = ref<Record<string, number>>({});
 // monedas de HOY por máquina: { [machineId]: coins_today }
 const dailyCoinsByMachine = ref<Record<string, number>>({});
+// monedas de la última semana (incluye hoy) por máquina: { [machineId]: coins_last_7_days }
+const weeklyCoinsByMachine = ref<Record<string, number>>({});
 
 const totalMachines = computed(() => scopedMachines.value.length);
 const activeMachines = computed(
@@ -582,6 +559,11 @@ function getMachineCoins(machineId: string): number {
   return coinsByMachine.value[machineId] || 0;
 }
 
+function getMachineCoinsWeek(machineId: string): number {
+  if (!canSeeMachineId(machineId)) return 0;
+  return weeklyCoinsByMachine.value[machineId] || 0;
+}
+
 function getMachineCoinsToday(machineId: string): number {
   if (!canSeeMachineId(machineId)) return 0;
   return dailyCoinsByMachine.value[machineId] || 0;
@@ -589,6 +571,12 @@ function getMachineCoinsToday(machineId: string): number {
 
 function getMachineIncome(machine: Machine): number {
   const coins = getMachineCoins(machine.id);
+  const valuePerCoin = machine.name.includes("Boxeo") ? 1 : 2;
+  return coins * valuePerCoin;
+}
+
+function getMachineIncomeWeek(machine: Machine): number {
+  const coins = getMachineCoinsWeek(machine.id);
   const valuePerCoin = machine.name.includes("Boxeo") ? 1 : 2;
   return coins * valuePerCoin;
 }
@@ -1094,31 +1082,44 @@ async function loadDashboardData() {
     try {
       const todayLocalStr = getTodayLocalStr();
       const monthStartLocalStr = getMonthStartLocalStr();
+      const weekStartLocalStr = getWeekStartLocalStr();
+      const startLocalStr =
+        weekStartLocalStr < monthStartLocalStr
+          ? weekStartLocalStr
+          : monthStartLocalStr;
       const monthMap: Record<string, number> = {};
       const dailyMap: Record<string, number> = {};
+      const weekMap: Record<string, number> = {};
 
       await Promise.all(
         visibleMachines.map(async (machine) => {
           try {
             const rows = await getMachineDailyIncome(machine.id, {
-              startDate: monthStartLocalStr,
+              startDate: startLocalStr,
               endDate: todayLocalStr,
             });
 
             let coinsMonth = 0;
             let coinsToday = 0;
+            let coinsWeek = 0;
             if (Array.isArray(rows) && rows.length) {
               for (const r of rows) {
                 const dateStr = String((r as any)?.date ?? "").slice(0, 10);
                 const inc = Number((r as any)?.income ?? 0);
                 if (!Number.isFinite(inc)) continue;
-                coinsMonth += inc;
+                if (dateStr >= monthStartLocalStr && dateStr <= todayLocalStr) {
+                  coinsMonth += inc;
+                }
                 if (dateStr === todayLocalStr) coinsToday = inc;
+                if (dateStr >= weekStartLocalStr && dateStr <= todayLocalStr) {
+                  coinsWeek += inc;
+                }
               }
             }
 
             monthMap[machine.id] = coinsMonth;
             dailyMap[machine.id] = coinsToday;
+            weekMap[machine.id] = coinsWeek;
           } catch (err) {
             console.error(
               "Error obteniendo monedas del mes para máquina:",
@@ -1127,12 +1128,14 @@ async function loadDashboardData() {
             );
             monthMap[machine.id] = 0;
             dailyMap[machine.id] = 0;
+            weekMap[machine.id] = 0;
           }
         })
       );
 
       coinsByMachine.value = monthMap;
       dailyCoinsByMachine.value = dailyMap;
+      weeklyCoinsByMachine.value = weekMap;
       // Asegurar que tenemos los logs de energía para calcular el primer
       // encendido del día por máquina, de modo que la UI muestre
       // ese instante en lugar del último encendido.
@@ -1145,6 +1148,7 @@ async function loadDashboardData() {
       console.error("Error obteniendo monedas del mes por máquina:", e);
       coinsByMachine.value = {};
       dailyCoinsByMachine.value = {};
+      weeklyCoinsByMachine.value = {};
     }
   } catch (err: unknown) {
     const anyErr = err as { response?: { status?: number } };
@@ -1938,8 +1942,6 @@ onUnmounted(() => {
             :open="true"
             placement="static"
             :locations="availableLocations"
-            :maxIncome="maxIncome"
-            :showIncomeFilter="!isOperator"
             @close="filterOpen = false"
             @apply="
               (p) => {
@@ -2456,14 +2458,14 @@ onUnmounted(() => {
             $ {{ getMachineIncomeToday(machine) }}
           </p>
           <p v-if="!isOperator" class="font-medium text-slate-400">
-            Total ingresos
+            Total semanal
           </p>
           <p
             v-if="!isOperator"
             class="text-right text-slate-800"
             :class="isDark() ? 'text-slate-100' : ''"
           >
-            $ {{ getMachineIncome(machine) }}
+            $ {{ getMachineIncomeWeek(machine) }}
           </p>
           <p class="font-medium text-slate-400">Monedas hoy</p>
           <p
@@ -2471,13 +2473,6 @@ onUnmounted(() => {
             :class="isDark() ? 'text-slate-100' : ''"
           >
             {{ getMachineCoinsToday(machine.id) }}
-          </p>
-          <p class="font-medium text-slate-400">Tiempo activo</p>
-          <p
-            class="text-right text-slate-800"
-            :class="isDark() ? 'text-slate-100' : ''"
-          >
-            0 h
           </p>
         </div>
 

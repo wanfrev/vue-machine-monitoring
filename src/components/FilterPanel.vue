@@ -26,7 +26,6 @@
       </svg>
       <span class="font-semibold text-lg text-slate-700">Filtros</span>
     </div>
-    <div class="border-b mb-2"></div>
     <!-- Ubicación -->
     <div>
       <button
@@ -46,97 +45,6 @@
         </label>
       </div>
     </div>
-    <!-- Rango de ingresos -->
-    <div v-if="props.showIncomeFilter !== false">
-      <button
-        class="w-full flex justify-between items-center font-semibold text-slate-700 mb-2"
-      >
-        Rango de ingresos
-        <span>&#9660;</span>
-      </button>
-      <div class="pl-2 relative">
-        <div class="flex justify-between text-xs text-slate-500 mb-1">
-          <span>Mínimo: ${{ minIncome }}</span>
-          <span>Máximo: ${{ maxIncome }}</span>
-        </div>
-
-        <div
-          v-if="showIncomeTip"
-          class="absolute -top-6 z-10 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm whitespace-nowrap"
-          :style="{ left: incomeTipLeft, transform: 'translateX(-50%)' }"
-        >
-          ${{ income }}
-        </div>
-
-        <input
-          type="range"
-          min="0"
-          :max="maxIncome"
-          v-model="income"
-          class="w-full accent-red-600"
-          @mouseenter="showIncomeTip = true"
-          @mouseleave="showIncomeTip = false"
-          @focus="showIncomeTip = true"
-          @blur="showIncomeTip = false"
-          @pointerdown="showIncomeTip = true"
-          @pointerup="showIncomeTip = false"
-        />
-      </div>
-    </div>
-    <!-- Tasa de uso -->
-    <div>
-      <button
-        class="w-full flex justify-between items-center font-semibold text-slate-700 mb-2"
-      >
-        Tasa de uso
-        <span>&#9660;</span>
-      </button>
-      <div class="pl-2 relative">
-        <div class="flex justify-between text-xs text-slate-500 mb-1">
-          <span>Mínimo: 0%</span>
-          <span>Máximo: 100%</span>
-        </div>
-
-        <div
-          v-if="showUsageTip"
-          class="absolute -top-6 z-10 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm whitespace-nowrap"
-          :style="{ left: usageTipLeft, transform: 'translateX(-50%)' }"
-        >
-          {{ usage }}%
-        </div>
-
-        <input
-          type="range"
-          min="0"
-          max="100"
-          v-model="usage"
-          class="w-full accent-red-600"
-          @mouseenter="showUsageTip = true"
-          @mouseleave="showUsageTip = false"
-          @focus="showUsageTip = true"
-          @blur="showUsageTip = false"
-          @pointerdown="showUsageTip = true"
-          @pointerup="showUsageTip = false"
-        />
-      </div>
-    </div>
-    <!-- Fecha de mantenimiento -->
-    <div>
-      <button
-        class="w-full flex justify-between items-center font-semibold text-slate-700 mb-2"
-      >
-        Fecha de mantenimiento
-        <span>&#9660;</span>
-      </button>
-      <div class="pl-2">
-        <label class="text-xs text-slate-500 mb-1">Desde:</label>
-        <input
-          type="date"
-          v-model="maintenanceDate"
-          class="w-full rounded-lg border px-2 py-1 mt-1"
-        />
-      </div>
-    </div>
     <button
       class="w-full rounded-xl bg-red-600 text-white font-semibold py-2 mt-2 shadow transition hover:bg-red-700"
       @click="apply"
@@ -148,20 +56,15 @@
 
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 
 type FilterPayload = {
   locations: string[];
-  minIncome: number;
-  minUsage: number;
-  maintenanceDate: string;
 };
 
 const props = defineProps<{
   open: boolean;
   locations: string[];
-  maxIncome: number;
-  showIncomeFilter?: boolean;
   placement?: "absolute" | "static";
 }>();
 
@@ -174,36 +77,10 @@ const emit = defineEmits<{
 
 const selectedLocations = ref<string[]>([]);
 const locations = computed(() => props.locations || []);
-const minIncome = 0;
-const maxIncome = computed(() => Math.max(0, Math.floor(props.maxIncome || 0)));
-const income = ref(0);
-const usage = ref(0);
-const maintenanceDate = ref("");
-
-const showIncomeTip = ref(false);
-const showUsageTip = ref(false);
-
-const incomeTipLeft = computed(() => {
-  const max = maxIncome.value || 1;
-  const pct = Math.min(1, Math.max(0, (Number(income.value) || 0) / max)) * 100;
-  return `calc(${pct}% )`;
-});
-
-const usageTipLeft = computed(() => {
-  const pct = Math.min(100, Math.max(0, Number(usage.value) || 0));
-  return `calc(${pct}% )`;
-});
-
-watch(maxIncome, (next) => {
-  if (income.value > next) income.value = next;
-});
 
 function apply() {
   emit("apply", {
     locations: selectedLocations.value,
-    minIncome: Number(income.value) || 0,
-    minUsage: Number(usage.value) || 0,
-    maintenanceDate: maintenanceDate.value,
   });
 }
 </script>
