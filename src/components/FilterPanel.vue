@@ -51,6 +51,12 @@
     >
       Aplicar
     </button>
+    <button
+      class="w-full rounded-xl border border-slate-300 text-slate-700 font-semibold py-2 mt-1 shadow-sm transition hover:bg-slate-50"
+      @click="resetFilters"
+    >
+      Reset filtros
+    </button>
   </div>
 </template>
 
@@ -81,6 +87,13 @@ const locations = computed(() => props.locations || []);
 function apply() {
   emit("apply", {
     locations: selectedLocations.value,
+  });
+}
+
+function resetFilters() {
+  selectedLocations.value = [];
+  emit("apply", {
+    locations: [],
   });
 }
 </script>

@@ -155,9 +155,18 @@ type Machine = {
   last_off?: string | null;
 };
 const machines = ref<Machine[]>([]);
+// Lista de máquinas siempre ordenada alfabéticamente por nombre (estable)
+const sortedMachines = computed(() => {
+  return [...machines.value].sort((a, b) =>
+    String(a.name || "").localeCompare(String(b.name || ""), "es", {
+      sensitivity: "base",
+    })
+  );
+});
 
+// Aplicar filtrado por rol sobre la lista ya ordenada
 const scopedMachines = computed(() =>
-  filterMachinesForRole(machines.value, {
+  filterMachinesForRole(sortedMachines.value, {
     role: currentRole.value,
     assignedMachineIds: assignedMachineIds.value,
   })
@@ -1893,36 +1902,6 @@ onUnmounted(() => {
             <span>Filtro</span>
           </button>
         </div>
-        <button
-          v-if="isAdmin"
-          class="col-span-2 inline-flex w-full items-center gap-1 rounded-full bg-red-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 sm:col-auto sm:w-auto sm:text-sm cursor-pointer"
-          @click="newMachineOpen = true"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 5v14"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M5 12h14"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span>Nueva máquina</span>
-        </button>
       </div>
 
       <Teleport to="body">
