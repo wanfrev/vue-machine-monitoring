@@ -145,75 +145,36 @@ function submit() {
       role="dialog"
     >
       <div
-        class="w-full max-w-md rounded-2xl border bg-white p-6 shadow-2xl"
+        class="w-full max-w-xl rounded-2xl border bg-white p-6 shadow-2xl"
         :class="
           isDark
             ? 'border-slate-800 bg-slate-900 text-slate-100'
             : 'border-slate-200 bg-white text-slate-700'
         "
-        style="min-height: 420px"
+        style="min-height: 380px"
       >
-        <div class="flex items-center gap-2 mb-2">
+        <div class="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-slate-900">
+              {{
+                props.mode === "edit" ? "Editar máquina" : "Registrar máquina"
+              }}
+            </h2>
+          </div>
           <button
             type="button"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
-            :class="
-              isDark
-                ? 'border-slate-700 bg-slate-800 hover:bg-slate-700'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
-            "
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
             aria-label="Cerrar"
             @click="close"
           >
             ✕
           </button>
-          <div class="flex items-center gap-2">
-            <span
-              class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-600 text-white text-xl shadow-lg"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 5v14"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M5 12h14"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-            <div>
-              <h2 class="text-xl font-bold text-slate-800">
-                {{ props.mode === "edit" ? "Editar máquina" : "Nueva máquina" }}
-              </h2>
-              <p class="text-sm text-slate-400">
-                {{
-                  props.mode === "edit"
-                    ? "Modifica la ubicación de la máquina"
-                    : "Agrega una nueva máquina al sistema"
-                }}
-              </p>
-            </div>
-          </div>
         </div>
-        <form @submit.prevent="submit" class="space-y-4 mt-3">
+        <form @submit.prevent="submit" class="mt-2 space-y-4">
           <!-- ID ahora es totalmente automático en el backend, no se pide aquí -->
-          <div>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label class="block text-sm font-semibold mb-1"
-              >Nombre de máquina<span class="text-red-500">*</span></label
+              >Nombre de máquina<span class="text-sky-500">*</span></label
             >
             <input
               type="text"
@@ -221,20 +182,35 @@ function submit() {
               class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
             />
           </div>
-          <div>
-            <label class="block text-sm font-semibold mb-1"
-              >Serial<span class="text-red-500">*</span></label
-            >
-            <input
-              type="text"
-              :value="`#${(props.count + 1).toString().padStart(3, '0')}`"
-              readonly
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-slate-100 text-slate-400 cursor-not-allowed"
-            />
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label class="block text-sm font-semibold mb-1"
+                >Tipo/Modelo<span class="text-sky-500">*</span></label
+              >
+              <select
+                v-model="type"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer"
+                required
+              >
+                <option value="Boxeo">Boxeo</option>
+                <option value="Agilidad">Agilidad</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1"
+                >Serial<span class="text-sky-500">*</span></label
+              >
+              <input
+                type="text"
+                :value="`#${(props.count + 1).toString().padStart(3, '0')}`"
+                readonly
+                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-slate-100 text-slate-400 cursor-not-allowed"
+              />
+            </div>
           </div>
           <div>
             <label class="block text-sm font-semibold mb-1"
-              >Ubicación<span class="text-red-500">*</span></label
+              >Ubicación<span class="text-sky-500">*</span></label
             >
             <input
               v-model="location"
@@ -244,63 +220,27 @@ function submit() {
               required
             />
           </div>
-          <div>
-            <label class="block text-sm font-semibold mb-1"
-              >Tipo/Modelo<span class="text-red-500">*</span></label
-            >
-            <select
-              v-model="type"
-              class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700 cursor-pointer"
-              required
-            >
-              <option value="Boxeo">Boxeo</option>
-              <option value="Agilidad">Agilidad</option>
-            </select>
-          </div>
-          <div class="rounded-xl bg-red-50 px-3 py-2 text-red-500 text-sm">
-            <span class="font-semibold">Nota importante</span><br />
-            La máquina se agregará con estado "Inactivo" y podrás editar sus
-            datos después desde el panel de control.
-          </div>
-          <div class="flex gap-2 justify-end mt-4">
+          <p class="mt-1 flex items-start gap-1 text-xs text-slate-500">
+            <span aria-hidden="true">ℹ️</span>
+            <span>
+              La máquina se creará en estado "Inactivo" por defecto. Podrás
+              editar sus datos más adelante desde el panel de control.
+            </span>
+          </p>
+          <div class="flex gap-2 justify-end pt-4">
             <button
               type="button"
-              class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 transition cursor-pointer"
+              class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition cursor-pointer"
               @click="close"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              class="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-700 cursor-pointer"
+              class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 cursor-pointer"
             >
-              <span class="text-lg">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 5v14"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M5 12h14"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </span>
               {{
-                props.mode === "edit" ? "Guardar cambios" : "Agregar máquina"
+                props.mode === "edit" ? "Guardar cambios" : "Guardar máquina"
               }}
             </button>
           </div>
@@ -315,6 +255,7 @@ function submit() {
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
@@ -324,6 +265,7 @@ function submit() {
 .modal-leave-active {
   transition: transform 0.25s cubic-bezier(0.4, 2, 0.3, 1), opacity 0.25s;
 }
+
 .modal-enter-from,
 .modal-leave-to {
   transform: scale(0.95);

@@ -291,12 +291,12 @@ watch([startDate, endDate, machine], async () => {
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tasa de uso
         </p>
-        <p class="mt-1 text-3xl font-semibold text-red-600">
+        <p class="mt-1 text-3xl font-semibold text-emerald-600">
           {{ usageRate.toFixed(1) }}%
         </p>
         <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
           <div
-            class="h-full bg-red-600"
+            class="h-full bg-emerald-500"
             :style="{ width: usageRate.toFixed(1) + '%' }"
           ></div>
         </div>
@@ -308,7 +308,7 @@ watch([startDate, endDate, machine], async () => {
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Monedas totales
         </p>
-        <p class="mt-1 text-3xl font-semibold text-red-600">
+        <p class="mt-1 text-3xl font-semibold text-emerald-600">
           {{ totalCoins }}
         </p>
         <p class="text-xs text-slate-400">En este período</p>
@@ -341,13 +341,13 @@ watch([startDate, endDate, machine], async () => {
           <input
             v-model="startDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
 
           <button
@@ -361,41 +361,52 @@ watch([startDate, endDate, machine], async () => {
         </div>
       </div>
       <div
-        class="overflow-x-auto rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur"
+        class="overflow-hidden rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur px-4 py-4"
       >
-        <table class="min-w-[520px] w-full text-sm">
-          <thead class="bg-red-50/70 backdrop-blur text-slate-700">
-            <tr>
-              <th class="px-4 py-2 text-left">Evento</th>
-              <th class="px-4 py-2 text-left">Fecha y hora</th>
-              <th class="px-4 py-2 text-left">Duración</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
+        <div
+          v-if="powerLogs.length === 0"
+          class="py-4 text-center text-sm text-slate-400"
+        >
+          No hay registros en el rango seleccionado.
+        </div>
+        <div v-else class="relative">
+          <div
+            class="pointer-events-none absolute left-3 top-0 bottom-0 w-px bg-slate-200/80"
+            aria-hidden="true"
+          ></div>
+          <ul class="space-y-4">
+            <li
               v-for="(row, i) in powerLogs"
               :key="i"
-              class="border-t border-slate-100 transition-colors hover:bg-red-100/50"
+              class="relative flex gap-3"
             >
-              <td class="px-4 py-2">
+              <div class="flex h-full items-start justify-center">
                 <span
-                  class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  class="relative mt-1 inline-flex h-3 w-3 rounded-full ring-2 ring-white"
                   :class="
-                    row.event === 'Encendido'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-amber-100 text-amber-700'
+                    row.event === 'Encendido' ? 'bg-emerald-500' : 'bg-red-500'
                   "
-                  >{{ row.event }}</span
+                ></span>
+              </div>
+              <div
+                class="flex flex-1 items-center justify-between gap-4 rounded-lg bg-transparent"
+              >
+                <div>
+                  <p class="text-xs font-medium text-slate-700">
+                    {{ row.event }}
+                  </p>
+                  <p class="text-xs text-slate-500">{{ row.ts }}</p>
+                </div>
+                <p
+                  class="min-w-[3rem] text-right text-xs font-medium text-slate-600"
                 >
-              </td>
-              <td class="px-4 py-2 text-slate-600">{{ row.ts }}</td>
-              <td class="px-4 py-2 text-slate-600">
-                <span v-if="row.dur !== null">{{ row.dur }}m</span>
-                <span v-else>—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  <span v-if="row.dur !== null">{{ row.dur }}m</span>
+                  <span v-else>—</span>
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
       <p class="mt-3 text-center text-xs text-slate-400">
         Mostrando {{ powerLogs.length }} registros en el rango seleccionado

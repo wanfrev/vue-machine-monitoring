@@ -331,13 +331,13 @@ watch(search, () => {
           <input
             v-model="startDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
           />
 
           <button
@@ -377,66 +377,23 @@ watch(search, () => {
         />
       </div>
 
-      <!-- Mobile cards (show up to lg) -->
-      <div class="lg:hidden space-y-2">
+      <!-- Lista móvil simplificada (hasta lg) -->
+      <div class="lg:hidden">
         <div
           v-if="visible.length === 0"
           class="rounded-2xl border border-dashed border-slate-200/70 bg-white/40 backdrop-blur p-4 text-center text-sm text-slate-500"
         >
           No hay registros en el historial para este rango de fechas.
         </div>
-        <div
-          v-else
-          v-for="(t, i) in visible"
-          :key="i"
-          class="rounded-2xl border border-slate-200/70 bg-white/60 backdrop-blur-xl p-3 shadow-sm"
-        >
-          <div class="mb-1.5 flex items-center justify-between">
-            <span
-              class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-              :class="
-                t.kind === 'Ingreso'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-blue-100 text-blue-700'
-              "
-            >
-              {{ t.kind }}
-            </span>
-            <span
-              class="inline-flex h-5 w-5 items-center justify-center rounded-full border"
-              :class="
-                t.ok
-                  ? 'border-green-200 bg-green-50 text-green-600'
-                  : 'border-slate-200 bg-slate-50 text-slate-400'
-              "
-              aria-hidden="true"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-3 w-3"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </span>
-          </div>
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h3 class="text-sm font-semibold text-slate-800 leading-snug">
-                {{ t.description }}
-              </h3>
-              <p class="text-[11px] text-slate-400">
-                {{ t.date }} {{ t.time }}
-              </p>
-            </div>
+        <div v-else class="border-t border-slate-100 divide-y divide-slate-100">
+          <div
+            v-for="(t, i) in visible"
+            :key="i"
+            class="flex items-center justify-between py-3"
+          >
+            <p class="text-xs text-slate-500">{{ t.date }} {{ t.time }}</p>
             <p
-              class="text-xl font-semibold text-right whitespace-nowrap leading-none pt-0.5"
+              class="text-base font-semibold text-right whitespace-nowrap"
               :class="
                 t.kind === 'Ingreso' ? 'text-slate-900' : 'text-slate-400'
               "
@@ -455,44 +412,28 @@ watch(search, () => {
         </div>
       </div>
 
-      <!-- Desktop table (lg and up) -->
+      <!-- Tabla de escritorio simplificada (lg y arriba) -->
       <div
         class="hidden overflow-hidden rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur-xl lg:block"
       >
         <table class="w-full text-sm">
-          <thead class="bg-red-50/70 backdrop-blur text-slate-700">
+          <thead class="bg-slate-50/80 backdrop-blur text-slate-700">
             <tr>
-              <th class="px-4 py-2 text-left">Tipo</th>
-              <th class="px-4 py-2 text-left">Descripción</th>
               <th class="px-4 py-2 text-left">Fecha</th>
-              <th class="px-4 py-2 text-left">Monto</th>
-              <th class="px-4 py-2 text-left">Estado</th>
+              <th class="px-4 py-2 text-right">Monto</th>
             </tr>
           </thead>
           <tbody v-if="visible.length > 0">
             <tr
               v-for="(t, i) in visible"
               :key="i"
-              class="border-t border-slate-100 transition-colors hover:bg-red-100/50"
+              class="border-t border-slate-100 transition-colors hover:bg-slate-50/70"
             >
-              <td class="px-4 py-2">
-                <span
-                  class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  :class="
-                    t.kind === 'Ingreso'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-blue-100 text-blue-700'
-                  "
-                  >{{ t.kind }}</span
-                >
-              </td>
-              <td class="px-4 py-2 text-slate-600">{{ t.description }}</td>
               <td class="px-4 py-2 text-slate-500">
-                <div>{{ t.date }}</div>
-                <div class="text-xs">{{ t.time }}</div>
+                <div>{{ t.date }} {{ t.time }}</div>
               </td>
               <td
-                class="px-4 py-2 font-semibold"
+                class="px-4 py-2 font-semibold text-right"
                 :class="
                   t.kind === 'Ingreso' ? 'text-slate-800' : 'text-slate-400'
                 "
@@ -507,36 +448,11 @@ watch(search, () => {
                     : "$ 0"
                 }}
               </td>
-              <td class="px-4 py-2">
-                <span
-                  class="inline-flex h-5 w-5 items-center justify-center rounded-full border"
-                  :class="
-                    t.ok
-                      ? 'border-green-200 bg-green-50 text-green-600'
-                      : 'border-slate-200 bg-slate-50 text-slate-400'
-                  "
-                  aria-hidden="true"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-3 w-3"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </span>
-              </td>
             </tr>
           </tbody>
           <tbody v-else>
             <tr>
-              <td colspan="5" class="px-4 py-6 text-center text-slate-400">
+              <td colspan="2" class="px-4 py-6 text-center text-slate-400">
                 No hay registros en el historial para este rango de fechas.
               </td>
             </tr>

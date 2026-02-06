@@ -58,7 +58,7 @@ async function login() {
 
 <template>
   <div
-    class="min-h-screen flex items-center justify-center bg-gradient-to-r from-red-300 via-slate-100 to-slate-50"
+    class="min-h-screen flex items-center justify-center bg-gradient-to-r from-sky-400 via-slate-100 to-slate-50"
   >
     <div
       class="backdrop-blur-xl bg-white/60 border border-slate-200 rounded-2xl shadow-2xl p-8 w-full max-w-md flex flex-col items-center"
@@ -91,7 +91,7 @@ async function login() {
               v-model="username"
               type="text"
               placeholder="Usuario"
-              class="w-full rounded-xl border px-4 py-3 text-base bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-400 placeholder:text-slate-400 shadow"
+              class="w-full rounded-xl border px-4 py-3 text-base bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder:text-slate-400 shadow"
               autocomplete="username"
             />
           </div>
@@ -103,7 +103,7 @@ async function login() {
               v-model="password"
               type="password"
               placeholder="••••••••"
-              class="w-full rounded-xl border px-4 py-3 text-base bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-400 placeholder:text-slate-400 shadow"
+              class="w-full rounded-xl border px-4 py-3 text-base bg-white/80 text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder:text-slate-400 shadow"
               autocomplete="current-password"
             />
           </div>
@@ -112,7 +112,7 @@ async function login() {
           </div>
           <button
             type="submit"
-            class="w-full rounded-xl bg-red-600 text-white font-semibold py-3 mt-2 shadow-lg transition hover:bg-red-700"
+            class="w-full rounded-xl bg-sky-600 text-white font-semibold py-3 mt-2 shadow-lg transition hover:bg-sky-700"
           >
             Iniciar sesión
           </button>

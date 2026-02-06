@@ -33,7 +33,12 @@ const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const employeeToEdit = ref<Employee | null>(null);
 
-const totalSupervisors = computed(() => employees.value.length);
+const totalPeople = computed(
+  () =>
+    employees.value.filter(
+      (e) => e.role === "employee" || e.role === "operator"
+    ).length
+);
 const totalOperators = computed(
   () => employees.value.filter((e) => e.role === "operator").length
 );
@@ -41,8 +46,9 @@ const totalEmployees = computed(
   () => employees.value.filter((e) => e.role === "employee").length
 );
 
-type PeopleTab = "supervisores" | "empleados";
-const peopleTab = ref<PeopleTab>("supervisores");
+type PeopleFilter = "todos" | "supervisores" | "operadores";
+const peopleFilter = ref<PeopleFilter>("todos");
+const searchQuery = ref("");
 
 type ApiMachine = {
   id: number | string;
@@ -51,23 +57,43 @@ type ApiMachine = {
 };
 
 const displayedEmployees = computed(() => {
-  // En este proyecto: role === 'operator' => empleado/operador
-  // role === 'employee' => supervisor (admins se ocultan en esta vista)
-  if (peopleTab.value === "empleados") {
-    return employees.value.filter((e) => e.role === "operator");
+  // Solo mostramos supervisores y operadores (no admins)
+  let list = employees.value.filter(
+    (e) => e.role === "employee" || e.role === "operator"
+  );
+
+  if (peopleFilter.value === "supervisores") {
+    list = list.filter((e) => e.role === "employee");
+  } else if (peopleFilter.value === "operadores") {
+    list = list.filter((e) => e.role === "operator");
   }
-  return employees.value.filter((e) => e.role === "employee");
+
+  const q = searchQuery.value.trim().toLowerCase();
+  if (q) {
+    list = list.filter((e) => {
+      const haystack = `${e.name || ""} ${e.username || ""} ${
+        e.documentId || ""
+      }`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  return list.slice().sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "", "es", {
+      sensitivity: "base",
+    })
+  );
 });
 
 const emptyTitle = computed(() =>
-  peopleTab.value === "empleados" ? "Sin empleados" : "Sin supervisores"
+  peopleFilter.value === "operadores"
+    ? "Sin operadores"
+    : peopleFilter.value === "supervisores"
+    ? "Sin supervisores"
+    : "Sin personal"
 );
 
-const emptySubtitle = computed(() =>
-  peopleTab.value === "empleados"
-    ? "Crea el primero para que aparezca aquí."
-    : "Crea el primero para que aparezca aquí."
-);
+const emptySubtitle = computed(() => "Crea el primero para que aparezca aquí.");
 
 async function loadEmployees() {
   loading.value = true;
@@ -82,9 +108,9 @@ async function loadMachines() {
   try {
     const data = (await getMachines()) as ApiMachine[];
     machines.value = data.map((m) => ({
-      id: m.id,
+      id: String(m.id),
       name: m.name,
-      location: m.location,
+      location: m.location ?? undefined,
     }));
   } catch {
     machines.value = [];
@@ -156,11 +182,43 @@ function getEmployeeMachineLabels(e: Employee): string[] {
     .filter((v) => !!v);
 }
 
+function getEmployeeAssignmentSummary(e: Employee): string | null {
+  const labels = getEmployeeMachineLabels(e);
+  if (!labels.length) return null;
+
+  const counts = new Map<string, number>();
+  for (const label of labels) {
+    const current = counts.get(label) ?? 0;
+    counts.set(label, current + 1);
+  }
+
+  const parts: string[] = [];
+  counts.forEach((count, label) => {
+    if (count > 1) {
+      parts.push(`${label} (${count} máquinas)`);
+    } else {
+      parts.push(label);
+    }
+  });
+
+  return parts.join(", ");
+}
+
 function getRoleLabel(e: Employee): string {
   if (e.jobRole) return e.jobRole;
   if (e.role === "admin") return "Admin";
   if (e.role === "operator") return "Operador";
   return "Supervisor";
+}
+
+function getEmployeeInitials(e: Employee): string {
+  const base = (e.name || e.username || "").trim();
+  if (!base) return "?";
+  const parts = base.split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
 async function handleDeleteEmployee(id: number) {
@@ -202,37 +260,36 @@ async function handleDeleteEmployee(id: number) {
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex items-start justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden"
-              :class="
-                isDark()
-                  ? 'border-red-300 hover:bg-transparent hover:text-white'
-                  : 'border-red-200 hover:bg-transparent hover:text-red-700'
-              "
-              aria-label="Abrir menú lateral"
-              @click="sidebarOpen = true"
-            >
-              <img
-                src="/img/icons/K11BOX.webp"
-                alt="MachineHub logo"
-                class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
-              />
-            </button>
-            <h1 class="text-xl font-semibold sm:text-2xl">Supervisor</h1>
-          </div>
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Gestión
-          </p>
-          <p
-            class="text-sm"
-            :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
+            :class="
+              isDark()
+                ? 'border-sky-400/70 hover:bg-transparent hover:text-white'
+                : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
+            "
+            aria-label="Abrir menú lateral"
+            @click="sidebarOpen = true"
           >
-            Administración de supervisores y operadores
-          </p>
+            <img
+              src="/img/icons/K11BOX.webp"
+              alt="MachineHub logo"
+              class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+            />
+          </button>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h1 class="text-xl font-semibold sm:text-2xl">Equipo</h1>
+              <span
+                class="text-xs font-medium tracking-wide"
+                :class="isDark() ? 'text-slate-400' : 'text-slate-500'"
+              >
+                Gestión de accesos y asignaciones
+              </span>
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
@@ -241,8 +298,8 @@ async function handleDeleteEmployee(id: number) {
             class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
             :class="
               isDark()
-                ? 'border-red-400/30 bg-red-950/10 text-red-100 hover:bg-red-950/20'
-                : 'border-red-200/80 bg-red-50/60 text-red-700 hover:bg-red-50/80'
+                ? 'border-sky-400/40 bg-sky-900/20 text-sky-100 hover:bg-sky-900/30'
+                : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
             "
             aria-label="Refrescar"
             title="Refrescar"
@@ -274,66 +331,12 @@ async function handleDeleteEmployee(id: number) {
 
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+            class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
             @click="openCreateModal"
           >
             <span class="mr-1">+</span>
-            <span>Nuevo supervisor</span>
+            <span>Nuevo usuario</span>
           </button>
-        </div>
-      </div>
-
-      <div
-        class="grid grid-cols-2 gap-3 pt-2 auto-rows-fr sm:grid-cols-2 lg:grid-cols-3"
-      >
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-slate-700/60 bg-slate-900/30 text-slate-100'
-              : 'border-slate-200/70 bg-white/50 text-slate-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-          >
-            Total
-          </p>
-          <p class="text-2xl font-semibold">{{ totalSupervisors }}</p>
-        </div>
-
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-emerald-900/60 bg-emerald-950/40 text-emerald-200'
-              : 'border-emerald-100/80 bg-emerald-50/60 text-emerald-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-emerald-500"
-          >
-            Operadores
-          </p>
-          <p class="text-2xl font-semibold text-emerald-600">
-            {{ totalOperators }}
-          </p>
-        </div>
-
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-slate-700/60 bg-slate-950/30 text-slate-200'
-              : 'border-slate-200/70 bg-white/50 text-slate-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-          >
-            Supervisores
-          </p>
-          <p class="text-2xl font-semibold">{{ totalEmployees }}</p>
         </div>
       </div>
     </header>
@@ -346,31 +349,100 @@ async function handleDeleteEmployee(id: number) {
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="mb-4 flex gap-2">
-        <button
-          type="button"
-          class="px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition"
-          :class="
-            peopleTab === 'supervisores'
-              ? 'bg-slate-900 text-white hover:bg-slate-800'
-              : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70'
-          "
-          @click="peopleTab = 'supervisores'"
-        >
-          Supervisores
-        </button>
-        <button
-          type="button"
-          class="px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition"
-          :class="
-            peopleTab === 'empleados'
-              ? 'bg-slate-900 text-white hover:bg-slate-800'
-              : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70'
-          "
-          @click="peopleTab = 'empleados'"
-        >
-          Empleados
-        </button>
+      <!-- Toolbar: filtros de tipo + buscador -->
+      <div
+        class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              peopleFilter === 'todos'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-slate-400'
+                  : 'bg-slate-900 text-white border-slate-900'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="peopleFilter = 'todos'"
+          >
+            Todos ({{ totalPeople }})
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              peopleFilter === 'supervisores'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-violet-400'
+                  : 'bg-violet-600 text-white border-violet-600'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="peopleFilter = 'supervisores'"
+          >
+            Supervisores ({{ totalEmployees }})
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              peopleFilter === 'operadores'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-emerald-400'
+                  : 'bg-emerald-600 text-white border-emerald-600'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="peopleFilter = 'operadores'"
+          >
+            Operadores ({{ totalOperators }})
+          </button>
+        </div>
+
+        <div class="w-full sm:w-64 relative">
+          <span
+            class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-slate-400"
+          >
+            <svg
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="m20 20-3.5-3.5"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Buscar personal..."
+            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/60 focus:border-sky-400"
+            :class="
+              isDark()
+                ? 'bg-slate-900/60 text-slate-100 border-slate-700'
+                : 'bg-white/90 text-slate-800 border-slate-200'
+            "
+          />
+        </div>
       </div>
 
       <!-- Desktop table (hidden on small screens) -->
@@ -431,29 +503,45 @@ async function handleDeleteEmployee(id: number) {
                   : 'border-slate-200/70 hover:bg-red-100/50'
               "
             >
-              <td class="px-4 py-2 whitespace-nowrap">
+              <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">
                 {{ e.documentId || "—" }}
               </td>
-              <td class="px-4 py-2 whitespace-nowrap">{{ e.name }}</td>
               <td class="px-4 py-2 whitespace-nowrap">
-                <span
-                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold"
-                  :class="
-                    e.role === 'admin'
-                      ? isDark()
-                        ? 'border-violet-800/50 bg-violet-950/40 text-violet-200'
-                        : 'border-violet-200 bg-violet-50 text-violet-700'
-                      : e.role === 'operator'
-                      ? isDark()
-                        ? 'border-emerald-800/50 bg-emerald-950/40 text-emerald-200'
-                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : isDark()
-                      ? 'border-slate-700/60 bg-slate-900/30 text-slate-200'
-                      : 'border-slate-200 bg-white/40 text-slate-700'
-                  "
-                >
-                  {{ getRoleLabel(e) }}
-                </span>
+                <div class="flex items-center gap-2 min-w-0">
+                  <div
+                    class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold"
+                    :class="
+                      isDark()
+                        ? 'bg-slate-800 text-slate-100'
+                        : 'bg-slate-100 text-slate-700'
+                    "
+                  >
+                    {{ getEmployeeInitials(e) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold truncate">
+                      {{ e.name }}
+                    </div>
+                    <div
+                      class="mt-0.5 flex flex-wrap items-center gap-2 text-[11px]"
+                    >
+                      <span
+                        class="inline-flex items-center rounded-full px-2 py-0.5 font-medium"
+                        :class="
+                          e.role === 'operator'
+                            ? isDark()
+                              ? 'bg-emerald-900/60 text-emerald-100'
+                              : 'bg-emerald-50 text-emerald-700'
+                            : isDark()
+                            ? 'bg-violet-900/60 text-violet-100'
+                            : 'bg-violet-50 text-violet-700'
+                        "
+                      >
+                        {{ getRoleLabel(e).toUpperCase() }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </td>
               <td class="px-4 py-2 whitespace-nowrap">
                 <span
@@ -468,42 +556,82 @@ async function handleDeleteEmployee(id: number) {
                 </span>
               </td>
               <td class="px-4 py-2 whitespace-nowrap">
-                <div class="flex flex-wrap gap-1">
-                  <span
-                    v-for="label in getEmployeeMachineLabels(e)"
-                    :key="label"
-                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                    :class="
-                      isDark()
-                        ? 'border-red-900/40 bg-red-950/20 text-red-100'
-                        : 'border-red-200/70 bg-red-50/60 text-red-700'
-                    "
-                  >
-                    {{ label }}
+                <p class="text-xs text-slate-600 flex items-center gap-1">
+                  <span aria-hidden="true">📍</span>
+                  <span>
+                    {{ getEmployeeAssignmentSummary(e) || "Sin asignación" }}
                   </span>
-                  <span
-                    v-if="!getEmployeeMachineLabels(e).length"
-                    class="text-slate-400"
-                    >—</span
-                  >
-                </div>
+                </p>
               </td>
               <td
                 class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
               >
                 <button
-                  class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-amber-600 transition hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
                   type="button"
+                  aria-label="Editar usuario"
+                  title="Editar usuario"
                   @click="openEditModal(e)"
                 >
-                  Editar
+                  <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
                 </button>
                 <button
-                  class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-red-500 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
                   type="button"
+                  aria-label="Eliminar usuario"
+                  title="Eliminar usuario"
                   @click="handleDeleteEmployee(e.id)"
                 >
-                  Eliminar
+                  <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M5 7h14"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M10 11v6M14 11v6"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
                 </button>
               </td>
             </tr>
@@ -540,74 +668,130 @@ async function handleDeleteEmployee(id: number) {
           >
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1">
-                <div class="text-sm font-semibold">{{ e.name }}</div>
-                <div class="mt-1 flex flex-wrap items-center gap-2">
-                  <span class="text-xs text-slate-400">{{
-                    e.documentId || "—"
-                  }}</span>
-                  <span
-                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold"
-                    :class="
-                      e.role === 'admin'
-                        ? isDark()
-                          ? 'border-violet-800/50 bg-violet-950/40 text-violet-200'
-                          : 'border-violet-200 bg-violet-50 text-violet-700'
-                        : e.role === 'operator'
-                        ? isDark()
-                          ? 'border-emerald-800/50 bg-emerald-950/40 text-emerald-200'
-                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : isDark()
-                        ? 'border-slate-700/60 bg-slate-900/30 text-slate-200'
-                        : 'border-slate-200 bg-white/40 text-slate-700'
-                    "
-                  >
-                    {{ getRoleLabel(e) }}
-                  </span>
-                </div>
-
-                <div class="mt-2 flex flex-wrap gap-1">
-                  <span
-                    v-for="label in getEmployeeMachineLabels(e)"
-                    :key="label"
-                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold"
                     :class="
                       isDark()
-                        ? 'border-red-900/40 bg-red-950/20 text-red-100'
-                        : 'border-red-200/70 bg-red-50/60 text-red-700'
+                        ? 'bg-slate-800 text-slate-100'
+                        : 'bg-slate-100 text-slate-700'
                     "
                   >
-                    {{ label }}
-                  </span>
-                  <span
-                    v-if="!getEmployeeMachineLabels(e).length"
-                    class="text-xs text-slate-400"
-                    >—</span
+                    {{ getEmployeeInitials(e) }}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold truncate">
+                      {{ e.name }}
+                    </div>
+                    <div class="mt-0.5 flex flex-wrap items-center gap-2">
+                      <span class="text-xs text-slate-400">
+                        {{ e.documentId || "—" }}
+                      </span>
+                      <span
+                        class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                        :class="
+                          e.role === 'operator'
+                            ? isDark()
+                              ? 'bg-emerald-900/60 text-emerald-100'
+                              : 'bg-emerald-50 text-emerald-700'
+                            : isDark()
+                            ? 'bg-violet-900/60 text-violet-100'
+                            : 'bg-violet-50 text-violet-700'
+                        "
+                      >
+                        {{ getRoleLabel(e).toUpperCase() }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="mt-2 flex items-center justify-between text-xs text-slate-600"
+                >
+                  <div class="flex items-center gap-1">
+                    <span aria-hidden="true">📍</span>
+                    <span>{{
+                      getEmployeeAssignmentSummary(e) || "Sin asignación"
+                    }}</span>
+                  </div>
+                  <div
+                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
+                    :class="
+                      isDark()
+                        ? 'bg-slate-800 text-slate-200'
+                        : 'bg-slate-100 text-slate-700'
+                    "
                   >
+                    {{ e.shift || "—" }}
+                  </div>
                 </div>
               </div>
               <div class="flex flex-col items-end">
-                <div
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
-                  :class="
-                    isDark()
-                      ? 'bg-slate-800 text-slate-200'
-                      : 'bg-slate-100 text-slate-700'
-                  "
-                >
-                  {{ e.shift || "—" }}
-                </div>
                 <div class="mt-2 flex flex-col items-end gap-2">
                   <button
-                    class="text-amber-500 text-sm"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
+                    aria-label="Editar usuario"
+                    title="Editar usuario"
                     @click="openEditModal(e)"
                   >
-                    Editar
+                    <svg
+                      class="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                   </button>
                   <button
-                    class="text-slate-400 text-sm"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-red-500 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+                    aria-label="Eliminar usuario"
+                    title="Eliminar usuario"
                     @click="handleDeleteEmployee(e.id)"
                   >
-                    Eliminar
+                    <svg
+                      class="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M5 7h14"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M10 11v6M14 11v6"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                   </button>
                 </div>
               </div>

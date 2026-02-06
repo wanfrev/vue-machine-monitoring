@@ -162,7 +162,7 @@ watch(
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium cursor-pointer border-red-200 bg-red-50 text-red-700 hover:bg-red-100/60"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium cursor-pointer border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100/60"
           aria-label="Refrescar"
           title="Refrescar"
           @click="refreshPage"
@@ -196,7 +196,7 @@ watch(
             class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-sm font-medium cursor-pointer"
             :class="
               resolvedStatus === 'active'
-                ? 'border-red-200 bg-red-50 text-red-700'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                 : 'border-slate-200 bg-slate-50 text-slate-600'
             "
             :aria-label="`Estado: ${statusLabel}`"
@@ -296,19 +296,21 @@ watch(
       <h1 class="text-2xl font-semibold">{{ id }}</h1>
       <p class="text-sm text-slate-400">{{ locationText }}</p>
 
-      <!-- Tabs as route links -->
-      <nav class="mt-4 flex items-center gap-2">
+      <!-- Tabs as route links (texto con subrayado en la activa) -->
+      <nav
+        class="mt-4 flex items-center gap-6 border-b border-slate-200/70 text-sm font-medium text-slate-500"
+      >
         <RouterLink
           :to="{
             name: 'machine-resumen',
             params: { id: route.params.id },
             query: route.query,
           }"
-          class="rounded-full px-4 py-1.5 text-sm font-medium cursor-pointer"
+          class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
           :class="
             isActive('machine-resumen')
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
+              ? 'text-sky-600 border-b-2 border-sky-500'
+              : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
           "
         >
           General
@@ -319,11 +321,11 @@ watch(
             params: { id: route.params.id },
             query: route.query,
           }"
-          class="rounded-full px-4 py-1.5 text-sm font-medium cursor-pointer"
+          class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
           :class="
             isActive('machine-historial')
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
+              ? 'text-sky-600 border-b-2 border-sky-500'
+              : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
           "
         >
           Monedas
@@ -334,11 +336,11 @@ watch(
             params: { id: route.params.id },
             query: route.query,
           }"
-          class="rounded-full px-4 py-1.5 text-sm font-medium cursor-pointer"
+          class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
           :class="
             isActive('machine-estadisticas')
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-200/70 bg-white/40 backdrop-blur text-slate-600 hover:bg-white/60'
+              ? 'text-sky-600 border-b-2 border-sky-500'
+              : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
           "
         >
           Tiempos de uso

@@ -3,6 +3,7 @@ import { inject, type Ref, computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
+import MachinesHeader from "@/components/MachinesHeader.vue";
 import {
   getMachines,
   createMachine,
@@ -13,6 +14,7 @@ import {
   filterMachinesForRole,
   getAssignedMachineIdsFromStorage,
 } from "@/utils/access";
+import { machineStatusDotClass, machineStatusLabel } from "@/utils/machine";
 
 const router = useRouter();
 const sidebarOpen = ref(false);
@@ -46,6 +48,38 @@ const inactiveMachines = computed(
 const maintenanceMachines = computed(
   () => scopedMachines.value.filter((m) => m.status === "maintenance").length
 );
+
+const statusFilter = ref<"all" | "active" | "inactive" | "maintenance">("all");
+const searchQuery = ref("");
+
+const filteredMachines = computed(() => {
+  let list = scopedMachines.value
+    .slice()
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+    );
+
+  if (statusFilter.value === "active") {
+    list = list.filter((m) => m.status === "active");
+  } else if (statusFilter.value === "inactive") {
+    list = list.filter((m) => m.status === "inactive");
+  } else if (statusFilter.value === "maintenance") {
+    list = list.filter((m) => m.status === "maintenance");
+  }
+
+  const q = searchQuery.value.trim().toLowerCase();
+  if (q) {
+    list = list.filter((m) => {
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q) ||
+        (m.location || "").toLowerCase().includes(q)
+      );
+    });
+  }
+
+  return list;
+});
 
 const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
@@ -114,6 +148,14 @@ async function handleDeleteMachine(id: string) {
   await deleteMachine(id);
   await loadMachines();
 }
+
+function openMachineDetail(machine: Machine) {
+  const query: Record<string, string> = {
+    status: machineStatusLabel(machine.status),
+  };
+  if (machine.location) query.location = machine.location;
+  router.push({ name: "machine-resumen", params: { id: machine.name }, query });
+}
 </script>
 
 <template>
@@ -141,168 +183,17 @@ async function handleDeleteMachine(id: string) {
       isDark() ? 'bg-slate-900' : 'bg-slate-50',
     ]"
   >
-    <header
-      class="flex flex-col gap-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
-      :class="
-        isDark()
-          ? 'bg-slate-900/40 border-slate-700/60 text-white'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <div class="flex items-start justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden"
-              :class="
-                isDark()
-                  ? 'border-red-300 hover:bg-transparent hover:text-white'
-                  : 'border-red-200 hover:bg-transparent hover:text-red-700'
-              "
-              aria-label="Abrir menú lateral"
-              @click="sidebarOpen = true"
-            >
-              <img
-                src="/img/icons/K11BOX.webp"
-                alt="MachineHub logo"
-                class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
-              />
-            </button>
-            <h1 class="text-xl font-semibold sm:text-2xl">Máquinas</h1>
-          </div>
-          <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Gestión
-          </p>
-          <p
-            class="text-sm"
-            :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
-          >
-            Administración y estado de máquinas.
-          </p>
-        </div>
-
-        <div class="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
-            :class="
-              isDark()
-                ? 'border-red-400/30 bg-red-950/10 text-red-100 hover:bg-red-950/20'
-                : 'border-red-200/80 bg-red-50/60 text-red-700 hover:bg-red-50/80'
-            "
-            aria-label="Refrescar"
-            title="Refrescar"
-            @click="refreshPage"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M21 12a9 9 0 1 1-3.27-6.93"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M21 3v6h-6"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-
-          <button
-            v-if="currentRole !== 'employee' && currentRole !== 'operator'"
-            type="button"
-            class="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
-            @click="openCreateModal"
-          >
-            <span class="mr-1">+</span>
-            <span>Nueva máquina</span>
-          </button>
-        </div>
-      </div>
-
-      <div
-        class="grid grid-cols-2 gap-3 pt-2 auto-rows-fr sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-slate-700/60 bg-slate-900/30 text-slate-100'
-              : 'border-slate-200/70 bg-white/50 text-slate-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-          >
-            Total
-          </p>
-          <p class="text-2xl font-semibold">{{ totalMachines }}</p>
-        </div>
-
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-green-900/60 bg-green-950/40 text-green-200'
-              : 'border-green-100/80 bg-green-50/60 text-green-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-emerald-500"
-          >
-            Activas
-          </p>
-          <p class="text-2xl font-semibold text-emerald-600">
-            {{ activeMachines }}
-          </p>
-        </div>
-
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-red-900/60 bg-red-950/40 text-red-200'
-              : 'border-red-100/80 bg-red-50/60 text-red-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-red-400"
-          >
-            Inactivas
-          </p>
-          <p class="text-2xl font-semibold text-red-600">
-            {{ inactiveMachines }}
-          </p>
-        </div>
-
-        <div
-          class="rounded-2xl border px-4 py-3 text-sm shadow-sm backdrop-blur-xl"
-          :class="
-            isDark()
-              ? 'border-slate-700/60 bg-slate-950/30 text-slate-200'
-              : 'border-slate-200/70 bg-white/50 text-slate-700'
-          "
-        >
-          <p
-            class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-          >
-            Mantenimiento
-          </p>
-          <p class="text-2xl font-semibold">{{ maintenanceMachines }}</p>
-        </div>
-      </div>
-    </header>
+    <MachinesHeader
+      :sidebar-open="sidebarOpen"
+      :total-machines="totalMachines"
+      :active-machines="activeMachines"
+      :inactive-machines="inactiveMachines"
+      :maintenance-machines="maintenanceMachines"
+      :current-role="currentRole"
+      @update:sidebarOpen="(val) => (sidebarOpen = val)"
+      @refresh="refreshPage"
+      @create="openCreateModal"
+    />
 
     <section
       class="rounded-2xl border bg-white/60 backdrop-blur-xl p-3 shadow-sm sm:p-6"
@@ -312,6 +203,118 @@ async function handleDeleteMachine(id: string) {
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
+      <!-- Toolbar: tabs de estado + buscador -->
+      <div
+        class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              statusFilter === 'all'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-slate-400'
+                  : 'bg-slate-900 text-white border-slate-900'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="statusFilter = 'all'"
+          >
+            Todas ({{ totalMachines }})
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              statusFilter === 'active'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-emerald-400'
+                  : 'bg-emerald-600 text-white border-emerald-600'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="statusFilter = 'active'"
+          >
+            Activas ({{ activeMachines }})
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              statusFilter === 'inactive'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-red-400'
+                  : 'bg-red-500 text-white border-red-500'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="statusFilter = 'inactive'"
+          >
+            Inactivas ({{ inactiveMachines }})
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-full border transition font-medium"
+            :class="
+              statusFilter === 'maintenance'
+                ? isDark()
+                  ? 'bg-slate-100/10 text-white border-amber-400'
+                  : 'bg-amber-500 text-white border-amber-500'
+                : isDark()
+                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+            "
+            @click="statusFilter = 'maintenance'"
+          >
+            Mantenimiento ({{ maintenanceMachines }})
+          </button>
+        </div>
+
+        <div class="w-full sm:w-64 relative">
+          <span
+            class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-slate-400"
+          >
+            <svg
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="m20 20-3.5-3.5"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Buscar por ID, nombre o ubicación"
+            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/60 focus:border-sky-400"
+            :class="
+              isDark()
+                ? 'bg-slate-900/60 text-slate-100 border-slate-700'
+                : 'bg-white/90 text-slate-800 border-slate-200'
+            "
+          />
+        </div>
+      </div>
+
       <!-- Desktop table (hidden on small screens) -->
       <div
         class="hidden sm:block overflow-x-auto rounded-2xl border shadow-sm"
@@ -344,7 +347,7 @@ async function handleDeleteMachine(id: string) {
             <tr v-if="loading">
               <td class="px-4 py-3" colspan="5">Cargando...</td>
             </tr>
-            <tr v-else-if="!scopedMachines.length">
+            <tr v-else-if="!filteredMachines.length">
               <td class="px-4 py-10" colspan="5">
                 <div
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
@@ -362,7 +365,7 @@ async function handleDeleteMachine(id: string) {
               </td>
             </tr>
             <tr
-              v-for="m in scopedMachines"
+              v-for="m in filteredMachines"
               :key="m.id"
               class="border-t transition-colors"
               :class="
@@ -432,7 +435,7 @@ async function handleDeleteMachine(id: string) {
       <!-- Mobile list (visible on small screens) -->
       <div class="sm:hidden space-y-3">
         <div v-if="loading" class="px-4 py-3">Cargando...</div>
-        <div v-else-if="!scopedMachines.length" class="px-4 py-10">
+        <div v-else-if="!filteredMachines.length" class="px-4 py-10">
           <div
             class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
             :class="
@@ -449,92 +452,53 @@ async function handleDeleteMachine(id: string) {
         </div>
         <div v-else class="space-y-3">
           <div
-            v-for="m in scopedMachines"
+            v-for="m in filteredMachines"
             :key="m.id"
-            class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl"
+            class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl cursor-pointer"
             :class="
               isDark()
                 ? 'border-slate-700/60 bg-slate-900/30'
                 : 'border-slate-200/70 bg-white/60'
             "
+            role="link"
+            tabindex="0"
+            @click="openMachineDetail(m)"
+            @keydown.enter.prevent="openMachineDetail(m)"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1">
-                <div class="text-sm font-semibold">{{ m.name }}</div>
-                <div class="mt-1 flex flex-wrap items-center gap-2">
-                  <span class="text-xs text-slate-400">{{ m.id }}</span>
+                <div class="flex items-center gap-2 min-w-0">
                   <span
-                    v-if="m.location"
-                    class="inline-flex max-w-full items-start gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                    :class="
-                      isDark()
-                        ? 'border-slate-700/60 bg-slate-950/20 text-slate-200'
-                        : 'border-slate-200/70 bg-white/40 text-slate-700'
-                    "
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
-                      class="text-red-600"
+                    class="h-2.5 w-2.5 rounded-full"
+                    :class="machineStatusDotClass(m.status)"
+                    aria-hidden="true"
+                  ></span>
+                  <div class="min-w-0">
+                    <div class="text-base font-semibold leading-tight truncate">
+                      {{ m.name }}
+                      <span
+                        class="ml-1 text-xs font-medium"
+                        :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
+                        >({{ machineStatusLabel(m.status) }})</span
+                      >
+                    </div>
+                    <div
+                      class="mt-0.5 text-xs"
+                      :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
                     >
-                      <path
-                        d="M12 22s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    <span class="whitespace-normal break-words">{{
-                      m.location
-                    }}</span>
-                  </span>
-                  <span v-else class="text-xs text-slate-400">—</span>
+                      {{ m.location || "—" }}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="flex flex-col items-end">
-                <span
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
-                  :class="
-                    m.status === 'active'
-                      ? isDark()
-                        ? 'bg-green-900/60 text-green-200'
-                        : 'bg-green-100 text-green-700'
-                      : m.status === 'maintenance'
-                      ? isDark()
-                        ? 'bg-amber-900/60 text-amber-200'
-                        : 'bg-amber-100 text-amber-700'
-                      : isDark()
-                      ? 'bg-slate-800/70 text-slate-200'
-                      : 'bg-slate-100 text-slate-700'
-                  "
-                >
-                  {{
-                    m.status === "active"
-                      ? "Activa"
-                      : m.status === "maintenance"
-                      ? "Mantenimiento"
-                      : "Inactiva"
-                  }}
-                </span>
                 <div class="mt-2">
                   <button
                     v-if="
                       currentRole !== 'employee' && currentRole !== 'operator'
                     "
                     class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-amber-600 transition hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
-                    @click="openEditModal(m)"
+                    @click.stop.prevent="openEditModal(m)"
                   >
                     Editar
                   </button>
@@ -553,7 +517,7 @@ async function handleDeleteMachine(id: string) {
                   "
                   class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40"
                   type="button"
-                  @click="handleDeleteMachine(m.id)"
+                  @click.stop.prevent="handleDeleteMachine(m.id)"
                 >
                   Eliminar
                 </button>

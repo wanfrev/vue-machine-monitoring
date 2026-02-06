@@ -724,7 +724,7 @@ function fmtAmount(n: number) {
       >
         Monedas hoy
       </p>
-      <p class="text-3xl font-semibold text-red-600">
+      <p class="text-3xl font-semibold text-emerald-600">
         {{ totalCoins }}
       </p>
     </div>
@@ -737,7 +737,7 @@ function fmtAmount(n: number) {
       >
         Ingresos hoy
       </p>
-      <p class="text-3xl font-semibold text-red-600">$ {{ totalIncome }}</p>
+      <p class="text-3xl font-semibold text-emerald-600">$ {{ totalIncome }}</p>
     </div>
     <div
       v-if="!isOperator"
@@ -790,7 +790,7 @@ function fmtAmount(n: number) {
             class="rounded-full px-3 py-1.5 transition"
             :class="
               chartMode === 'day'
-                ? 'bg-red-600 text-white'
+                ? 'bg-sky-600 text-white'
                 : 'text-slate-600 hover:bg-white/40'
             "
             role="tab"
@@ -804,7 +804,7 @@ function fmtAmount(n: number) {
             class="rounded-full px-3 py-1.5 transition"
             :class="
               chartMode === 'hour'
-                ? 'bg-red-600 text-white'
+                ? 'bg-sky-600 text-white'
                 : 'text-slate-600 hover:bg-white/40'
             "
             role="tab"
@@ -819,7 +819,7 @@ function fmtAmount(n: number) {
             class="rounded-full px-3 py-1.5 transition"
             :class="
               chartMode === 'month'
-                ? 'bg-red-600 text-white'
+                ? 'bg-sky-600 text-white'
                 : 'text-slate-600 hover:bg-white/40'
             "
             role="tab"
@@ -929,7 +929,7 @@ function fmtAmount(n: number) {
       </p>
     </div>
     <div class="mt-4 text-sm text-slate-600">
-      <span class="inline-block h-3 w-3 rounded-sm bg-red-600"></span>
+      <span class="inline-block h-3 w-3 rounded-sm bg-emerald-500"></span>
       <span class="ml-2">
         {{
           chartMode === "month"

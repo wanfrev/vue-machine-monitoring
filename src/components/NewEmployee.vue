@@ -70,6 +70,12 @@ const editingId = ref<number | null>(null);
 
 const isDark = computed(() => !!props.dark);
 
+const selectedMachines = computed(() =>
+  assignedMachineIds.value
+    .map((id) => props.machines.find((m) => m.id === id) || null)
+    .filter((m): m is { id: string; name: string; location?: string } => !!m)
+);
+
 watch(
   () => props.open,
   (open) => {
@@ -104,6 +110,12 @@ function close() {
   emit("close");
 }
 
+function removeMachine(id: string) {
+  assignedMachineIds.value = assignedMachineIds.value.filter(
+    (mid) => mid !== id
+  );
+}
+
 function submit() {
   if (
     !documentId.value ||
@@ -114,11 +126,6 @@ function submit() {
   ) {
     return;
   }
-  // Determinar el valor del campo 'role' según el jobRole seleccionado
-  let roleValue = "employee";
-  if (jobRole.value === "Operador") {
-    roleValue = "operator";
-  }
   if (props.mode === "edit" && editingId.value !== null) {
     emit("update", {
       id: editingId.value,
@@ -127,7 +134,6 @@ function submit() {
       username: username.value,
       password: password.value || undefined,
       jobRole: jobRole.value,
-      role: roleValue,
       shift: shift.value || undefined,
       assignedMachineIds:
         assignedMachineIds.value.length > 0
@@ -141,7 +147,6 @@ function submit() {
       username: username.value,
       password: password.value,
       jobRole: jobRole.value,
-      role: roleValue,
       shift: shift.value || undefined,
       assignedMachineIds:
         assignedMachineIds.value.length > 0
@@ -169,118 +174,68 @@ function submit() {
       role="dialog"
     >
       <div
-        class="w-full max-w-md rounded-2xl border bg-white p-6 shadow-2xl"
+        class="w-full max-w-xl rounded-2xl border bg-white p-6 shadow-2xl"
         :class="
           isDark
             ? 'border-slate-800 bg-slate-900 text-slate-100'
             : 'border-slate-200 bg-white text-slate-700'
         "
       >
-        <div class="flex items-center gap-2 mb-2">
+        <div class="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-slate-900">
+              {{
+                props.mode === "edit"
+                  ? "Editar miembro del equipo"
+                  : "Nuevo miembro del equipo"
+              }}
+            </h2>
+            <p class="mt-1 text-xs text-slate-500">
+              Gestión de accesos y asignaciones
+            </p>
+          </div>
           <button
             type="button"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
-            :class="
-              isDark
-                ? 'border-slate-700 bg-slate-800 hover:bg-slate-700'
-                : 'border-slate-200 bg-white hover:bg-slate-50'
-            "
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
             aria-label="Cerrar"
             @click="close"
           >
             ✕
           </button>
-          <div class="flex items-center gap-2">
-            <span
-              class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-red-600 text-white text-xl shadow-lg"
-            >
-              <svg
-                v-if="props.mode === 'edit'"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 21v-3.75L16.81 3.44a2 2 0 0 1 2.83 0l1.92 1.92a2 2 0 0 1 0 2.83L7.75 21H3z"
-                  stroke="currentColor"
-                  stroke-width="0"
-                  fill="currentColor"
-                />
-              </svg>
-              <svg
-                v-else
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 5v14"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M5 12h14"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-            <div>
-              <h2 class="text-xl font-bold text-slate-800">
-                {{
-                  props.mode === "edit"
-                    ? "Editar supervisor"
-                    : "Nuevo supervisor"
-                }}
-              </h2>
-              <p class="text-sm text-slate-400">
-                {{
-                  props.mode === "edit"
-                    ? "Edita los datos del supervisor."
-                    : "Crea un nuevo usuario supervisor y asígnale una máquina."
-                }}
-              </p>
-            </div>
-          </div>
         </div>
-        <form @submit.prevent="submit" class="space-y-3 mt-3">
-          <div class="grid grid-cols-1 gap-3">
-            <div>
-              <label class="block text-sm font-semibold mb-1"
-                >Cédula / ID<span class="text-red-500">*</span></label
-              >
-              <input
-                v-model="documentId"
-                type="text"
-                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
-                required
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1"
-                >Nombre completo<span class="text-red-500">*</span></label
-              >
-              <input
-                v-model="name"
-                type="text"
-                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
-                required
-              />
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <form @submit.prevent="submit" class="mt-2 space-y-4">
+          <div class="grid gap-4">
+            <!-- Fila 1: Identidad -->
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div class="md:col-span-2">
+                <label class="block text-sm font-semibold mb-1"
+                  >Nombre completo<span class="text-sky-500">*</span></label
+                >
+                <input
+                  v-model="name"
+                  type="text"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  required
+                />
+              </div>
               <div>
                 <label class="block text-sm font-semibold mb-1"
-                  >Usuario<span class="text-red-500">*</span></label
+                  >Cédula / ID<span class="text-sky-500">*</span></label
+                >
+                <input
+                  v-model="documentId"
+                  type="text"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Fila 2: Cuenta -->
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label class="block text-sm font-semibold mb-1"
+                  >Usuario<span class="text-sky-500">*</span></label
                 >
                 <input
                   v-model="username"
@@ -293,7 +248,7 @@ function submit() {
               <div>
                 <label class="block text-sm font-semibold mb-1">
                   Contraseña
-                  <span v-if="props.mode !== 'edit'" class="text-red-500"
+                  <span v-if="props.mode !== 'edit'" class="text-sky-500"
                     >*</span
                   >
                 </label>
@@ -310,60 +265,92 @@ function submit() {
                 />
               </div>
             </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1"
-                >Rol en máquina<span class="text-red-500">*</span></label
-              >
-              <select
-                v-model="jobRole"
-                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
-                required
-              >
-                <option value="">Selecciona un rol</option>
-                <option value="Supervisor">Supervisor</option>
-                <option value="Operador">Operador</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1">Turno</label>
-              <input
-                v-model="shift"
-                type="text"
-                placeholder="Ej: Nocturno"
-                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1"
-                >Máquinas asignadas (por ubicación)</label
-              >
-              <div class="flex gap-2 items-center">
-                <button
-                  type="button"
-                  class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 transition cursor-pointer"
-                  @click="openMachineModal"
+
+            <!-- Fila 3: Rol y turno -->
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label class="block text-sm font-semibold mb-1"
+                  >Rol<span class="text-sky-500">*</span></label
                 >
-                  Seleccionar máquinas
-                </button>
-                <span
-                  v-if="assignedMachineIds.length"
-                  class="text-xs text-slate-500"
+                <select
+                  v-model="jobRole"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  required
                 >
-                  {{ assignedMachineIds.length }} seleccionada(s)
-                </span>
+                  <option value="">Selecciona un rol</option>
+                  <option value="Supervisor">Supervisor</option>
+                  <option value="Operador">Operador</option>
+                </select>
               </div>
-              <ul
-                v-if="assignedMachineIds.length"
-                class="mt-2 text-xs text-slate-600 list-disc list-inside"
+              <div>
+                <label class="block text-sm font-semibold mb-1">Turno</label>
+                <input
+                  v-model="shift"
+                  type="text"
+                  placeholder="Ej: Nocturno"
+                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                />
+              </div>
+            </div>
+
+            <!-- Fila 4: Máquinas asignadas -->
+            <div>
+              <label class="block text-sm font-semibold mb-1"
+                >Máquinas asignadas</label
               >
-                <li v-for="id in assignedMachineIds" :key="id">
+              <button
+                type="button"
+                class="mt-1 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 hover:border-sky-400 hover:bg-sky-50/40 transition cursor-pointer"
+                @click="openMachineModal"
+              >
+                <span class="truncate">
                   {{
-                    machines.find((m) => m.id === id)?.location ||
-                    machines.find((m) => m.id === id)?.name ||
-                    id
+                    assignedMachineIds.length
+                      ? "Editar selección de máquinas"
+                      : "Seleccionar máquinas..."
                   }}
-                </li>
-              </ul>
+                </span>
+                <svg
+                  class="h-4 w-4 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M6 9l6 6 6-6"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+
+              <div
+                v-if="selectedMachines.length"
+                class="mt-2 flex flex-wrap gap-2"
+              >
+                <button
+                  v-for="m in selectedMachines"
+                  :key="m.id"
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
+                  @click.stop
+                >
+                  <span class="truncate">
+                    {{ m.location || m.name }}
+                  </span>
+                  <span
+                    class="cursor-pointer text-slate-400 hover:text-slate-700"
+                    aria-label="Quitar máquina"
+                    @click.stop="removeMachine(m.id)"
+                  >
+                    ✕
+                  </span>
+                </button>
+              </div>
+
               <MachineSelectorModal
                 :open="showMachineModal"
                 :machines="machines"
@@ -373,17 +360,17 @@ function submit() {
               />
             </div>
           </div>
-          <div class="flex gap-2 justify-end mt-4">
+          <div class="flex gap-2 justify-end pt-4">
             <button
               type="button"
-              class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-red-500 hover:bg-red-50 transition cursor-pointer"
+              class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition cursor-pointer"
               @click="close"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              class="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-700 cursor-pointer"
+              class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 cursor-pointer"
             >
               <span class="text-lg ml-0">
                 <svg
