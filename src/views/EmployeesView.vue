@@ -2,16 +2,14 @@
 import AppSidebar from "@/components/AppSidebar.vue";
 import { ref as vueRef } from "vue";
 const sidebarOpen = vueRef(false);
-import { inject, type Ref, computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import NewEmployee from "@/components/NewEmployee.vue";
 import { getUsers, createUser, deleteUser, getMachines } from "../api/client";
+import { useTheme } from "@/composables/useTheme";
+import { useSearchFilter } from "@/composables/useSearchFilter";
 
-const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
-
-const isDark = () => {
-  if (typeof injectedDark === "boolean") return injectedDark;
-  return !!injectedDark?.value;
-};
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 type Employee = {
   id: number;
@@ -48,7 +46,7 @@ const totalEmployees = computed(
 
 type PeopleFilter = "todos" | "supervisores" | "operadores";
 const peopleFilter = ref<PeopleFilter>("todos");
-const searchQuery = ref("");
+const { searchQuery, filterBySearch } = useSearchFilter<Employee>();
 
 type ApiMachine = {
   id: number | string;
@@ -68,15 +66,9 @@ const displayedEmployees = computed(() => {
     list = list.filter((e) => e.role === "operator");
   }
 
-  const q = searchQuery.value.trim().toLowerCase();
-  if (q) {
-    list = list.filter((e) => {
-      const haystack = `${e.name || ""} ${e.username || ""} ${
-        e.documentId || ""
-      }`.toLowerCase();
-      return haystack.includes(q);
-    });
-  }
+  list = filterBySearch(list, (e) =>
+    `${e.name || ""} ${e.username || ""} ${e.documentId || ""}`.trim()
+  );
 
   return list.slice().sort((a, b) =>
     (a.name || "").localeCompare(b.name || "", "es", {

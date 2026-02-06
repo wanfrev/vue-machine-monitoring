@@ -6,10 +6,9 @@ import {
   getMachinePowerLogs,
   getMachineDailyIncome,
 } from "../api/client";
-import {
-  filterMachinesForRole,
-  getAssignedMachineIdsFromStorage,
-} from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
+import { filterMachinesForRole } from "@/utils/access";
 
 const totalCoins = ref(0);
 
@@ -30,8 +29,7 @@ type PowerLog = {
 const route = useRoute();
 const router = useRouter();
 
-const currentRole = ref(localStorage.getItem("role") || "");
-const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
+const { currentRole, assignedMachineIds } = useCurrentUser();
 
 const machine = ref<Machine | null>(null);
 const powerLogs = ref<PowerLog[]>([]);
@@ -65,11 +63,7 @@ function resetDateRange() {
   const def = defaultDateRangeForNow();
   startDate.value = def.start;
   endDate.value = def.end;
-  try {
-    localStorage.removeItem(rangeStorageKey.value);
-  } catch {
-    // ignore
-  }
+  clearStoredRange();
 }
 
 const rangeStorageKey = computed(() => {
@@ -77,34 +71,15 @@ const rangeStorageKey = computed(() => {
   return `mm:range:machine-estadisticas:${id}`;
 });
 
-function readSavedRange() {
-  try {
-    const raw = localStorage.getItem(rangeStorageKey.value);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as { startDate?: string; endDate?: string };
-    if (parsed.startDate) startDate.value = parsed.startDate;
-    if (parsed.endDate) endDate.value = parsed.endDate;
-  } catch {
-    // ignore
-  }
-}
+const { readStoredRange, writeStoredRange, clearStoredRange } =
+  useDateRangeStorage({
+    storageKey: rangeStorageKey,
+    startDate,
+    endDate,
+    isActive: () => hasActiveDateFilter.value,
+  });
 
-function writeSavedRange() {
-  try {
-    if (!hasActiveDateFilter.value) {
-      localStorage.removeItem(rangeStorageKey.value);
-      return;
-    }
-    localStorage.setItem(
-      rangeStorageKey.value,
-      JSON.stringify({ startDate: startDate.value, endDate: endDate.value })
-    );
-  } catch {
-    // ignore
-  }
-}
-
-readSavedRange();
+readStoredRange();
 
 // Ingresos diarios en el rango, para métricas de ingreso/hora
 const dailyIncome = ref<{ date: string; income: number }[]>([]);
@@ -254,7 +229,7 @@ watch([startDate, endDate, machine], async () => {
   if (startDate.value && endDate.value && startDate.value > endDate.value) {
     return;
   }
-  writeSavedRange();
+  writeStoredRange();
   await loadStats();
 });
 </script>
@@ -398,7 +373,7 @@ watch([startDate, endDate, machine], async () => {
                   <p class="text-xs text-slate-500">{{ row.ts }}</p>
                 </div>
                 <p
-                  class="min-w-[3rem] text-right text-xs font-medium text-slate-600"
+                  class="min-w-12 text-right text-xs font-medium text-slate-600"
                 >
                   <span v-if="row.dur !== null">{{ row.dur }}m</span>
                   <span v-else>—</span>

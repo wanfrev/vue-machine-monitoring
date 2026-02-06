@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, defineEmits, defineProps, watch } from "vue";
+/* global defineProps, defineEmits */
+import { ref, computed, watch, toRef } from "vue";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 // import { getMachines } from "../api/client";
 
 // (Eliminado: definición de tipo suelta que causa error de compilación)
@@ -76,16 +78,7 @@ watch(
 );
 
 // Prevent background scroll when modal is open
-watch(
-  () => props.open,
-  (open) => {
-    if (open) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
-  }
-);
+useBodyScrollLock(toRef(props, "open"));
 
 function close() {
   emit("close");

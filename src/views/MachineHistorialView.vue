@@ -3,10 +3,9 @@ import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { getSocket } from "../api/realtime";
 import { useRoute, useRouter } from "vue-router";
 import { getMachines, getMachineHistory } from "../api/client";
-import {
-  filterMachinesForRole,
-  getAssignedMachineIdsFromStorage,
-} from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
+import { filterMachinesForRole } from "@/utils/access";
 
 type Tx = {
   kind: "Ingreso" | "Evento";
@@ -32,9 +31,7 @@ const route = useRoute();
 const router = useRouter();
 
 // Rol actual para controlar visibilidad de dinero
-const currentRole = ref(localStorage.getItem("role") || "");
-const isOperator = computed(() => currentRole.value === "operator");
-const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
+const { currentRole, isOperator, assignedMachineIds } = useCurrentUser();
 
 // Rango de fechas para el historial (por defecto desde inicio de mes hasta hoy)
 function formatDate(d: Date) {
@@ -68,11 +65,7 @@ function resetDateRange() {
   startDate.value = def.start;
   endDate.value = def.end;
   currentPage.value = 1;
-  try {
-    localStorage.removeItem(rangeStorageKey.value);
-  } catch {
-    // ignore
-  }
+  clearStoredRange();
 }
 
 const rangeStorageKey = computed(() => {
@@ -80,34 +73,15 @@ const rangeStorageKey = computed(() => {
   return `mm:range:machine-historial:${id}`;
 });
 
-function readSavedRange() {
-  try {
-    const raw = localStorage.getItem(rangeStorageKey.value);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as { startDate?: string; endDate?: string };
-    if (parsed.startDate) startDate.value = parsed.startDate;
-    if (parsed.endDate) endDate.value = parsed.endDate;
-  } catch {
-    // ignore
-  }
-}
+const { readStoredRange, writeStoredRange, clearStoredRange } =
+  useDateRangeStorage({
+    storageKey: rangeStorageKey,
+    startDate,
+    endDate,
+    isActive: () => hasActiveDateFilter.value,
+  });
 
-function writeSavedRange() {
-  try {
-    if (!hasActiveDateFilter.value) {
-      localStorage.removeItem(rangeStorageKey.value);
-      return;
-    }
-    localStorage.setItem(
-      rangeStorageKey.value,
-      JSON.stringify({ startDate: startDate.value, endDate: endDate.value })
-    );
-  } catch {
-    // ignore
-  }
-}
-
-readSavedRange();
+readStoredRange();
 
 const search = ref("");
 
@@ -307,7 +281,7 @@ watch([startDate, endDate, machine], async () => {
     return;
   }
   currentPage.value = 1;
-  writeSavedRange();
+  writeStoredRange();
   await loadHistory();
 });
 

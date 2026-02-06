@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed, watch } from "vue";
+import { computed, toRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 // Multi-word component name to satisfy eslint vue/multi-word-component-names
 // (Implicit from filename AppSidebar.vue)
 
@@ -12,16 +13,7 @@ const emit = defineEmits<{ (e: "close"): void }>();
 const isDark = computed(() => !!props.dark);
 
 // Prevent background scroll when sidebar is open
-watch(
-  () => props.open,
-  (open) => {
-    if (open) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
-  }
-);
+useBodyScrollLock(toRef(props, "open"));
 
 function close() {
   emit("close");

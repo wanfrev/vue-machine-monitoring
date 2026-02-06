@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, toRef } from "vue";
 import MachineSelectorModal from "./MachineSelectorModal.vue";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 // eslint-disable-next-line no-undef
 const props = defineProps<{
   open: boolean;
@@ -76,6 +77,8 @@ const selectedMachines = computed(() =>
     .filter((m): m is { id: string; name: string; location?: string } => !!m)
 );
 
+useBodyScrollLock(toRef(props, "open"));
+
 watch(
   () => props.open,
   (open) => {
@@ -99,9 +102,9 @@ watch(
         shift.value = "";
         assignedMachineIds.value = [];
       }
-      document.body.classList.add("overflow-hidden");
+      void 0;
     } else {
-      document.body.classList.remove("overflow-hidden");
+      void 0;
     }
   }
 );

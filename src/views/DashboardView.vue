@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, type Ref, ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
@@ -14,19 +14,15 @@ import { useRealtimeEvents } from "@/composables/useRealtimeEvents";
 import { useMachineData } from "@/composables/useMachineData";
 import { useMachineActions } from "@/composables/useMachineActions";
 import { useDashboardFilters } from "@/composables/useDashboardFilters";
-import {
-  canAccessMachine,
-  filterMachinesForRole,
-  getAssignedMachineIdsFromStorage,
-} from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useTheme } from "@/composables/useTheme";
+import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 import { machineStatusLabel } from "@/utils/machine";
 import type { DashboardFilterKey, Machine, ToastType } from "@/types/dashboard";
 
 // Datos del usuario autenticado desde localStorage
-const currentRole = ref(localStorage.getItem("role") || "");
+const { currentRole, assignedMachineIds, isOperator } = useCurrentUser();
 const currentUserName = ref(localStorage.getItem("userName") || "usuario");
-// Máquinas asignadas al empleado (si aplica)
-const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
 
 const router = useRouter();
 
@@ -37,9 +33,6 @@ const machineToEdit = ref<Machine | null>(null);
 
 const machines = ref<Machine[]>([]);
 const isAdmin = ref(false);
-const isOperator = computed(
-  () => currentRole.value === "operator" || currentRole.value === "employee"
-);
 
 const statusMenuOpenId = ref<string | null>(null);
 
@@ -172,11 +165,8 @@ const totalCoinsToday = computed(() =>
   }, 0)
 );
 
-const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
-const isDark = () => {
-  if (typeof injectedDark === "boolean") return injectedDark;
-  return !!injectedDark?.value;
-};
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 function shouldShowNotificationForMachine(machineId: string): boolean {
   return canAccessMachine({

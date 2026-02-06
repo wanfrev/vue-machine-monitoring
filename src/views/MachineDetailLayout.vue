@@ -2,11 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import { getMachines, updateMachine } from "../api/client";
-import {
-  canAccessMachine,
-  filterMachinesForRole,
-  getAssignedMachineIdsFromStorage,
-} from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 
 const route = useRoute();
 const router = useRouter();
@@ -16,9 +13,7 @@ const locationText = computed(
   () => (route.query.location as string) || "Centro comercial - Pasillo A"
 );
 
-const currentRole = ref(localStorage.getItem("role") || "");
-const isAdmin = computed(() => currentRole.value === "admin");
-const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
+const { currentRole, isAdmin, assignedMachineIds } = useCurrentUser();
 
 type ApiMachine = { id: string | number; name: string; status?: string };
 const resolvedMachineId = ref<string | null>(null);

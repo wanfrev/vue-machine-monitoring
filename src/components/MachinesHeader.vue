@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { inject, type Ref, defineProps, defineEmits } from "vue";
+/* global defineProps, defineEmits */
+import { useTheme } from "@/composables/useTheme";
 
-const props = defineProps<{
+defineProps<{
   sidebarOpen: boolean;
   totalMachines: number;
   activeMachines: number;
@@ -16,11 +17,8 @@ const emit = defineEmits<{
   (e: "create"): void;
 }>();
 
-const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
-const isDark = () => {
-  if (typeof injectedDark === "boolean") return injectedDark;
-  return !!injectedDark?.value;
-};
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 function openSidebar() {
   emit("update:sidebarOpen", true);

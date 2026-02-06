@@ -3,23 +3,8 @@
 import { computed } from "vue";
 import NotificationFilters from "@/components/NotificationFilters.vue";
 import NotificationItem from "@/components/NotificationItem.vue";
-
-type DashboardNotificationType =
-  | "machine_on"
-  | "machine_off"
-  | "coin_inserted"
-  | "event";
-
-type DashboardNotification = {
-  id: number;
-  type: DashboardNotificationType;
-  machineId: string;
-  machineName?: string;
-  location?: string;
-  timestamp: string;
-  amount?: number;
-  detail?: string;
-};
+import type { DashboardNotification } from "@/types/dashboard";
+import { getNotificationTitle } from "@/utils/notification";
 
 const props = defineProps<{
   dark: boolean;
@@ -114,6 +99,7 @@ function goNext() {
         :key="n.id"
         :notification="n"
         :dark="isDark"
+        :aria-label="getNotificationTitle(n.type)"
       />
     </div>
 

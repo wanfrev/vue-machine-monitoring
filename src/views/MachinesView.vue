@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, type Ref, computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
@@ -10,26 +10,22 @@ import {
   updateMachine,
   deleteMachine,
 } from "../api/client";
-import {
-  filterMachinesForRole,
-  getAssignedMachineIdsFromStorage,
-} from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useTheme } from "@/composables/useTheme";
+import { useSearchFilter } from "@/composables/useSearchFilter";
+import { filterMachinesForRole } from "@/utils/access";
 import { machineStatusDotClass, machineStatusLabel } from "@/utils/machine";
 
 const router = useRouter();
 const sidebarOpen = ref(false);
 
-const injectedDark = inject<Ref<boolean> | boolean>("darkMode", false);
-const isDark = () => {
-  if (typeof injectedDark === "boolean") return injectedDark;
-  return !!injectedDark?.value;
-};
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 type Machine = { id: string; name: string; status: string; location?: string };
 const loading = ref(false);
 const machines = ref<Machine[]>([]);
-
-const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
+const { currentRole, assignedMachineIds } = useCurrentUser();
 
 const scopedMachines = computed(() =>
   filterMachinesForRole(machines.value, {
@@ -50,7 +46,7 @@ const maintenanceMachines = computed(
 );
 
 const statusFilter = ref<"all" | "active" | "inactive" | "maintenance">("all");
-const searchQuery = ref("");
+const { searchQuery, filterBySearch } = useSearchFilter<Machine>();
 
 const filteredMachines = computed(() => {
   let list = scopedMachines.value
@@ -67,16 +63,9 @@ const filteredMachines = computed(() => {
     list = list.filter((m) => m.status === "maintenance");
   }
 
-  const q = searchQuery.value.trim().toLowerCase();
-  if (q) {
-    list = list.filter((m) => {
-      return (
-        m.name.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        (m.location || "").toLowerCase().includes(q)
-      );
-    });
-  }
+  list = filterBySearch(list, (m) =>
+    `${m.name} ${m.id} ${m.location || ""}`.trim()
+  );
 
   return list;
 });
@@ -84,9 +73,6 @@ const filteredMachines = computed(() => {
 const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const machineToEdit = ref<Machine | null>(null);
-
-// Obtener el rol del usuario desde localStorage
-const currentRole = ref(localStorage.getItem("role") || "");
 
 async function loadMachines() {
   loading.value = true;

@@ -8,19 +8,7 @@ import {
   machineStatusLabel,
 } from "@/utils/machine";
 import { formatCaracasDateTime } from "@/utils/date";
-
-type MachineStatus = "active" | "inactive" | "maintenance" | string;
-
-type Machine = {
-  id: string;
-  name: string;
-  status: MachineStatus;
-  location?: string;
-  last_on?: string | null;
-  last_off?: string | null;
-  test_mode?: boolean;
-  type?: string;
-};
+import type { Machine } from "@/types/machine";
 
 const props = defineProps<{
   machine: Machine;

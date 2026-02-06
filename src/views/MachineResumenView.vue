@@ -7,10 +7,9 @@ import {
   getMachineHistory,
 } from "../api/client";
 import BarChart from "../components/BarChart.vue";
-import {
-  filterMachinesForRole,
-  getAssignedMachineIdsFromStorage,
-} from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
+import { filterMachinesForRole } from "@/utils/access";
 
 type Machine = {
   id: string;
@@ -45,9 +44,7 @@ const machine = ref<Machine | null>(null);
 const totalCoins = ref(0);
 
 // Rol actual para controlar visibilidad de dinero
-const currentRole = ref(localStorage.getItem("role") || "");
-const isOperator = computed(() => currentRole.value === "operator");
-const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
+const { currentRole, isOperator, assignedMachineIds } = useCurrentUser();
 
 function formatDate(d: Date) {
   // Fecha local YYYY-MM-DD (sin convertir a UTC)
@@ -102,11 +99,7 @@ function resetChartFilter() {
   endDate.value = def.end;
   monthPrimary.value = defaultMonthForNow();
   monthCompare.value = "";
-  try {
-    localStorage.removeItem(rangeStorageKey.value);
-  } catch {
-    // ignore
-  }
+  clearStoredRange();
 }
 
 const rangeStorageKey = computed(() => {
@@ -114,26 +107,20 @@ const rangeStorageKey = computed(() => {
   return `mm:range:machine-resumen:${id}`;
 });
 
-function readSavedRange() {
-  try {
-    const raw = localStorage.getItem(rangeStorageKey.value);
-    if (!raw) return;
-    const parsed = JSON.parse(raw) as {
-      startDate?: string;
-      endDate?: string;
-      chartMode?: ChartMode;
-      monthPrimary?: string;
-      monthCompare?: string;
-    };
-    if (parsed.startDate) startDate.value = parsed.startDate;
-    if (parsed.endDate) endDate.value = parsed.endDate;
-    if (
-      parsed.chartMode === "day" ||
-      parsed.chartMode === "hour" ||
-      parsed.chartMode === "month"
-    ) {
-      chartMode.value = parsed.chartMode;
-      // Mantener consistencia en modo por hora (un solo día)
+const { writeStoredRange, clearStoredRange } = useDateRangeStorage({
+  storageKey: rangeStorageKey,
+  startDate,
+  endDate,
+  isActive: () => hasActiveChartFilter.value,
+  writeExtra: () => ({
+    chartMode: chartMode.value,
+    monthPrimary: monthPrimary.value,
+    monthCompare: monthCompare.value,
+  }),
+  readExtra: (parsed) => {
+    const mode = String(parsed.chartMode || "");
+    if (mode === "day" || mode === "hour" || mode === "month") {
+      chartMode.value = mode as ChartMode;
       if (chartMode.value === "hour" && startDate.value) {
         endDate.value = startDate.value;
       }
@@ -144,31 +131,8 @@ function readSavedRange() {
     if (typeof parsed.monthCompare === "string") {
       monthCompare.value = parsed.monthCompare;
     }
-  } catch {
-    // ignorar datos corruptos
-  }
-}
-
-function writeSavedRange() {
-  try {
-    if (!hasActiveChartFilter.value) {
-      localStorage.removeItem(rangeStorageKey.value);
-      return;
-    }
-    localStorage.setItem(
-      rangeStorageKey.value,
-      JSON.stringify({
-        startDate: startDate.value,
-        endDate: endDate.value,
-        chartMode: chartMode.value,
-        monthPrimary: monthPrimary.value,
-        monthCompare: monthCompare.value,
-      })
-    );
-  } catch {
-    // ignore
-  }
-}
+  },
+});
 
 // Nota: no restauramos el rango guardado al cargar el componente
 // para evitar aplicar filtros persistentes automáticamente.
@@ -302,7 +266,7 @@ function setChartMode(mode: ChartMode) {
       endDate.value = startDate.value;
     }
   }
-  writeSavedRange();
+  writeStoredRange();
 }
 
 async function loadDailyIncome() {
@@ -410,7 +374,7 @@ watch(
   [startDate, endDate, machine, chartMode, monthPrimary, monthCompare],
   async () => {
     if (!machine.value) return;
-    writeSavedRange();
+    writeStoredRange();
 
     if (chartMode.value !== "month") {
       if (startDate.value && endDate.value && startDate.value > endDate.value) {

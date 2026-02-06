@@ -1,19 +1,7 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
 import { computed } from "vue";
-
-type MachineStatus = "active" | "inactive" | "maintenance" | string;
-
-type Machine = {
-  id: string;
-  name: string;
-  status: MachineStatus;
-  location?: string;
-  last_on?: string | null;
-  last_off?: string | null;
-  test_mode?: boolean;
-  type?: string;
-};
+import type { Machine } from "@/types/machine";
 
 const props = defineProps<{
   machine: Machine;
