@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import {
-  getMachines,
-  getMachinePowerLogs,
-  getMachineDailyIncome,
-} from "../api/client";
+import { getMachines, getMachinePowerLogs } from "../api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
 import { useTheme } from "@/composables/useTheme";
 import { filterMachinesForRole } from "@/utils/access";
-
-const totalCoins = ref(0);
 
 type Machine = {
   id: string;
@@ -85,9 +79,6 @@ const { readStoredRange, writeStoredRange, clearStoredRange } =
 
 readStoredRange();
 
-// Ingresos diarios en el rango, para métricas de ingreso/hora
-const dailyIncome = ref<{ date: string; income: number }[]>([]);
-
 const sessions = computed(() =>
   powerLogs.value.filter((log) => log.event === "Encendido" && log.dur)
 );
@@ -96,41 +87,10 @@ const totalActiveMinutes = computed(() =>
   sessions.value.reduce((sum, log) => sum + (log.dur ?? 0), 0)
 );
 
-const totalActiveHours = computed(() => totalActiveMinutes.value / 60);
-
 const averageSessionHours = computed(() => {
   if (!sessions.value.length) return 0;
-  return totalActiveHours.value / sessions.value.length;
-});
-
-function hoursInRange() {
-  if (!startDate.value || !endDate.value) return 0;
-  const start = new Date(startDate.value + "T00:00:00");
-  const end = new Date(endDate.value + "T23:59:59");
-  const diffMs = end.getTime() - start.getTime();
-  if (diffMs <= 0) return 0;
-  return diffMs / (1000 * 60 * 60);
-}
-
-const usageRate = computed(() => {
-  const totalRangeHours = hoursInRange();
-  if (!totalRangeHours || !totalActiveHours.value) return 0;
-  return (totalActiveHours.value / totalRangeHours) * 100;
-});
-
-const totalIncomeInRange = computed(() =>
-  dailyIncome.value.reduce((sum, d) => sum + d.income, 0)
-);
-
-const incomePerHour = computed(() => {
-  // Si no hay tiempo activo, mostrar 0 para evitar divisiones por cero o valores irreales
-  if (
-    !totalActiveHours.value ||
-    isNaN(totalActiveHours.value) ||
-    !isFinite(totalActiveHours.value)
-  )
-    return 0;
-  return totalIncomeInRange.value / totalActiveHours.value;
+  const totalActiveHours = totalActiveMinutes.value / 60;
+  return totalActiveHours / sessions.value.length;
 });
 
 function toLocalDateTime(utcString: string) {
@@ -155,32 +115,18 @@ async function loadStats() {
   if (!machine.value) return;
   loading.value = true;
   try {
-    const [logs, income] = await Promise.all([
-      getMachinePowerLogs(machine.value.id, {
-        startDate: startDate.value,
-        endDate: endDate.value,
-      }),
-      getMachineDailyIncome(machine.value.id, {
-        startDate: startDate.value,
-        endDate: endDate.value,
-      }),
-    ]);
+    const logs = await getMachinePowerLogs(machine.value.id, {
+      startDate: startDate.value,
+      endDate: endDate.value,
+    });
     powerLogs.value = (logs || []).map((log: any) => ({
       event: log.event,
       ts: toLocalDateTime(log.ts),
       dur: log.dur,
     }));
-    dailyIncome.value = income;
-
-    // Monedas totales SOLO en el rango seleccionado
-    totalCoins.value = Array.isArray(income)
-      ? income.reduce((sum: number, d: any) => sum + Number(d?.income ?? 0), 0)
-      : 0;
   } catch (e) {
     console.error("Error cargando estadísticas de máquina:", e);
     powerLogs.value = [];
-    dailyIncome.value = [];
-    totalCoins.value = 0;
   } finally {
     loading.value = false;
   }
@@ -206,8 +152,6 @@ async function fetchAllData() {
     if (!current) {
       machine.value = null;
       powerLogs.value = [];
-      dailyIncome.value = [];
-      totalCoins.value = 0;
       router.replace({ name: "dashboard" });
       return;
     }
@@ -270,67 +214,7 @@ watch([startDate, endDate, machine], async () => {
         "
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Tiempo total activo
-        </p>
-        <p
-          class="mt-1 text-3xl font-semibold"
-          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
-        >
-          {{ totalActiveHours.toFixed(1) }}h
-        </p>
-        <p class="text-xs text-slate-400">Este período</p>
-      </div>
-      <div
-        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-        :class="
-          isDark()
-            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-            : 'bg-white/60 border-slate-200/70 text-slate-900'
-        "
-      >
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Tasa de uso
-        </p>
-        <p class="mt-1 text-3xl font-semibold text-emerald-600">
-          {{ usageRate.toFixed(1) }}%
-        </p>
-        <div
-          class="mt-2 h-2 w-full overflow-hidden rounded-full"
-          :class="isDark() ? 'bg-zinc-800/60' : 'bg-slate-100'"
-        >
-          <div
-            class="h-full bg-emerald-500"
-            :style="{ width: usageRate.toFixed(1) + '%' }"
-          ></div>
-        </div>
-      </div>
-
-      <div
-        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-        :class="
-          isDark()
-            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-            : 'bg-white/60 border-slate-200/70 text-slate-900'
-        "
-      >
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Monedas totales
-        </p>
-        <p class="mt-1 text-3xl font-semibold text-emerald-600">
-          {{ totalCoins }}
-        </p>
-        <p class="text-xs text-slate-400">En este período</p>
-      </div>
-      <div
-        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-        :class="
-          isDark()
-            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-            : 'bg-white/60 border-slate-200/70 text-slate-900'
-        "
-      >
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Sesiones totales
+          Uso total del mes
         </p>
         <p
           class="mt-1 text-3xl font-semibold"
@@ -338,7 +222,6 @@ watch([startDate, endDate, machine], async () => {
         >
           {{ sessions.length }}
         </p>
-        <p class="text-xs text-slate-400">En este período</p>
       </div>
     </div>
 

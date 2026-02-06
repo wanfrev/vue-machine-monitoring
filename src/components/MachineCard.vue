@@ -165,7 +165,7 @@ const incomeWeek = computed(() => {
             class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
             :class="dark ? 'text-zinc-500' : 'text-slate-400'"
           >
-            Hoy
+            Total Hoy
           </span>
         </div>
 
@@ -182,7 +182,7 @@ const incomeWeek = computed(() => {
             class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
             :class="dark ? 'text-zinc-500' : 'text-slate-400'"
           >
-            Semanal
+            Total Semanal
           </span>
         </div>
       </template>
@@ -200,7 +200,7 @@ const incomeWeek = computed(() => {
           class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
           :class="dark ? 'text-zinc-500' : 'text-slate-400'"
         >
-          Coins hoy
+          Monedas hoy
         </span>
       </div>
     </div>

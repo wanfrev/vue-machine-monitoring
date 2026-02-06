@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { getSocket } from "../api/realtime";
 import { useRoute, useRouter } from "vue-router";
-import { getMachines, getMachineHistory } from "../api/client";
+import { getMachines, getMachineHistory, getUsers } from "../api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
 import { useTheme } from "@/composables/useTheme";
@@ -31,6 +31,15 @@ type Machine = {
   status: string;
   location?: string;
   type?: string;
+};
+
+type Employee = {
+  id: number;
+  username: string;
+  role: string;
+  name: string;
+  jobRole?: string;
+  assignedMachineIds?: string[];
 };
 
 const route = useRoute();
@@ -115,6 +124,7 @@ const visible = computed(() => {
   return filtered.value.slice(start, start + pageSize);
 });
 const machine = ref<Machine | null>(null);
+const employees = ref<Employee[]>([]);
 // Total de monedas para el rango seleccionado
 const totalCoins = ref(0);
 
@@ -158,6 +168,74 @@ function toLocalDateTime(utcString: string) {
   const time = timeFmt.format(d);
   return { date, time };
 }
+
+function formatShortDate(value?: string | null) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("es-VE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+function getMachineDate(m: Machine | null, keys: string[]) {
+  if (!m) return null;
+  for (const key of keys) {
+    const raw = (m as Record<string, unknown>)[key];
+    const formatted = formatShortDate(
+      typeof raw === "string" ? raw : raw ? String(raw) : null
+    );
+    if (formatted) return formatted;
+  }
+  return null;
+}
+
+const statusDotClass = computed(() => {
+  const status = String(machine.value?.status || "inactive");
+  if (status === "active") return "bg-emerald-500";
+  if (status === "maintenance") return "bg-amber-400";
+  return "bg-rose-500";
+});
+
+const supervisorLabel = computed(() => {
+  const machineId = String(machine.value?.id || "");
+  if (!machineId) return "Sin asignar";
+  const list = employees.value.filter((e) => {
+    const ids = (e.assignedMachineIds ?? []).map(String);
+    if (!ids.includes(machineId)) return false;
+    const role = (e.jobRole || "").toLowerCase();
+    return e.role === "employee" || role === "supervisor";
+  });
+  if (!list.length) return "Sin asignar";
+  const name = list[0].name || list[0].username || "";
+  if (list.length === 1) return name || "Sin asignar";
+  return `${name} +${list.length - 1}`;
+});
+
+const operatorLabel = computed(() => {
+  const machineId = String(machine.value?.id || "");
+  if (!machineId) return "Sin asignar";
+  const list = employees.value.filter((e) => {
+    const ids = (e.assignedMachineIds ?? []).map(String);
+    if (!ids.includes(machineId)) return false;
+    const role = (e.jobRole || "").toLowerCase();
+    return e.role === "operator" || role === "operador";
+  });
+  if (!list.length) return "Sin asignar";
+  const name = list[0].name || list[0].username || "";
+  if (list.length === 1) return name || "Sin asignar";
+  return `${name} +${list.length - 1}`;
+});
+
+const createdAtLabel = computed(() =>
+  getMachineDate(machine.value, ["created_at", "createdAt", "created"])
+);
+
+const updatedAtLabel = computed(() =>
+  getMachineDate(machine.value, ["updated_at", "updatedAt", "updated"])
+);
 
 async function loadHistory() {
   if (!machine.value) return;
@@ -245,7 +323,17 @@ async function fetchAllData() {
   }
 }
 
+async function loadEmployees() {
+  try {
+    employees.value = await getUsers();
+  } catch (e) {
+    console.error("Error cargando personal:", e);
+    employees.value = [];
+  }
+}
+
 onMounted(() => {
+  loadEmployees();
   fetchAllData();
   refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
   // Subscribe to realtime coin events so the history updates immediately
@@ -308,6 +396,53 @@ watch(search, () => {
 
 <template>
   <section class="space-y-4">
+    <div class="grid gap-3" aria-label="Resumen de monedas">
+      <div
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
+      >
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Financieros (totales)
+        </p>
+        <div
+          class="mt-3 grid grid-cols-1 gap-3"
+          :class="!isOperator ? 'sm:grid-cols-2' : ''"
+        >
+          <div>
+            <p class="text-2xl font-semibold">{{ totalCoins }}</p>
+            <p
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Total monedas
+            </p>
+          </div>
+          <div v-if="!isOperator">
+            <p class="text-2xl font-semibold">$ {{ totalIncome }}</p>
+            <p
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Ingreso total
+            </p>
+          </div>
+          <div v-else>
+            <p class="text-2xl font-semibold">--</p>
+            <p
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Ingresos no disponibles
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div
       class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
       :class="

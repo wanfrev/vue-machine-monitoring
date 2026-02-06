@@ -5,6 +5,7 @@ import {
   getMachines,
   getMachineDailyIncome,
   getMachineHistory,
+  getUsers,
 } from "../api/client";
 import BarChart from "../components/BarChart.vue";
 import { useCurrentUser } from "@/composables/useCurrentUser";
@@ -40,10 +41,20 @@ type ApiMachineHistoryEvent = {
   };
 };
 
+type Employee = {
+  id: number;
+  username: string;
+  role: string;
+  name: string;
+  jobRole?: string;
+  assignedMachineIds?: string[];
+};
+
 const route = useRoute();
 const router = useRouter();
 const loading = ref(false);
 const machine = ref<Machine | null>(null);
+const employees = ref<Employee[]>([]);
 // Monedas de HOY para la máquina seleccionada
 const totalCoins = ref(0);
 
@@ -59,6 +70,29 @@ function formatDate(d: Date) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatShortDate(value?: string | null) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("es-VE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+function getMachineDate(m: Machine | null, keys: string[]) {
+  if (!m) return null;
+  for (const key of keys) {
+    const raw = (m as Record<string, unknown>)[key];
+    const formatted = formatShortDate(
+      typeof raw === "string" ? raw : raw ? String(raw) : null
+    );
+    if (formatted) return formatted;
+  }
+  return null;
 }
 
 const today = new Date();
@@ -162,6 +196,51 @@ const valuePerCoin = computed(() => {
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
 const isOn = computed(() => machine.value?.status === "active");
+
+const statusDotClass = computed(() => {
+  const status = String(machine.value?.status || "inactive");
+  if (status === "active") return "bg-emerald-500";
+  if (status === "maintenance") return "bg-amber-400";
+  return "bg-rose-500";
+});
+
+const supervisorLabel = computed(() => {
+  const machineId = String(machine.value?.id || "");
+  if (!machineId) return "Sin asignar";
+  const list = employees.value.filter((e) => {
+    const ids = (e.assignedMachineIds ?? []).map(String);
+    if (!ids.includes(machineId)) return false;
+    const role = (e.jobRole || "").toLowerCase();
+    return e.role === "employee" || role === "supervisor";
+  });
+  if (!list.length) return "Sin asignar";
+  const name = list[0].name || list[0].username || "";
+  if (list.length === 1) return name || "Sin asignar";
+  return `${name} +${list.length - 1}`;
+});
+
+const operatorLabel = computed(() => {
+  const machineId = String(machine.value?.id || "");
+  if (!machineId) return "Sin asignar";
+  const list = employees.value.filter((e) => {
+    const ids = (e.assignedMachineIds ?? []).map(String);
+    if (!ids.includes(machineId)) return false;
+    const role = (e.jobRole || "").toLowerCase();
+    return e.role === "operator" || role === "operador";
+  });
+  if (!list.length) return "Sin asignar";
+  const name = list[0].name || list[0].username || "";
+  if (list.length === 1) return name || "Sin asignar";
+  return `${name} +${list.length - 1}`;
+});
+
+const createdAtLabel = computed(() =>
+  getMachineDate(machine.value, ["created_at", "createdAt", "created"])
+);
+
+const updatedAtLabel = computed(() =>
+  getMachineDate(machine.value, ["updated_at", "updatedAt", "updated"])
+);
 
 function getDateRangeArray(start: string, end: string) {
   const arr: string[] = [];
@@ -304,6 +383,15 @@ async function loadDailyIncome() {
 
 let refreshInterval: number | undefined;
 
+async function loadEmployees() {
+  try {
+    employees.value = await getUsers();
+  } catch (e) {
+    console.error("Error cargando personal:", e);
+    employees.value = [];
+  }
+}
+
 async function fetchAllData() {
   loading.value = true;
   try {
@@ -370,6 +458,7 @@ async function fetchAllData() {
 }
 
 onMounted(() => {
+  loadEmployees();
   fetchAllData();
   refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
 });
@@ -680,87 +769,91 @@ function fmtAmount(n: number) {
 </script>
 
 <template>
-  <!-- Resumen content: metrics grid + chart -->
-  <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <!-- Resumen content: general info + metrics grid + chart -->
+  <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
     <div
-      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+        Datos generales
+      </p>
+      <div class="mt-3 flex items-center gap-2">
+        <span class="h-2.5 w-2.5 rounded-full" :class="statusDotClass"></span>
+        <p class="text-lg font-semibold">
+          {{ machine?.name || "Máquina" }}
+        </p>
+      </div>
       <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+        class="mt-2 text-sm"
+        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
       >
-        Estado actual
+        Tipo: {{ machine?.type || "Sin datos" }}
       </p>
       <p
-        class="text-3xl font-semibold"
-        :class="
-          isOn
-            ? 'text-emerald-500'
-            : isDark()
-            ? 'text-zinc-300'
-            : 'text-slate-500'
-        "
+        class="mt-1 text-sm"
+        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
       >
-        {{ isOn ? "Encendida" : "Apagada" }}
+        Ubicación: {{ machine?.location || "Sin ubicación" }}
       </p>
     </div>
+
     <div
-      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-      >
-        Monedas hoy
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+        Personal
       </p>
-      <p class="text-3xl font-semibold text-emerald-600">
-        {{ totalCoins }}
-      </p>
+      <div class="mt-3 grid gap-2">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-400">Supervisor</span>
+          <span class="text-sm font-semibold">{{ supervisorLabel }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-400">Operador</span>
+          <span class="text-sm font-semibold">{{ operatorLabel }}</span>
+        </div>
+      </div>
     </div>
+
     <div
-      v-if="!isOperator"
-      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
-      >
-        Ingresos hoy
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+        Fechas
       </p>
-      <p class="text-3xl font-semibold text-emerald-600">$ {{ totalIncome }}</p>
-    </div>
-    <div
-      v-if="!isOperator"
-      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
-      :class="
-        isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <p
-        class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
+      <div
+        class="mt-3 flex flex-wrap items-center gap-2 text-sm"
+        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
       >
-        Valor por moneda
-      </p>
-      <p
-        class="text-3xl font-semibold"
-        :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
-      >
-        $ {{ valuePerCoin }}
-      </p>
+        <span>
+          Creado:
+          <span class="font-semibold">
+            {{ createdAtLabel || "Sin datos" }}
+          </span>
+        </span>
+        <span class="text-slate-400">•</span>
+        <span>
+          Última act.:
+          <span class="font-semibold">
+            {{ updatedAtLabel || "Sin datos" }}
+          </span>
+        </span>
+      </div>
     </div>
   </section>
 
