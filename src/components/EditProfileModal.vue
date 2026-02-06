@@ -83,6 +83,12 @@ async function save() {
       username: String(updated?.username ?? nextUsername),
     });
     emit("close");
+
+    // Forzar recarga para que el cambio se refleje en toda la app
+    // (algunas vistas leen valores desde localStorage en el arranque).
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 50);
   } catch (e: unknown) {
     error.value = getApiErrorMessage(e) || "No se pudo guardar.";
   } finally {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import FilterPanel from "@/components/FilterPanel.vue";
+import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 
 type DashboardFilters = {
   locations: string[];
@@ -32,11 +33,27 @@ const emit = defineEmits<{
 const isDark = computed(() => !!props.dark);
 const filterOpen = ref(false);
 const filterButtonEl = ref<HTMLElement | null>(null);
+const isMobileViewport = ref(false);
 const filterPopoverStyle = ref<Record<string, string>>({
   top: "0px",
   left: "0px",
   width: "0px",
 });
+
+function updateViewportFlag() {
+  isMobileViewport.value = window.matchMedia("(max-width: 639px)").matches;
+}
+
+onMounted(() => {
+  updateViewportFlag();
+  window.addEventListener("resize", updateViewportFlag, { passive: true });
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", updateViewportFlag);
+});
+
+useBodyScrollLock(computed(() => filterOpen.value && isMobileViewport.value));
 
 function updateSearchQuery(event: Event) {
   const target = event.target as HTMLInputElement | null;
@@ -58,10 +75,23 @@ function updateFilterPopoverPosition() {
   const el = filterButtonEl.value;
   if (!el) return;
   const rect = el.getBoundingClientRect();
+
+  // Mobile uses bottom sheet; no popover positioning
+  if (isMobileViewport.value) return;
+
+  // Fixed positioning uses viewport coords (no scrollY/scrollX)
+  const desiredWidth = Math.min(420, Math.max(320, rect.width));
+  const padding = 12;
+  const maxLeft = window.innerWidth - desiredWidth - padding;
+  const left = Math.min(
+    Math.max(padding, rect.right - desiredWidth),
+    Math.max(padding, maxLeft)
+  );
+
   filterPopoverStyle.value = {
-    top: `${rect.bottom + window.scrollY + 8}px`,
-    left: `${rect.left + window.scrollX}px`,
-    width: `${rect.width}px`,
+    top: `${rect.bottom + 8}px`,
+    left: `${left}px`,
+    width: `${desiredWidth}px`,
   };
 }
 
@@ -180,13 +210,42 @@ onUnmounted(() => {
     <Teleport to="body">
       <div
         v-if="filterOpen"
-        class="fixed inset-0 z-9998"
+        class="fixed inset-0 z-[9998] bg-black/20"
         aria-hidden="true"
         @click="filterOpen = false"
       ></div>
+
+      <!-- Mobile: bottom sheet -->
+      <transition name="slide-up" appear>
+        <div
+          v-if="filterOpen && isMobileViewport"
+          class="fixed inset-x-0 bottom-0 z-[9999]"
+          @click.stop
+        >
+          <div
+            class="mx-auto w-full max-w-lg rounded-t-3xl border p-4 shadow-2xl"
+            :class="
+              isDark
+                ? 'border-zinc-800/70 bg-zinc-950 text-zinc-100'
+                : 'border-slate-200/70 bg-white text-slate-800'
+            "
+          >
+            <FilterPanel
+              :open="true"
+              placement="static"
+              :locations="availableLocations"
+              :dark="isDark"
+              @close="filterOpen = false"
+              @apply="applyFilters"
+            />
+          </div>
+        </div>
+      </transition>
+
+      <!-- Desktop: popover anchored to button -->
       <div
-        v-if="filterOpen"
-        class="fixed z-9999"
+        v-if="filterOpen && !isMobileViewport"
+        class="fixed z-[9999]"
         :style="filterPopoverStyle"
         @click.stop
       >
@@ -202,72 +261,97 @@ onUnmounted(() => {
     </Teleport>
   </section>
 
-  <div class="flex flex-wrap items-center gap-2 mb-4 relative">
-    <button
-      v-for="filter in visibleStateFilters"
-      :key="filter"
-      @click="selectFilter(filter)"
-      :class="[
-        'px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
-        selectedFilter === filter
-          ? isDark
-            ? 'bg-white/10 text-white border border-zinc-700/80 hover:bg-white/15'
-            : 'bg-slate-900 text-white hover:bg-slate-800'
-          : isDark
-          ? 'bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-800/50'
-          : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70',
-      ]"
-    >
-      <span class="inline-flex items-center gap-2">
-        <span>
-          {{ filter.charAt(0).toUpperCase() + filter.slice(1) }}
-        </span>
-      </span>
-    </button>
-
+  <div class="mb-4 flex items-center gap-2">
     <div
-      class="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2"
+      class="flex flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain pr-2 sm:flex-nowrap"
     >
-      <div class="relative">
-        <button
-          type="button"
-          @click.stop="selectFilter('notificaciones')"
-          class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition"
-          :class="
-            isDark
-              ? 'bg-zinc-900 text-white border border-zinc-700/60'
-              : 'bg-white/50 text-slate-700 border border-slate-200/70'
-          "
+      <button
+        v-for="filter in visibleStateFilters"
+        :key="filter"
+        @click="selectFilter(filter)"
+        :class="[
+          'shrink-0 px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
+          selectedFilter === filter
+            ? isDark
+              ? 'bg-white/10 text-white border border-zinc-700/80 hover:bg-white/15'
+              : 'bg-slate-900 text-white hover:bg-slate-800'
+            : isDark
+            ? 'bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-800/50'
+            : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70',
+        ]"
+      >
+        {{ filter.charAt(0).toUpperCase() + filter.slice(1) }}
+      </button>
+    </div>
+
+    <div class="relative shrink-0">
+      <button
+        type="button"
+        @click.stop="selectFilter('notificaciones')"
+        class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition"
+        :class="
+          isDark
+            ? 'bg-zinc-900 text-white border border-zinc-700/60'
+            : 'bg-white/50 text-slate-700 border border-slate-200/70'
+        "
+      >
+        <svg
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6 6 0 1 0-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M13.73 21a2 2 0 0 1-3.46 0"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+          <path
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.158V11a6 6 0 1 0-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M13.73 21a2 2 0 0 1-3.46 0"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="hidden sm:inline">Notifs</span>
         <span
-          v-if="unreadCount"
-          class="absolute -top-2 -right-2 inline-flex items-center justify-center bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5"
-          >{{ unreadCount }}</span
+          v-if="unreadCount > 0"
+          class="inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white"
         >
-      </div>
+          {{ unreadCount }}
+        </span>
+      </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease;
+  will-change: transform, opacity;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translate3d(0, 10px, 0);
+  opacity: 0;
+}
+
+.slide-up-enter-to,
+.slide-up-leave-from {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-up-enter-active,
+  .slide-up-leave-active {
+    transition: none;
+  }
+}
+</style>

@@ -136,30 +136,6 @@ function isActiveRoute(name: string) {
           </div>
         </div>
         <div class="flex flex-col items-end gap-2">
-          <!-- Toggle modo claro/oscuro -->
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium cursor-pointer shadow-sm transition"
-            :class="
-              isDark
-                ? 'border-zinc-700/70 bg-zinc-900/60 text-zinc-100 hover:bg-zinc-900/80'
-                : 'border-slate-200/80 bg-white/80 text-slate-800 hover:bg-slate-50'
-            "
-            @click="toggleDarkMode()"
-          >
-            <span
-              class="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border text-[9px]"
-              :class="
-                isDark
-                  ? 'border-zinc-700 bg-zinc-900 text-amber-300'
-                  : 'border-slate-300 bg-slate-50 text-amber-500'
-              "
-            >
-              {{ isDark ? "☾" : "☀" }}
-            </span>
-            <span>{{ isDark ? "Oscuro" : "Claro" }}</span>
-          </button>
-
           <button
             type="button"
             class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
@@ -421,53 +397,79 @@ function isActiveRoute(name: string) {
       </nav>
 
       <!-- Footer actions -->
-      <div class="mt-4 space-y-2 text-xs">
+      <div class="mt-4 text-xs">
         <div
           class="h-px w-full"
           :class="isDark ? 'bg-zinc-800/70' : 'bg-slate-200/70'"
         ></div>
 
-        <button
-          class="inline-flex items-center gap-2 px-2 py-1.5 text-xs font-medium cursor-pointer"
-          :class="
-            isDark
-              ? 'text-red-300 hover:text-red-200'
-              : 'text-red-500 hover:text-red-600'
-          "
-          @click="logout"
-        >
-          <svg
-            class="h-3.5 w-3.5"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
+        <div class="flex items-center justify-between mt-2">
+          <button
+            class="inline-flex items-center gap-2 px-2 py-1.5 text-xs font-medium cursor-pointer"
+            :class="
+              isDark
+                ? 'text-red-300 hover:text-red-200'
+                : 'text-red-500 hover:text-red-600'
+            "
+            @click="logout"
           >
-            <path
-              d="M10 5H7.5C6.12 5 5 6.12 5 7.5v9C5 17.88 6.12 19 7.5 19H10"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M14 8l4 4-4 4"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M18 12H10"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span>Salir</span>
-        </button>
+            <svg
+              class="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M10 5H7.5C6.12 5 5 6.12 5 7.5v9C5 17.88 6.12 19 7.5 19H10"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 8l4 4-4 4"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M18 12H10"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span>Salir</span>
+          </button>
+
+          <!-- Toggle modo claro/oscuro al fondo derecha -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium cursor-pointer shadow-sm transition"
+            :class="
+              isDark
+                ? 'border-zinc-700/70 bg-zinc-900/60 text-zinc-100 hover:bg-zinc-900/80'
+                : 'border-slate-200/80 bg-white/80 text-slate-800 hover:bg-slate-50'
+            "
+            @click="toggleDarkMode()"
+          >
+            <span
+              class="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border text-[9px]"
+              :class="
+                isDark
+                  ? 'border-zinc-700 bg-zinc-900 text-amber-300'
+                  : 'border-slate-300 bg-slate-50 text-amber-500'
+              "
+            >
+              {{ isDark ? "☾" : "☀" }}
+            </span>
+          </button>
+        </div>
+
         <p
-          class="text-center text-[11px]"
+          class="text-center text-[11px] mt-3"
           :class="isDark ? 'text-zinc-500' : 'text-slate-400'"
         >
           © 2025 MachineHub

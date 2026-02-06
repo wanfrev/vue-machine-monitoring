@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import MachinesHeader from "@/components/MachinesHeader.vue";
+import EditCoinValuesModal from "@/components/EditCoinValuesModal.vue";
 import {
   getMachines,
   createMachine,
@@ -13,7 +14,6 @@ import {
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
-import { useCoinValues } from "@/composables/useCoinValues";
 import { filterMachinesForRole } from "@/utils/access";
 import { machineStatusDotClass, machineStatusLabel } from "@/utils/machine";
 
@@ -79,25 +79,7 @@ const isAdmin = computed(
   () => currentRole.value !== "employee" && currentRole.value !== "operator"
 );
 
-const {
-  coinValues,
-  ensureLoaded: ensureCoinValuesLoaded,
-  setValue: setCoinValue,
-  loading: coinValuesLoading,
-} = useCoinValues();
-
-const coinBoxeo = ref<number>(1);
-const coinAgilidad = ref<number>(1);
-const coinDefault = ref<number>(2);
-const coinValuesSaving = ref(false);
-const coinValuesError = ref<string | null>(null);
-const coinValuesOk = ref<string | null>(null);
-
-function syncCoinInputsFromMap() {
-  coinBoxeo.value = Number(coinValues.value.boxeo ?? 1);
-  coinAgilidad.value = Number(coinValues.value.agilidad ?? 1);
-  coinDefault.value = Number(coinValues.value.default ?? 2);
-}
+const isEditPricesOpen = ref(false);
 
 async function loadMachines() {
   loading.value = true;
@@ -110,53 +92,7 @@ async function loadMachines() {
 
 onMounted(async () => {
   await loadMachines();
-  if (isAdmin.value) {
-    try {
-      await ensureCoinValuesLoaded();
-      syncCoinInputsFromMap();
-    } catch {
-      // ignore
-    }
-  }
 });
-
-async function saveCoinValues() {
-  coinValuesError.value = null;
-  coinValuesOk.value = null;
-
-  const b = Number(coinBoxeo.value);
-  const a = Number(coinAgilidad.value);
-  const d = Number(coinDefault.value);
-  if (
-    !Number.isFinite(b) ||
-    b <= 0 ||
-    !Number.isFinite(a) ||
-    a <= 0 ||
-    !Number.isFinite(d) ||
-    d <= 0
-  ) {
-    coinValuesError.value = "Los valores deben ser números positivos.";
-    return;
-  }
-
-  coinValuesSaving.value = true;
-  try {
-    await setCoinValue("boxeo", b);
-    await setCoinValue("agilidad", a);
-    await setCoinValue("default", d);
-    coinValuesOk.value = "Valores guardados.";
-    syncCoinInputsFromMap();
-  } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { message?: string } } })?.response
-      ?.data?.message;
-    coinValuesError.value = msg || "No se pudo guardar.";
-  } finally {
-    coinValuesSaving.value = false;
-    window.setTimeout(() => {
-      coinValuesOk.value = null;
-    }, 2000);
-  }
-}
 
 async function refreshPage() {
   await loadMachines();
@@ -223,6 +159,13 @@ function openMachineDetail(machine: Machine) {
     :dark="isDark()"
     @close="sidebarOpen = false"
   />
+
+  <EditCoinValuesModal
+    v-if="isAdmin"
+    :open="isEditPricesOpen"
+    :dark="isDark()"
+    @close="isEditPricesOpen = false"
+  />
   <!-- Modal solo visible para admins -->
   <NewMachine
     v-if="currentRole !== 'employee' && currentRole !== 'operator'"
@@ -254,99 +197,19 @@ function openMachineDetail(machine: Machine) {
       @create="openCreateModal"
     >
       <template v-if="isAdmin" #summary>
-        <div
-          class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <div class="flex flex-wrap items-end gap-2">
-            <div class="min-w-[140px]">
-              <label
-                class="block text-[11px] font-semibold uppercase tracking-wide"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Valor moneda Boxeo</label
-              >
-              <input
-                v-model.number="coinBoxeo"
-                type="number"
-                min="0"
-                step="0.1"
-                inputmode="decimal"
-                class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                :class="
-                  isDark()
-                    ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                    : 'bg-white/90 text-slate-800 border-slate-200 focus:ring-sky-500/30'
-                "
-              />
-            </div>
-
-            <div class="min-w-[140px]">
-              <label
-                class="block text-[11px] font-semibold uppercase tracking-wide"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Valor moneda Agilidad</label
-              >
-              <input
-                v-model.number="coinAgilidad"
-                type="number"
-                min="0"
-                step="0.1"
-                inputmode="decimal"
-                class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                :class="
-                  isDark()
-                    ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                    : 'bg-white/90 text-slate-800 border-slate-200 focus:ring-sky-500/30'
-                "
-              />
-            </div>
-
-            <div class="min-w-[140px]">
-              <label
-                class="block text-[11px] font-semibold uppercase tracking-wide"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Valor moneda (otras)</label
-              >
-              <input
-                v-model.number="coinDefault"
-                type="number"
-                min="0"
-                step="0.1"
-                inputmode="decimal"
-                class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                :class="
-                  isDark()
-                    ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                    : 'bg-white/90 text-slate-800 border-slate-200 focus:ring-sky-500/30'
-                "
-              />
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              class="h-10 rounded-xl px-4 text-sm font-semibold"
-              :class="
-                isDark()
-                  ? 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
-                  : 'bg-slate-900 text-white hover:bg-slate-800'
-              "
-              :disabled="coinValuesSaving || coinValuesLoading"
-              @click="saveCoinValues"
-            >
-              {{ coinValuesSaving ? "Guardando…" : "Guardar valores" }}
-            </button>
-
-            <span
-              v-if="coinValuesOk"
-              class="text-xs"
-              :class="isDark() ? 'text-emerald-300' : 'text-emerald-700'"
-              >{{ coinValuesOk }}</span
-            >
-            <span v-if="coinValuesError" class="text-xs text-red-400">{{
-              coinValuesError
-            }}</span>
-          </div>
+        <div class="flex items-center justify-end">
+          <button
+            type="button"
+            class="h-10 rounded-xl px-4 text-sm font-semibold border transition"
+            :class="
+              isDark()
+                ? 'border-zinc-700/70 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-100/10'
+                : 'border-slate-200 bg-white/70 text-slate-800 hover:bg-slate-50'
+            "
+            @click="isEditPricesOpen = true"
+          >
+            Editar precios
+          </button>
         </div>
       </template>
     </MachinesHeader>
