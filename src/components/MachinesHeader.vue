@@ -35,10 +35,10 @@ function createMachine() {
 
 <template>
   <header
-    class="flex flex-col gap-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+    class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
     :class="
       isDark()
-        ? 'bg-slate-900/40 border-slate-700/60 text-white'
+        ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
         : 'bg-white/60 border-slate-200/70 text-slate-900'
     "
   >
@@ -49,7 +49,7 @@ function createMachine() {
           class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
           :class="
             isDark()
-              ? 'border-sky-400/70 hover:bg-transparent hover:text-white'
+              ? 'border-zinc-700/70 hover:bg-transparent hover:text-white'
               : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
           "
           aria-label="Abrir menú lateral"
@@ -66,7 +66,7 @@ function createMachine() {
             <h1 class="text-xl font-semibold sm:text-2xl">Máquinas</h1>
             <span
               class="text-xs font-medium tracking-wide"
-              :class="isDark() ? 'text-slate-400' : 'text-slate-500'"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
               Gestión de flota
             </span>
@@ -80,7 +80,7 @@ function createMachine() {
           class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
           :class="
             isDark()
-              ? 'border-sky-400/40 bg-sky-900/20 text-sky-100 hover:bg-sky-900/30'
+              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
               : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
           "
           aria-label="Refrescar"
@@ -114,7 +114,12 @@ function createMachine() {
         <button
           v-if="currentRole !== 'employee' && currentRole !== 'operator'"
           type="button"
-          class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+          class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+          :class="
+            isDark()
+              ? 'bg-zinc-200 text-zinc-900 hover:bg-zinc-100 focus-visible:ring-zinc-300/60'
+              : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
+          "
           @click="createMachine"
         >
           <span class="mr-1">+</span>
@@ -123,12 +128,16 @@ function createMachine() {
       </div>
     </div>
 
-    <div class="mt-4 flex flex-wrap gap-3 text-xs">
+    <div v-if="$slots.summary" class="mt-4">
+      <slot name="summary" />
+    </div>
+
+    <div v-else class="mt-4 flex flex-wrap gap-3 text-xs">
       <div
         class="inline-flex items-center gap-1 rounded-full bg-slate-900/5 px-3 py-1.5"
         :class="
           isDark()
-            ? 'bg-slate-900/30 text-slate-100'
+            ? 'bg-zinc-900/40 text-zinc-100'
             : 'bg-slate-100 text-slate-800'
         "
       >

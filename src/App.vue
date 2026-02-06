@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted } from "vue";
+import { ref, provide, onMounted, onUnmounted, watch } from "vue";
 
 const darkMode = ref(false);
 provide("darkMode", darkMode);
@@ -8,6 +8,19 @@ provide("darkMode", darkMode);
 const showUpdateBanner = ref(false);
 let swRegistration: ServiceWorkerRegistration | null = null;
 
+function applyHtmlDarkClass(isDark: boolean) {
+  try {
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+  } catch (e) {
+    // Ignorar si no hay document (por seguridad en entornos no-browser)
+  }
+}
+
 function applyUpdate() {
   if (swRegistration && swRegistration.waiting) {
     // Ask the waiting SW to skipWaiting, then reload on controllerchange
@@ -15,9 +28,10 @@ function applyUpdate() {
   }
 }
 
-function onSwUpdated(ev: any) {
+function onSwUpdated(ev: Event) {
   // registration passed from registerServiceWorker.ts
-  swRegistration = ev.detail as ServiceWorkerRegistration;
+  const custom = ev as CustomEvent<ServiceWorkerRegistration>;
+  swRegistration = custom.detail;
   showUpdateBanner.value = true;
 }
 
@@ -27,11 +41,29 @@ function onControllerChange() {
 }
 
 onMounted(() => {
+  // Inicializar modo oscuro desde preferencia guardada o del sistema
+  const storedTheme = localStorage.getItem("theme");
+  if (storedTheme === "dark") {
+    darkMode.value = true;
+  } else if (storedTheme === "light") {
+    darkMode.value = false;
+  } else if (window.matchMedia) {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+    darkMode.value = prefersDark.matches;
+  }
+
+  applyHtmlDarkClass(darkMode.value);
+
   window.addEventListener("swUpdated", onSwUpdated);
   navigator.serviceWorker?.addEventListener(
     "controllerchange",
     onControllerChange
   );
+});
+
+watch(darkMode, (value) => {
+  localStorage.setItem("theme", value ? "dark" : "light");
+  applyHtmlDarkClass(value);
 });
 
 onUnmounted(() => {
@@ -47,7 +79,9 @@ onUnmounted(() => {
   <div
     :class="[
       'min-h-screen font-sans',
-      darkMode ? 'dark bg-slate-900 text-white' : 'bg-white text-slate-900',
+      darkMode
+        ? 'dark bg-zinc-950 text-zinc-100'
+        : 'bg-slate-50 text-slate-900',
     ]"
   >
     <!-- Update banner -->

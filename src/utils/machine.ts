@@ -12,7 +12,14 @@ export function machineStatusDotClass(status: string): string {
 
 const COIN_VALUE_BY_TYPE: Record<string, number> = {
   boxeo: 1,
+  agilidad: 1,
 };
+
+let COIN_VALUES_OVERRIDE: Record<string, number> | null = null;
+
+export function setCoinValuesByType(map: Record<string, number> | null) {
+  COIN_VALUES_OVERRIDE = map;
+}
 
 export function getCoinValueForMachine(
   machineName: string,
@@ -21,10 +28,30 @@ export function getCoinValueForMachine(
   const typeKey = String(machineType || "")
     .trim()
     .toLowerCase();
-  if (typeKey && COIN_VALUE_BY_TYPE[typeKey] !== undefined) {
-    return COIN_VALUE_BY_TYPE[typeKey];
+
+  const lowerName = String(machineName || "").toLowerCase();
+  const inferredKey = lowerName.includes("boxeo")
+    ? "boxeo"
+    : lowerName.includes("agilidad")
+    ? "agilidad"
+    : "";
+
+  const effectiveKey = typeKey || inferredKey;
+
+  if (COIN_VALUES_OVERRIDE) {
+    if (effectiveKey && COIN_VALUES_OVERRIDE[effectiveKey] !== undefined) {
+      return Number(COIN_VALUES_OVERRIDE[effectiveKey]);
+    }
+    if (COIN_VALUES_OVERRIDE.default !== undefined) {
+      return Number(COIN_VALUES_OVERRIDE.default);
+    }
   }
-  return machineName.includes("Boxeo") ? 1 : 2;
+
+  if (effectiveKey && COIN_VALUE_BY_TYPE[effectiveKey] !== undefined) {
+    return COIN_VALUE_BY_TYPE[effectiveKey];
+  }
+  if (lowerName.includes("boxeo") || lowerName.includes("agilidad")) return 1;
+  return 2;
 }
 
 export function getIncomeFromCoins(

@@ -238,3 +238,39 @@ export async function getVapidPublicKey() {
   const res = await api.get(`/api/push/vapid-public`);
   return res.data?.publicKey || null;
 }
+
+// Self profile
+export async function getMe() {
+  const res = await api.get("/api/users/me");
+  return res.data as {
+    id: number;
+    username: string;
+    role: string;
+    name: string;
+    shift?: string;
+    documentId?: string | null;
+    jobRole?: string | null;
+    assignedMachineIds?: string[];
+  };
+}
+
+export async function updateMe(payload: { name?: string; username?: string }) {
+  const body: any = {};
+  if (typeof payload.name === "string") body.name = payload.name;
+  if (typeof payload.username === "string") body.username = payload.username;
+  const res = await api.put("/api/users/me", body);
+  return res.data;
+}
+
+// Coin values (price per coin)
+export async function getCoinValues() {
+  const res = await api.get("/api/coin-values");
+  return res.data as Record<string, number>;
+}
+
+export async function setCoinValue(type: string, value: number) {
+  const res = await api.put(`/api/coin-values/${encodeURIComponent(type)}`, {
+    value,
+  });
+  return res.data as { type: string; value: number };
+}

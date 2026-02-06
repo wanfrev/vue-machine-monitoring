@@ -13,6 +13,7 @@ import {
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
+import { useCoinValues } from "@/composables/useCoinValues";
 import { filterMachinesForRole } from "@/utils/access";
 import { machineStatusDotClass, machineStatusLabel } from "@/utils/machine";
 
@@ -74,6 +75,30 @@ const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const machineToEdit = ref<Machine | null>(null);
 
+const isAdmin = computed(
+  () => currentRole.value !== "employee" && currentRole.value !== "operator"
+);
+
+const {
+  coinValues,
+  ensureLoaded: ensureCoinValuesLoaded,
+  setValue: setCoinValue,
+  loading: coinValuesLoading,
+} = useCoinValues();
+
+const coinBoxeo = ref<number>(1);
+const coinAgilidad = ref<number>(1);
+const coinDefault = ref<number>(2);
+const coinValuesSaving = ref(false);
+const coinValuesError = ref<string | null>(null);
+const coinValuesOk = ref<string | null>(null);
+
+function syncCoinInputsFromMap() {
+  coinBoxeo.value = Number(coinValues.value.boxeo ?? 1);
+  coinAgilidad.value = Number(coinValues.value.agilidad ?? 1);
+  coinDefault.value = Number(coinValues.value.default ?? 2);
+}
+
 async function loadMachines() {
   loading.value = true;
   try {
@@ -83,7 +108,55 @@ async function loadMachines() {
   }
 }
 
-onMounted(loadMachines);
+onMounted(async () => {
+  await loadMachines();
+  if (isAdmin.value) {
+    try {
+      await ensureCoinValuesLoaded();
+      syncCoinInputsFromMap();
+    } catch {
+      // ignore
+    }
+  }
+});
+
+async function saveCoinValues() {
+  coinValuesError.value = null;
+  coinValuesOk.value = null;
+
+  const b = Number(coinBoxeo.value);
+  const a = Number(coinAgilidad.value);
+  const d = Number(coinDefault.value);
+  if (
+    !Number.isFinite(b) ||
+    b <= 0 ||
+    !Number.isFinite(a) ||
+    a <= 0 ||
+    !Number.isFinite(d) ||
+    d <= 0
+  ) {
+    coinValuesError.value = "Los valores deben ser números positivos.";
+    return;
+  }
+
+  coinValuesSaving.value = true;
+  try {
+    await setCoinValue("boxeo", b);
+    await setCoinValue("agilidad", a);
+    await setCoinValue("default", d);
+    coinValuesOk.value = "Valores guardados.";
+    syncCoinInputsFromMap();
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })?.response
+      ?.data?.message;
+    coinValuesError.value = msg || "No se pudo guardar.";
+  } finally {
+    coinValuesSaving.value = false;
+    window.setTimeout(() => {
+      coinValuesOk.value = null;
+    }, 2000);
+  }
+}
 
 async function refreshPage() {
   await loadMachines();
@@ -166,7 +239,7 @@ function openMachineDetail(machine: Machine) {
   <div
     :class="[
       'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
-      isDark() ? 'bg-slate-900' : 'bg-slate-50',
+      isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
     <MachinesHeader
@@ -179,13 +252,110 @@ function openMachineDetail(machine: Machine) {
       @update:sidebarOpen="(val) => (sidebarOpen = val)"
       @refresh="refreshPage"
       @create="openCreateModal"
-    />
+    >
+      <template v-if="isAdmin" #summary>
+        <div
+          class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+        >
+          <div class="flex flex-wrap items-end gap-2">
+            <div class="min-w-[140px]">
+              <label
+                class="block text-[11px] font-semibold uppercase tracking-wide"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Valor moneda Boxeo</label
+              >
+              <input
+                v-model.number="coinBoxeo"
+                type="number"
+                min="0"
+                step="0.1"
+                inputmode="decimal"
+                class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                    : 'bg-white/90 text-slate-800 border-slate-200 focus:ring-sky-500/30'
+                "
+              />
+            </div>
+
+            <div class="min-w-[140px]">
+              <label
+                class="block text-[11px] font-semibold uppercase tracking-wide"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Valor moneda Agilidad</label
+              >
+              <input
+                v-model.number="coinAgilidad"
+                type="number"
+                min="0"
+                step="0.1"
+                inputmode="decimal"
+                class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                    : 'bg-white/90 text-slate-800 border-slate-200 focus:ring-sky-500/30'
+                "
+              />
+            </div>
+
+            <div class="min-w-[140px]">
+              <label
+                class="block text-[11px] font-semibold uppercase tracking-wide"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Valor moneda (otras)</label
+              >
+              <input
+                v-model.number="coinDefault"
+                type="number"
+                min="0"
+                step="0.1"
+                inputmode="decimal"
+                class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                    : 'bg-white/90 text-slate-800 border-slate-200 focus:ring-sky-500/30'
+                "
+              />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="h-10 rounded-xl px-4 text-sm font-semibold"
+              :class="
+                isDark()
+                  ? 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
+                  : 'bg-slate-900 text-white hover:bg-slate-800'
+              "
+              :disabled="coinValuesSaving || coinValuesLoading"
+              @click="saveCoinValues"
+            >
+              {{ coinValuesSaving ? "Guardando…" : "Guardar valores" }}
+            </button>
+
+            <span
+              v-if="coinValuesOk"
+              class="text-xs"
+              :class="isDark() ? 'text-emerald-300' : 'text-emerald-700'"
+              >{{ coinValuesOk }}</span
+            >
+            <span v-if="coinValuesError" class="text-xs text-red-400">{{
+              coinValuesError
+            }}</span>
+          </div>
+        </div>
+      </template>
+    </MachinesHeader>
 
     <section
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-3 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"
       :class="
         isDark()
-          ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
@@ -200,10 +370,10 @@ function openMachineDetail(machine: Machine) {
             :class="
               statusFilter === 'all'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-slate-400'
+                  ? 'bg-zinc-100/10 text-white border-zinc-400/70'
                   : 'bg-slate-900 text-white border-slate-900'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="statusFilter = 'all'"
@@ -216,10 +386,10 @@ function openMachineDetail(machine: Machine) {
             :class="
               statusFilter === 'active'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-emerald-400'
+                  ? 'bg-zinc-100/10 text-white border-emerald-400'
                   : 'bg-emerald-600 text-white border-emerald-600'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="statusFilter = 'active'"
@@ -232,10 +402,10 @@ function openMachineDetail(machine: Machine) {
             :class="
               statusFilter === 'inactive'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-red-400'
+                  ? 'bg-zinc-100/10 text-white border-red-400'
                   : 'bg-red-500 text-white border-red-500'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="statusFilter = 'inactive'"
@@ -248,10 +418,10 @@ function openMachineDetail(machine: Machine) {
             :class="
               statusFilter === 'maintenance'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-amber-400'
+                  ? 'bg-zinc-100/10 text-white border-amber-400'
                   : 'bg-amber-500 text-white border-amber-500'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="statusFilter = 'maintenance'"
@@ -291,10 +461,10 @@ function openMachineDetail(machine: Machine) {
             v-model="searchQuery"
             type="search"
             placeholder="Buscar por ID, nombre o ubicación"
-            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/60 focus:border-sky-400"
+            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2"
             :class="
               isDark()
-                ? 'bg-slate-900/60 text-slate-100 border-slate-700'
+                ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
                 : 'bg-white/90 text-slate-800 border-slate-200'
             "
           />
@@ -306,13 +476,13 @@ function openMachineDetail(machine: Machine) {
         class="hidden sm:block overflow-x-auto rounded-2xl border shadow-sm"
         :class="
           isDark()
-            ? 'border-slate-700/60 bg-slate-900/20 backdrop-blur-xl'
+            ? 'border-zinc-800/70 bg-zinc-900/60 backdrop-blur-xl'
             : 'border-slate-200/70 bg-white/50 backdrop-blur-xl'
         "
       >
         <table
           class="min-w-full text-left text-sm"
-          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+          :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
         >
           <thead
             :class="
@@ -339,7 +509,7 @@ function openMachineDetail(machine: Machine) {
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
                   :class="
                     isDark()
-                      ? 'border-slate-700/60 bg-slate-900/20 text-slate-200'
+                      ? 'border-zinc-800/70 bg-zinc-900/50 text-zinc-200'
                       : 'border-slate-200/70 bg-white/50 text-slate-600'
                   "
                 >
@@ -356,7 +526,7 @@ function openMachineDetail(machine: Machine) {
               class="border-t transition-colors"
               :class="
                 isDark()
-                  ? 'border-slate-800/70 hover:bg-red-500/10'
+                  ? 'border-zinc-800/70 hover:bg-red-500/10'
                   : 'border-slate-200/70 hover:bg-red-100/50'
               "
             >
@@ -375,7 +545,7 @@ function openMachineDetail(machine: Machine) {
                         ? 'bg-amber-900/60 text-amber-200'
                         : 'bg-amber-100 text-amber-700'
                       : isDark()
-                      ? 'bg-slate-800/70 text-slate-200'
+                      ? 'bg-zinc-800/60 text-zinc-200'
                       : 'bg-slate-100 text-slate-700'
                   "
                 >
@@ -426,7 +596,7 @@ function openMachineDetail(machine: Machine) {
             class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
             :class="
               isDark()
-                ? 'border-slate-700/60 bg-slate-900/20 text-slate-200'
+                ? 'border-zinc-800/70 bg-zinc-900/20 text-zinc-200'
                 : 'border-slate-200/70 bg-white/50 text-slate-600'
             "
           >
@@ -443,7 +613,7 @@ function openMachineDetail(machine: Machine) {
             class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl cursor-pointer"
             :class="
               isDark()
-                ? 'border-slate-700/60 bg-slate-900/30'
+                ? 'border-zinc-800/70 bg-zinc-900/30'
                 : 'border-slate-200/70 bg-white/60'
             "
             role="link"
@@ -464,13 +634,13 @@ function openMachineDetail(machine: Machine) {
                       {{ m.name }}
                       <span
                         class="ml-1 text-xs font-medium"
-                        :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
+                        :class="isDark() ? 'text-zinc-300' : 'text-slate-500'"
                         >({{ machineStatusLabel(m.status) }})</span
                       >
                     </div>
                     <div
                       class="mt-0.5 text-xs"
-                      :class="isDark() ? 'text-slate-300' : 'text-slate-500'"
+                      :class="isDark() ? 'text-zinc-300' : 'text-slate-500'"
                     >
                       {{ m.location || "—" }}
                     </div>

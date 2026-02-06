@@ -62,10 +62,10 @@ function goNext() {
 
 <template>
   <section
-    class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
+    class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
     :class="
       isDark
-        ? 'bg-slate-900/40 border-slate-700/60 text-white'
+        ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
         : 'bg-white/60 border-slate-200/70 text-slate-900'
     "
   >
@@ -86,13 +86,17 @@ function goNext() {
       />
     </div>
 
-    <div v-if="!visibleNotifications.length" class="text-xs text-slate-400">
+    <div
+      v-if="!visibleNotifications.length"
+      class="text-xs"
+      :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
+    >
       No hay notificaciones
     </div>
 
     <div
       v-else
-      class="space-y-2 max-h-[520px] overflow-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/70 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/70"
+      class="space-y-2 max-h-[520px] overflow-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/70 dark:[&::-webkit-scrollbar-thumb]:bg-zinc-700/70"
     >
       <NotificationItem
         v-for="n in pagedNotifications"
@@ -116,7 +120,7 @@ function goNext() {
             ? 'opacity-50 cursor-not-allowed'
             : 'cursor-pointer',
           isDark
-            ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+            ? 'bg-zinc-950/20 text-zinc-200 border-zinc-700/60 hover:bg-zinc-950/30'
             : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60',
         ]"
         @click="goPrev"
@@ -124,7 +128,10 @@ function goNext() {
         Anterior
       </button>
 
-      <p class="text-[11px] text-slate-400">
+      <p
+        class="text-[11px]"
+        :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
+      >
         Página {{ notificationPage }} de {{ notificationTotalPages }}
       </p>
 
@@ -137,7 +144,7 @@ function goNext() {
             ? 'opacity-50 cursor-not-allowed'
             : 'cursor-pointer',
           isDark
-            ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+            ? 'bg-zinc-950/20 text-zinc-200 border-zinc-700/60 hover:bg-zinc-950/30'
             : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60',
         ]"
         @click="goNext"

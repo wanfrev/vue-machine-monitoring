@@ -241,14 +241,14 @@ async function handleDeleteEmployee(id: number) {
   <div
     :class="[
       'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
-      isDark() ? 'bg-slate-900' : 'bg-slate-50',
+      isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
     <header
-      class="flex flex-col gap-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
       :class="
         isDark()
-          ? 'bg-slate-900/40 border-slate-700/60 text-white'
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
@@ -259,7 +259,7 @@ async function handleDeleteEmployee(id: number) {
             class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
             :class="
               isDark()
-                ? 'border-sky-400/70 hover:bg-transparent hover:text-white'
+                ? 'border-zinc-700/60 hover:bg-transparent hover:text-white'
                 : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
             "
             aria-label="Abrir menú lateral"
@@ -276,7 +276,7 @@ async function handleDeleteEmployee(id: number) {
               <h1 class="text-xl font-semibold sm:text-2xl">Equipo</h1>
               <span
                 class="text-xs font-medium tracking-wide"
-                :class="isDark() ? 'text-slate-400' : 'text-slate-500'"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >
                 Gestión de accesos y asignaciones
               </span>
@@ -290,7 +290,7 @@ async function handleDeleteEmployee(id: number) {
             class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
             :class="
               isDark()
-                ? 'border-sky-400/40 bg-sky-900/20 text-sky-100 hover:bg-sky-900/30'
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
                 : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
             "
             aria-label="Refrescar"
@@ -323,7 +323,12 @@ async function handleDeleteEmployee(id: number) {
 
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+            class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+            :class="
+              isDark()
+                ? 'border border-zinc-700/60 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 focus-visible:ring-zinc-400/40'
+                : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
+            "
             @click="openCreateModal"
           >
             <span class="mr-1">+</span>
@@ -334,10 +339,10 @@ async function handleDeleteEmployee(id: number) {
     </header>
 
     <section
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-3 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"
       :class="
         isDark()
-          ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
@@ -352,10 +357,10 @@ async function handleDeleteEmployee(id: number) {
             :class="
               peopleFilter === 'todos'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-slate-400'
+                  ? 'bg-zinc-100/10 text-white border-zinc-400/70'
                   : 'bg-slate-900 text-white border-slate-900'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="peopleFilter = 'todos'"
@@ -368,10 +373,10 @@ async function handleDeleteEmployee(id: number) {
             :class="
               peopleFilter === 'supervisores'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-violet-400'
+                  ? 'bg-zinc-100/10 text-white border-violet-400'
                   : 'bg-violet-600 text-white border-violet-600'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="peopleFilter = 'supervisores'"
@@ -384,10 +389,10 @@ async function handleDeleteEmployee(id: number) {
             :class="
               peopleFilter === 'operadores'
                 ? isDark()
-                  ? 'bg-slate-100/10 text-white border-emerald-400'
+                  ? 'bg-zinc-100/10 text-white border-emerald-400'
                   : 'bg-emerald-600 text-white border-emerald-600'
                 : isDark()
-                ? 'bg-transparent text-slate-300 border-slate-700 hover:border-slate-500'
+                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
                 : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
             "
             @click="peopleFilter = 'operadores'"
@@ -427,10 +432,10 @@ async function handleDeleteEmployee(id: number) {
             v-model="searchQuery"
             type="search"
             placeholder="Buscar personal..."
-            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/60 focus:border-sky-400"
+            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2"
             :class="
               isDark()
-                ? 'bg-slate-900/60 text-slate-100 border-slate-700'
+                ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
                 : 'bg-white/90 text-slate-800 border-slate-200'
             "
           />
@@ -442,13 +447,13 @@ async function handleDeleteEmployee(id: number) {
         class="hidden sm:block overflow-x-auto rounded-2xl border shadow-sm"
         :class="
           isDark()
-            ? 'border-slate-700/60 bg-slate-900/20 backdrop-blur-xl'
+            ? 'border-zinc-800/70 bg-zinc-900/60 backdrop-blur-xl'
             : 'border-slate-200/70 bg-white/50 backdrop-blur-xl'
         "
       >
         <table
           class="min-w-full text-left text-sm"
-          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+          :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
         >
           <thead
             :class="
@@ -476,7 +481,7 @@ async function handleDeleteEmployee(id: number) {
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
                   :class="
                     isDark()
-                      ? 'border-slate-700/60 bg-slate-900/20 text-slate-200'
+                      ? 'border-zinc-800/70 bg-zinc-900/50 text-zinc-200'
                       : 'border-slate-200/70 bg-white/50 text-slate-600'
                   "
                 >
@@ -491,7 +496,7 @@ async function handleDeleteEmployee(id: number) {
               class="border-t transition-colors"
               :class="
                 isDark()
-                  ? 'border-slate-800/70 hover:bg-red-500/10'
+                  ? 'border-zinc-800/70 hover:bg-red-500/10'
                   : 'border-slate-200/70 hover:bg-red-100/50'
               "
             >
@@ -504,7 +509,7 @@ async function handleDeleteEmployee(id: number) {
                     class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold"
                     :class="
                       isDark()
-                        ? 'bg-slate-800 text-slate-100'
+                        ? 'bg-zinc-800/60 text-zinc-100'
                         : 'bg-slate-100 text-slate-700'
                     "
                   >
@@ -540,7 +545,7 @@ async function handleDeleteEmployee(id: number) {
                   class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
                   :class="
                     isDark()
-                      ? 'border-slate-700/60 bg-slate-950/20 text-slate-200'
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200'
                       : 'border-slate-200/70 bg-white/40 text-slate-700'
                   "
                 >
@@ -559,7 +564,12 @@ async function handleDeleteEmployee(id: number) {
                 class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
               >
                 <button
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2"
+                  :class="
+                    isDark()
+                      ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10 focus-visible:ring-zinc-400/40'
+                      : 'border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:ring-sky-500/40'
+                  "
                   type="button"
                   aria-label="Editar usuario"
                   title="Editar usuario"
@@ -639,7 +649,7 @@ async function handleDeleteEmployee(id: number) {
             class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
             :class="
               isDark()
-                ? 'border-slate-700/60 bg-slate-900/20 text-slate-200'
+                ? 'border-zinc-800/70 bg-zinc-900/20 text-zinc-200'
                 : 'border-slate-200/70 bg-white/50 text-slate-600'
             "
           >
@@ -654,7 +664,7 @@ async function handleDeleteEmployee(id: number) {
             class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl"
             :class="
               isDark()
-                ? 'border-slate-700/60 bg-slate-900/30'
+                ? 'border-zinc-800/70 bg-zinc-900/30'
                 : 'border-slate-200/70 bg-white/60'
             "
           >
@@ -665,7 +675,7 @@ async function handleDeleteEmployee(id: number) {
                     class="flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold"
                     :class="
                       isDark()
-                        ? 'bg-slate-800 text-slate-100'
+                        ? 'bg-zinc-800/60 text-zinc-100'
                         : 'bg-slate-100 text-slate-700'
                     "
                   >
@@ -721,7 +731,12 @@ async function handleDeleteEmployee(id: number) {
               <div class="flex flex-col items-end">
                 <div class="mt-2 flex flex-col items-end gap-2">
                   <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2"
+                    :class="
+                      isDark()
+                        ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10 focus-visible:ring-zinc-400/40'
+                        : 'border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:ring-sky-500/40'
+                    "
                     aria-label="Editar usuario"
                     title="Editar usuario"
                     @click="openEditModal(e)"

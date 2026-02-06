@@ -180,26 +180,37 @@ function submit() {
         class="w-full max-w-xl rounded-2xl border bg-white p-6 shadow-2xl"
         :class="
           isDark
-            ? 'border-slate-800 bg-slate-900 text-slate-100'
+            ? 'border-zinc-800/70 bg-zinc-950 text-zinc-100'
             : 'border-slate-200 bg-white text-slate-700'
         "
       >
         <div class="mb-4 flex items-center justify-between gap-4">
           <div>
-            <h2 class="text-xl font-semibold text-slate-900">
+            <h2
+              class="text-xl font-semibold"
+              :class="isDark ? 'text-zinc-100' : 'text-slate-900'"
+            >
               {{
                 props.mode === "edit"
                   ? "Editar miembro del equipo"
                   : "Nuevo miembro del equipo"
               }}
             </h2>
-            <p class="mt-1 text-xs text-slate-500">
+            <p
+              class="mt-1 text-xs"
+              :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
+            >
               Gestión de accesos y asignaciones
             </p>
           </div>
           <button
             type="button"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-full transition cursor-pointer"
+            :class="
+              isDark
+                ? 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-100/10'
+                : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+            "
             aria-label="Cerrar"
             @click="close"
           >
@@ -212,23 +223,39 @@ function submit() {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div class="md:col-span-2">
                 <label class="block text-sm font-semibold mb-1"
-                  >Nombre completo<span class="text-sky-500">*</span></label
+                  >Nombre completo<span
+                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    >*</span
+                  ></label
                 >
                 <input
                   v-model="name"
                   type="text"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  :class="
+                    isDark
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  "
                   required
                 />
               </div>
               <div>
                 <label class="block text-sm font-semibold mb-1"
-                  >Cédula / ID<span class="text-sky-500">*</span></label
+                  >Cédula / ID<span
+                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    >*</span
+                  ></label
                 >
                 <input
                   v-model="documentId"
                   type="text"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  :class="
+                    isDark
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  "
                   required
                 />
               </div>
@@ -238,12 +265,20 @@ function submit() {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label class="block text-sm font-semibold mb-1"
-                  >Usuario<span class="text-sky-500">*</span></label
+                  >Usuario<span
+                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    >*</span
+                  ></label
                 >
                 <input
                   v-model="username"
                   type="text"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  :class="
+                    isDark
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  "
                   required
                   :readonly="props.mode === 'edit'"
                 />
@@ -251,14 +286,21 @@ function submit() {
               <div>
                 <label class="block text-sm font-semibold mb-1">
                   Contraseña
-                  <span v-if="props.mode !== 'edit'" class="text-sky-500"
+                  <span
+                    v-if="props.mode !== 'edit'"
+                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
                     >*</span
                   >
                 </label>
                 <input
                   v-model="password"
                   type="password"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  :class="
+                    isDark
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  "
                   :required="props.mode !== 'edit'"
                   :placeholder="
                     props.mode === 'edit'
@@ -273,11 +315,18 @@ function submit() {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label class="block text-sm font-semibold mb-1"
-                  >Rol<span class="text-sky-500">*</span></label
+                  >Rol<span :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    >*</span
+                  ></label
                 >
                 <select
                   v-model="jobRole"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  :class="
+                    isDark
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 focus:ring-zinc-400/40 focus:border-zinc-500'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  "
                   required
                 >
                   <option value="">Selecciona un rol</option>
@@ -291,7 +340,12 @@ function submit() {
                   v-model="shift"
                   type="text"
                   placeholder="Ej: Nocturno"
-                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white text-slate-700"
+                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  :class="
+                    isDark
+                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  "
                 />
               </div>
             </div>
@@ -303,7 +357,12 @@ function submit() {
               >
               <button
                 type="button"
-                class="mt-1 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 hover:border-sky-400 hover:bg-sky-50/40 transition cursor-pointer"
+                class="mt-1 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs transition cursor-pointer"
+                :class="
+                  isDark
+                    ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-sky-400 hover:bg-sky-50/40'
+                "
                 @click="openMachineModal"
               >
                 <span class="truncate">
@@ -314,7 +373,8 @@ function submit() {
                   }}
                 </span>
                 <svg
-                  class="h-4 w-4 text-slate-400"
+                  class="h-4 w-4"
+                  :class="isDark ? 'text-zinc-400' : 'text-slate-400'"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -338,14 +398,24 @@ function submit() {
                   v-for="m in selectedMachines"
                   :key="m.id"
                   type="button"
-                  class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
+                  class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px]"
+                  :class="
+                    isDark
+                      ? 'bg-zinc-800/60 text-zinc-100 hover:bg-zinc-800/80'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  "
                   @click.stop
                 >
                   <span class="truncate">
                     {{ m.location || m.name }}
                   </span>
                   <span
-                    class="cursor-pointer text-slate-400 hover:text-slate-700"
+                    class="cursor-pointer"
+                    :class="
+                      isDark
+                        ? 'text-zinc-400 hover:text-zinc-100'
+                        : 'text-slate-400 hover:text-slate-700'
+                    "
                     aria-label="Quitar máquina"
                     @click.stop="removeMachine(m.id)"
                   >
@@ -366,14 +436,24 @@ function submit() {
           <div class="flex gap-2 justify-end pt-4">
             <button
               type="button"
-              class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition cursor-pointer"
+              class="px-4 py-2 text-sm font-medium transition cursor-pointer"
+              :class="
+                isDark
+                  ? 'text-zinc-300 hover:text-zinc-100'
+                  : 'text-slate-500 hover:text-slate-700'
+              "
               @click="close"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              class="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 cursor-pointer"
+              class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              :class="
+                isDark
+                  ? 'border border-zinc-700/60 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 focus-visible:ring-zinc-400/40'
+                  : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
+              "
             >
               <span class="text-lg ml-0">
                 <svg

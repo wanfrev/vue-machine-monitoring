@@ -20,6 +20,10 @@ async function login() {
         localStorage.setItem("role", res.user.role);
       }
 
+      if (res.user.username) {
+        localStorage.setItem("username", res.user.username);
+      }
+
       if (res.user.name || res.user.username) {
         localStorage.setItem("userName", res.user.name || res.user.username);
       }

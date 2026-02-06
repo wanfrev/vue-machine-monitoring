@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 import { getMachines, updateMachine } from "../api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useTheme } from "@/composables/useTheme";
 import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 
 const route = useRoute();
@@ -74,6 +75,9 @@ async function resolveMachine() {
 
 const statusMenuOpen = ref(false);
 
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
+
 function toggleStatusMenu() {
   if (!isAdmin.value) {
     alert("Solo un administrador puede cambiar el estado de la máquina.");
@@ -141,14 +145,29 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen px-3 py-4 sm:px-8 sm:py-6 bg-slate-50">
+  <div
+    :class="[
+      'min-h-screen px-3 py-4 sm:px-8 sm:py-6',
+      isDark() ? 'bg-zinc-950 text-zinc-100' : 'bg-slate-50 text-slate-900',
+    ]"
+  >
     <!-- Top bar -->
     <div
-      class="relative z-50 mb-4 flex items-center justify-between rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6 border-slate-200/70"
+      class="relative z-50 mb-4 flex items-center justify-between rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70'
+          : 'bg-white/60 border-slate-200/70'
+      "
     >
       <button
         type="button"
-        class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 cursor-pointer border-slate-200"
+        class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium cursor-pointer"
+        :class="
+          isDark()
+            ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10'
+            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+        "
         @click="goBack"
       >
         <span>←</span>
@@ -157,7 +176,12 @@ watch(
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium cursor-pointer border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100/60"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium cursor-pointer"
+          :class="
+            isDark()
+              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
+              : 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100/60'
+          "
           aria-label="Refrescar"
           title="Refrescar"
           @click="refreshPage"
@@ -191,7 +215,11 @@ watch(
             class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-sm font-medium cursor-pointer"
             :class="
               resolvedStatus === 'active'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                ? isDark()
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200'
                 : 'border-slate-200 bg-slate-50 text-slate-600'
             "
             :aria-label="`Estado: ${statusLabel}`"
@@ -231,14 +259,27 @@ watch(
           <!-- Menú de cambio de estado (solo admin) -->
           <div
             v-if="statusMenuOpen && isAdmin"
-            class="absolute right-0 top-11 z-50 w-56 max-w-[90vw] rounded-xl border bg-white/80 backdrop-blur-xl text-xs text-slate-700 shadow-lg border-slate-200/70"
+            class="absolute right-0 top-11 z-50 w-56 max-w-[90vw] rounded-xl border backdrop-blur-xl text-xs shadow-lg"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/90 border-zinc-800/70 text-zinc-200'
+                : 'bg-white/80 border-slate-200/70 text-slate-700'
+            "
           >
-            <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400">
+            <p
+              class="px-3 pt-2 pb-1 text-[11px] font-medium"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-400'"
+            >
               Modo mantenimiento
             </p>
             <button
               type="button"
-              class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
+              class="flex w-full items-center justify-between px-3 py-1.5 text-left"
+              :class="
+                isDark()
+                  ? 'hover:bg-zinc-100/10 text-zinc-200'
+                  : 'hover:bg-slate-50 text-slate-600'
+              "
               @click="toggleMaintenance"
             >
               <div class="flex items-center gap-2">
@@ -274,7 +315,12 @@ watch(
             </button>
             <button
               type="button"
-              class="w-full px-3 py-1.5 text-left text-[11px] text-slate-400 hover:bg-slate-50"
+              class="w-full px-3 py-1.5 text-left text-[11px]"
+              :class="
+                isDark()
+                  ? 'text-zinc-400 hover:bg-zinc-100/10'
+                  : 'text-slate-400 hover:bg-slate-50'
+              "
               @click="statusMenuOpen = false"
             >
               Cancelar
@@ -286,14 +332,24 @@ watch(
 
     <!-- Header -->
     <header
-      class="mb-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 border-slate-200/70"
+      class="mb-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70'
+          : 'bg-white/60 border-slate-200/70'
+      "
     >
       <h1 class="text-2xl font-semibold">{{ id }}</h1>
       <p class="text-sm text-slate-400">{{ locationText }}</p>
 
       <!-- Tabs as route links (texto con subrayado en la activa) -->
       <nav
-        class="mt-4 flex items-center gap-6 border-b border-slate-200/70 text-sm font-medium text-slate-500"
+        class="mt-4 flex items-center gap-6 border-b text-sm font-medium"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 text-zinc-300'
+            : 'border-slate-200/70 text-slate-500'
+        "
       >
         <RouterLink
           :to="{
@@ -304,7 +360,11 @@ watch(
           class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
           :class="
             isActive('machine-resumen')
-              ? 'text-sky-600 border-b-2 border-sky-500'
+              ? isDark()
+                ? 'text-zinc-100 border-b-2 border-zinc-200'
+                : 'text-sky-600 border-b-2 border-sky-500'
+              : isDark()
+              ? 'border-b-2 border-transparent hover:text-zinc-100 hover:border-zinc-600'
               : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
           "
         >
@@ -319,7 +379,11 @@ watch(
           class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
           :class="
             isActive('machine-historial')
-              ? 'text-sky-600 border-b-2 border-sky-500'
+              ? isDark()
+                ? 'text-zinc-100 border-b-2 border-zinc-200'
+                : 'text-sky-600 border-b-2 border-sky-500'
+              : isDark()
+              ? 'border-b-2 border-transparent hover:text-zinc-100 hover:border-zinc-600'
               : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
           "
         >
@@ -334,7 +398,11 @@ watch(
           class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
           :class="
             isActive('machine-estadisticas')
-              ? 'text-sky-600 border-b-2 border-sky-500'
+              ? isDark()
+                ? 'text-zinc-100 border-b-2 border-zinc-200'
+                : 'text-sky-600 border-b-2 border-sky-500'
+              : isDark()
+              ? 'border-b-2 border-transparent hover:text-zinc-100 hover:border-zinc-600'
               : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
           "
         >

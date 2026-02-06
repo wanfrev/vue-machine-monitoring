@@ -8,6 +8,7 @@ import {
 } from "../api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
+import { useTheme } from "@/composables/useTheme";
 import { filterMachinesForRole } from "@/utils/access";
 
 const totalCoins = ref(0);
@@ -30,6 +31,9 @@ const route = useRoute();
 const router = useRouter();
 
 const { currentRole, assignedMachineIds } = useCurrentUser();
+
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 const machine = ref<Machine | null>(null);
 const powerLogs = ref<PowerLog[]>([]);
@@ -239,29 +243,50 @@ watch([startDate, endDate, machine], async () => {
     <!-- Metric cards -->
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
       <div
-        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tiempo promedio activo
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">
+        <p
+          class="mt-1 text-3xl font-semibold"
+          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+        >
           {{ averageSessionHours.toFixed(1) }}h
         </p>
         <p class="text-xs text-slate-400">Por sesión</p>
       </div>
       <div
-        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tiempo total activo
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">
+        <p
+          class="mt-1 text-3xl font-semibold"
+          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+        >
           {{ totalActiveHours.toFixed(1) }}h
         </p>
         <p class="text-xs text-slate-400">Este período</p>
       </div>
       <div
-        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Tasa de uso
@@ -269,7 +294,10 @@ watch([startDate, endDate, machine], async () => {
         <p class="mt-1 text-3xl font-semibold text-emerald-600">
           {{ usageRate.toFixed(1) }}%
         </p>
-        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          class="mt-2 h-2 w-full overflow-hidden rounded-full"
+          :class="isDark() ? 'bg-zinc-800/60' : 'bg-slate-100'"
+        >
           <div
             class="h-full bg-emerald-500"
             :style="{ width: usageRate.toFixed(1) + '%' }"
@@ -278,7 +306,12 @@ watch([startDate, endDate, machine], async () => {
       </div>
 
       <div
-        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Monedas totales
@@ -289,12 +322,20 @@ watch([startDate, endDate, machine], async () => {
         <p class="text-xs text-slate-400">En este período</p>
       </div>
       <div
-        class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm border-slate-200/70"
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
       >
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Sesiones totales
         </p>
-        <p class="mt-1 text-3xl font-semibold text-slate-900">
+        <p
+          class="mt-1 text-3xl font-semibold"
+          :class="isDark() ? 'text-slate-100' : 'text-slate-900'"
+        >
           {{ sessions.length }}
         </p>
         <p class="text-xs text-slate-400">En este período</p>
@@ -303,32 +344,57 @@ watch([startDate, endDate, machine], async () => {
 
     <!-- Power logs table -->
     <div
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
       <div
         class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
       >
         <h2 class="text-sm font-semibold">Registro de encendido/apagado</h2>
         <div
-          class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+          class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium backdrop-blur"
+          :class="
+            isDark()
+              ? 'text-zinc-200 bg-zinc-950/20 border-zinc-800/70'
+              : 'text-slate-600 bg-white/50 border-slate-200/70'
+          "
         >
           <span class="hidden sm:inline">Rango:</span>
           <input
             v-model="startDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+            class="min-w-0 flex-1 rounded-md border px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400/40 focus:border-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                : 'border-slate-200 bg-white/40 text-slate-700'
+            "
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+            class="min-w-0 flex-1 rounded-md border px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400/40 focus:border-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                : 'border-slate-200 bg-white/40 text-slate-700'
+            "
           />
 
           <button
             v-if="hasActiveDateFilter"
             type="button"
-            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            class="rounded-md border px-2 py-1 text-xs font-medium"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                : 'border-slate-200/70 bg-white/50 text-slate-700 hover:bg-white/70'
+            "
             @click="resetDateRange"
           >
             Borrar filtro
@@ -336,7 +402,12 @@ watch([startDate, endDate, machine], async () => {
         </div>
       </div>
       <div
-        class="overflow-hidden rounded-xl border border-slate-200/70 bg-white/40 backdrop-blur px-4 py-4"
+        class="overflow-hidden rounded-xl border backdrop-blur px-4 py-4"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-900/50'
+            : 'border-slate-200/70 bg-white/40'
+        "
       >
         <div
           v-if="powerLogs.length === 0"
@@ -347,6 +418,7 @@ watch([startDate, endDate, machine], async () => {
         <div v-else class="relative">
           <div
             class="pointer-events-none absolute left-3 top-0 bottom-0 w-px bg-slate-200/80"
+            :class="isDark() ? 'bg-zinc-700/80' : 'bg-slate-200/80'"
             aria-hidden="true"
           ></div>
           <ul class="space-y-4">
@@ -357,23 +429,28 @@ watch([startDate, endDate, machine], async () => {
             >
               <div class="flex h-full items-start justify-center">
                 <span
-                  class="relative mt-1 inline-flex h-3 w-3 rounded-full ring-2 ring-white"
-                  :class="
-                    row.event === 'Encendido' ? 'bg-emerald-500' : 'bg-red-500'
-                  "
+                  class="relative mt-1 inline-flex h-3 w-3 rounded-full ring-2"
+                  :class="[
+                    isDark() ? 'ring-zinc-900' : 'ring-white',
+                    row.event === 'Encendido' ? 'bg-emerald-500' : 'bg-red-500',
+                  ]"
                 ></span>
               </div>
               <div
                 class="flex flex-1 items-center justify-between gap-4 rounded-lg bg-transparent"
               >
                 <div>
-                  <p class="text-xs font-medium text-slate-700">
+                  <p
+                    class="text-xs font-medium"
+                    :class="isDark() ? 'text-slate-100' : 'text-slate-700'"
+                  >
                     {{ row.event }}
                   </p>
                   <p class="text-xs text-slate-500">{{ row.ts }}</p>
                 </div>
                 <p
-                  class="min-w-12 text-right text-xs font-medium text-slate-600"
+                  class="min-w-12 text-right text-xs font-medium"
+                  :class="isDark() ? 'text-slate-200' : 'text-slate-600'"
                 >
                   <span v-if="row.dur !== null">{{ row.dur }}m</span>
                   <span v-else>—</span>

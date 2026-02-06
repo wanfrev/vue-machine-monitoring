@@ -1,16 +1,25 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed, toRef } from "vue";
+import { computed, ref, toRef } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
 import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
+import { useTheme } from "@/composables/useTheme";
+import EditProfileModal from "@/components/EditProfileModal.vue";
 // Multi-word component name to satisfy eslint vue/multi-word-component-names
 // (Implicit from filename AppSidebar.vue)
+/* eslint-disable */
 
 const props = defineProps<{ open: boolean; dark?: boolean }>();
 const emit = defineEmits<{ (e: "close"): void }>();
 
-const isDark = computed(() => !!props.dark);
+const { isDark: injectedDark, toggleDarkMode } = useTheme();
+
+// Preferimos el prop `dark` si viene definido; si no, usamos el tema global
+const isDark = computed(() => {
+  if (typeof props.dark === "boolean") return !!props.dark;
+  return injectedDark.value;
+});
 
 // Prevent background scroll when sidebar is open
 useBodyScrollLock(toRef(props, "open"));
@@ -27,6 +36,23 @@ function logout() {
 }
 // Obtener el rol del usuario desde localStorage
 const userRole = localStorage.getItem("role") || "";
+
+const currentUserName = ref(
+  localStorage.getItem("userName") ||
+    localStorage.getItem("username") ||
+    "Usuario"
+);
+
+const isEditProfileOpen = ref(false);
+
+function openEditProfile() {
+  isEditProfileOpen.value = true;
+}
+
+function onProfileUpdated(payload: { name: string; username: string }) {
+  currentUserName.value =
+    payload.name || payload.username || currentUserName.value;
+}
 
 const roleLabel = computed(() => {
   if (userRole === "admin") return "Administrador";
@@ -58,7 +84,7 @@ function isActiveRoute(name: string) {
       class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col rounded-2xl border px-4 py-5 shadow-xl backdrop-blur-xl sm:w-80"
       :class="
         isDark
-          ? 'border-slate-700/60 bg-slate-900/40 text-slate-100'
+          ? 'border-zinc-800/70 bg-zinc-950/40 text-zinc-100'
           : 'border-slate-200/70 bg-white/60 text-slate-700'
       "
       role="dialog"
@@ -70,7 +96,7 @@ function isActiveRoute(name: string) {
           <div class="flex items-center gap-3">
             <div
               class="h-10 w-10 overflow-hidden rounded-full border"
-              :class="isDark ? 'border-slate-600/60' : 'border-slate-200/70'"
+              :class="isDark ? 'border-zinc-700/60' : 'border-slate-200/70'"
             >
               <img
                 src="/img/icons/K11BOX.webp"
@@ -82,31 +108,77 @@ function isActiveRoute(name: string) {
               <p class="text-sm font-semibold leading-tight">MachineHub</p>
               <p
                 class="mt-0.5 text-[11px] font-medium uppercase tracking-wide"
-                :class="isDark ? 'text-slate-400' : 'text-slate-500'"
+                :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
               >
                 {{ roleLabel }}
               </p>
+              <p
+                class="mt-1 text-xs font-medium truncate"
+                :class="isDark ? 'text-zinc-200' : 'text-slate-700'"
+                :title="currentUserName"
+              >
+                {{ currentUserName }}
+              </p>
+              <button
+                v-if="userRole === 'admin'"
+                type="button"
+                class="mt-2 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition"
+                :class="
+                  isDark
+                    ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                    : 'border-slate-200/80 bg-white/70 text-slate-700 hover:bg-slate-50'
+                "
+                @click="openEditProfile"
+              >
+                Editar perfil
+              </button>
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
-          :class="
-            isDark
-              ? 'border-slate-700/60 bg-slate-950/10 hover:bg-slate-950/20'
-              : 'border-slate-200/70 bg-white/50 hover:bg-white/70'
-          "
-          aria-label="Cerrar menú lateral"
-          @click="close"
-        >
-          ✕
-        </button>
+        <div class="flex flex-col items-end gap-2">
+          <!-- Toggle modo claro/oscuro -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium cursor-pointer shadow-sm transition"
+            :class="
+              isDark
+                ? 'border-zinc-700/70 bg-zinc-900/60 text-zinc-100 hover:bg-zinc-900/80'
+                : 'border-slate-200/80 bg-white/80 text-slate-800 hover:bg-slate-50'
+            "
+            @click="toggleDarkMode()"
+          >
+            <span
+              class="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border text-[9px]"
+              :class="
+                isDark
+                  ? 'border-zinc-700 bg-zinc-900 text-amber-300'
+                  : 'border-slate-300 bg-slate-50 text-amber-500'
+              "
+            >
+              {{ isDark ? "☾" : "☀" }}
+            </span>
+            <span>{{ isDark ? "Oscuro" : "Claro" }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
+            :class="
+              isDark
+                ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
+                : 'border-slate-200/70 bg-white/50 hover:bg-white/70'
+            "
+            aria-label="Cerrar menú lateral"
+            @click="close"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       <div
         class="h-px w-full"
-        :class="isDark ? 'bg-slate-700/60' : 'bg-slate-200/70'"
+        :class="isDark ? 'bg-zinc-800/70' : 'bg-slate-200/70'"
       ></div>
 
       <!-- Navigation -->
@@ -116,7 +188,7 @@ function isActiveRoute(name: string) {
       >
         <p
           class="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide"
-          :class="isDark ? 'text-slate-400' : 'text-slate-500'"
+          :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
         >
           Navegación
         </p>
@@ -127,10 +199,10 @@ function isActiveRoute(name: string) {
           :class="
             isActiveRoute('dashboard')
               ? isDark
-                ? 'border-sky-500/60 bg-sky-900/35 text-sky-100'
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
                 : 'border-sky-100 bg-sky-50/80 text-sky-800'
               : isDark
-              ? 'border-transparent text-slate-200 hover:border-sky-400/40 hover:bg-sky-900/20 hover:text-sky-100'
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
               : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
           "
           @click="
@@ -142,7 +214,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('dashboard')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-sky-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <!-- Icono Dashboard: grid/casa -->
@@ -195,10 +267,10 @@ function isActiveRoute(name: string) {
           :class="
             isActiveRoute('machines')
               ? isDark
-                ? 'border-sky-500/60 bg-sky-900/35 text-sky-100'
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
                 : 'border-sky-100 bg-sky-50/80 text-sky-800'
               : isDark
-              ? 'border-transparent text-slate-200 hover:border-sky-400/40 hover:bg-sky-900/20 hover:text-sky-100'
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
               : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
           "
           @click="
@@ -210,7 +282,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('machines')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-sky-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <!-- Icono Máquinas: grid/cubos -->
@@ -286,10 +358,10 @@ function isActiveRoute(name: string) {
           :class="
             isActiveRoute('employees')
               ? isDark
-                ? 'border-sky-500/60 bg-sky-900/35 text-sky-100'
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
                 : 'border-sky-100 bg-sky-50/80 text-sky-800'
               : isDark
-              ? 'border-transparent text-slate-200 hover:border-sky-400/40 hover:bg-sky-900/20 hover:text-sky-100'
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
               : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
           "
           @click="
@@ -301,7 +373,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('employees')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-sky-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <!-- Icono Supervisores: usuarios -->
@@ -352,7 +424,7 @@ function isActiveRoute(name: string) {
       <div class="mt-4 space-y-2 text-xs">
         <div
           class="h-px w-full"
-          :class="isDark ? 'bg-slate-700/60' : 'bg-slate-200/70'"
+          :class="isDark ? 'bg-zinc-800/70' : 'bg-slate-200/70'"
         ></div>
 
         <button
@@ -396,13 +468,20 @@ function isActiveRoute(name: string) {
         </button>
         <p
           class="text-center text-[11px]"
-          :class="isDark ? 'text-slate-500' : 'text-slate-400'"
+          :class="isDark ? 'text-zinc-500' : 'text-slate-400'"
         >
           © 2025 MachineHub
         </p>
       </div>
     </aside>
   </transition>
+
+  <EditProfileModal
+    :open="isEditProfileOpen"
+    :dark="isDark"
+    @close="isEditProfileOpen = false"
+    @updated="onProfileUpdated"
+  />
 </template>
 
 <style scoped>

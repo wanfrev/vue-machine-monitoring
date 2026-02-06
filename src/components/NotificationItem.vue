@@ -39,7 +39,7 @@ const isDark = computed(() => !!props.dark);
         </div>
         <p
           class="text-[12px] text-slate-500 truncate"
-          :class="isDark ? 'text-slate-400' : ''"
+          :class="isDark ? 'text-zinc-400' : ''"
         >
           {{ normalizeMachineName(notification.machineName) }}
           <span v-if="notification.location">
@@ -48,10 +48,16 @@ const isDark = computed(() => !!props.dark);
         </p>
       </div>
       <div class="text-right shrink-0">
-        <p class="text-[11px] text-slate-400">
+        <p
+          class="text-[11px]"
+          :class="isDark ? 'text-zinc-400' : 'text-slate-400'"
+        >
           {{ formatNotificationDate(notification.timestamp) }}
         </p>
-        <p class="text-[11px] text-slate-400">
+        <p
+          class="text-[11px]"
+          :class="isDark ? 'text-zinc-400' : 'text-slate-400'"
+        >
           {{ formatNotificationTime(notification.timestamp) }}
         </p>
       </div>
@@ -59,7 +65,7 @@ const isDark = computed(() => !!props.dark);
     <p
       v-if="getNotificationDetailLine(notification)"
       class="mt-1 text-xs"
-      :class="isDark ? 'text-slate-300' : 'text-slate-600'"
+      :class="isDark ? 'text-zinc-300' : 'text-slate-600'"
     >
       {{ getNotificationDetailLine(notification) }}
     </p>

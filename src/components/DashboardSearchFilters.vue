@@ -96,23 +96,23 @@ onUnmounted(() => {
 <template>
   <section class="space-y-4">
     <div
-      class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6"
+      class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6"
       :class="
         isDark
-          ? 'bg-slate-900/40 border-slate-700/60'
-          : 'bg-white/60 border-slate-200/70'
+          ? 'bg-zinc-900/70 border-zinc-800'
+          : 'bg-white/70 border-slate-200/80'
       "
     >
       <div
         class="flex min-w-0 items-center gap-3 rounded-full px-3 py-2 text-sm sm:flex-1"
         :class="
           isDark
-            ? 'bg-slate-800/60 text-slate-100'
+            ? 'bg-zinc-800/60 text-zinc-100'
             : 'bg-slate-100/80 text-slate-700'
         "
       >
         <svg
-          class="text-slate-400"
+          :class="isDark ? 'text-zinc-400' : 'text-slate-400'"
           width="16"
           height="16"
           viewBox="0 0 24 24"
@@ -141,7 +141,7 @@ onUnmounted(() => {
           type="text"
           placeholder="Buscar maquina u ubicacion..."
           :value="searchQuery"
-          class="min-w-0 w-full bg-transparent text-xs outline-none placeholder:text-slate-400 sm:text-sm"
+          class="min-w-0 w-full bg-transparent text-xs outline-none placeholder:text-slate-400 dark:placeholder:text-zinc-400 sm:text-sm"
           @input="updateSearchQuery"
         />
       </div>
@@ -149,10 +149,10 @@ onUnmounted(() => {
       <div class="flex items-center gap-2 justify-self-end">
         <button
           ref="filterButtonEl"
-          class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 sm:text-sm cursor-pointer"
+          class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm transition sm:text-sm cursor-pointer"
           :class="
             isDark
-              ? 'border-slate-700/60 bg-slate-900/40 backdrop-blur-xl text-slate-100 hover:bg-slate-900/60'
+              ? 'border-zinc-800/70 bg-zinc-900/40 backdrop-blur-xl text-zinc-100 hover:bg-zinc-900/60'
               : 'border-slate-200/70 bg-white/50 backdrop-blur-xl text-slate-700 hover:bg-white/70'
           "
           @click="toggleFilters"
@@ -194,6 +194,7 @@ onUnmounted(() => {
           :open="true"
           placement="static"
           :locations="availableLocations"
+          :dark="isDark"
           @close="filterOpen = false"
           @apply="applyFilters"
         />
@@ -209,7 +210,11 @@ onUnmounted(() => {
       :class="[
         'px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
         selectedFilter === filter
-          ? 'bg-slate-900 text-white hover:bg-slate-800'
+          ? isDark
+            ? 'bg-white/10 text-white border border-zinc-700/80 hover:bg-white/15'
+            : 'bg-slate-900 text-white hover:bg-slate-800'
+          : isDark
+          ? 'bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-800/50'
           : 'bg-white/50 backdrop-blur text-slate-600 border border-slate-200/70 hover:bg-white/70',
       ]"
     >
@@ -230,7 +235,7 @@ onUnmounted(() => {
           class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition"
           :class="
             isDark
-              ? 'bg-slate-900 text-white border border-slate-700/60'
+              ? 'bg-zinc-900 text-white border border-zinc-700/60'
               : 'bg-white/50 text-slate-700 border border-slate-200/70'
           "
         >

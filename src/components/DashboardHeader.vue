@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, defineProps, defineEmits } from "vue";
+/* global defineProps, defineEmits */
+import { computed } from "vue";
 
 const props = defineProps<{
   currentUserName: string;
@@ -29,11 +30,11 @@ function handleRefresh() {
 
 <template>
   <header
-    class="flex flex-col gap-4 rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+    class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
     :class="
       isDark
-        ? 'bg-slate-900/40 border-slate-700/60 text-white'
-        : 'bg-white/60 border-slate-200/70 text-slate-900'
+        ? 'bg-zinc-900 border-zinc-800 text-white'
+        : 'bg-white/80 border-slate-200/80 text-slate-900'
     "
   >
     <div class="flex items-start justify-between gap-4">
@@ -115,7 +116,7 @@ function handleRefresh() {
         class="rounded-2xl border px-4 py-3 text-sm"
         :class="
           isDark
-            ? 'border-sky-500/30 bg-sky-950/20 text-sky-100'
+            ? 'border-sky-900/40 bg-sky-950/25 text-sky-50'
             : 'border-sky-100 bg-sky-50 text-sky-900'
         "
       >
@@ -123,7 +124,9 @@ function handleRefresh() {
           <div
             class="flex h-7 w-7 items-center justify-center rounded-full text-xs"
             :class="
-              isDark ? 'bg-sky-900/40 text-sky-200' : 'bg-white/70 text-sky-600'
+              isDark
+                ? 'bg-sky-500/10 text-sky-200 ring-1 ring-sky-500/20'
+                : 'bg-white/70 text-sky-600'
             "
           >
             <svg
@@ -181,7 +184,7 @@ function handleRefresh() {
         class="rounded-2xl border px-4 py-3 text-sm"
         :class="
           isDark
-            ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-100'
+            ? 'border-emerald-900/40 bg-emerald-950/20 text-emerald-50'
             : 'border-emerald-100 bg-emerald-50 text-emerald-800'
         "
       >
@@ -190,7 +193,7 @@ function handleRefresh() {
             class="flex h-7 w-7 items-center justify-center rounded-full text-xs"
             :class="
               isDark
-                ? 'bg-emerald-900/40 text-emerald-200'
+                ? 'bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-500/20'
                 : 'bg-white/70 text-emerald-600'
             "
           >
@@ -229,7 +232,7 @@ function handleRefresh() {
         class="rounded-2xl border px-4 py-3 text-sm"
         :class="
           isDark
-            ? 'border-red-500/30 bg-red-950/20 text-red-100'
+            ? 'border-red-900/40 bg-red-950/20 text-red-50'
             : 'border-red-100 bg-red-50 text-red-800'
         "
       >
@@ -237,7 +240,9 @@ function handleRefresh() {
           <div
             class="flex h-7 w-7 items-center justify-center rounded-full text-xs"
             :class="
-              isDark ? 'bg-red-900/40 text-red-200' : 'bg-white/70 text-red-600'
+              isDark
+                ? 'bg-red-500/10 text-red-200 ring-1 ring-red-500/20'
+                : 'bg-white/70 text-red-600'
             "
           >
             <svg
@@ -282,7 +287,7 @@ function handleRefresh() {
         class="rounded-2xl border px-4 py-3 text-sm"
         :class="
           isDark
-            ? 'border-amber-500/30 bg-amber-950/15 text-amber-100'
+            ? 'border-amber-900/40 bg-amber-950/20 text-amber-50'
             : 'border-amber-100 bg-amber-50 text-amber-800'
         "
       >
@@ -291,7 +296,7 @@ function handleRefresh() {
             class="flex h-7 w-7 items-center justify-center rounded-full text-xs"
             :class="
               isDark
-                ? 'bg-amber-900/40 text-amber-200'
+                ? 'bg-amber-500/10 text-amber-200 ring-1 ring-amber-500/25'
                 : 'bg-white/70 text-amber-600'
             "
           >

@@ -9,7 +9,11 @@ import {
 import BarChart from "../components/BarChart.vue";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
+import { useTheme } from "@/composables/useTheme";
+import { useCoinValues } from "@/composables/useCoinValues";
 import { filterMachinesForRole } from "@/utils/access";
+import { getCoinValueForMachine } from "@/utils/machine";
+import type { ChartDataset } from "chart.js";
 
 type Machine = {
   id: string;
@@ -45,6 +49,9 @@ const totalCoins = ref(0);
 
 // Rol actual para controlar visibilidad de dinero
 const { currentRole, isOperator, assignedMachineIds } = useCurrentUser();
+
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 function formatDate(d: Date) {
   // Fecha local YYYY-MM-DD (sin convertir a UTC)
@@ -144,12 +151,13 @@ const hourlyCoins = ref<{ hour: number; coins: number }[]>([]);
 const monthlyPrimary = ref<{ day: number; income: number }[]>([]);
 const monthlyCompare = ref<{ day: number; income: number }[]>([]);
 
+const { coinValues } = useCoinValues();
+
 const valuePerCoin = computed(() => {
-  const name = (machine.value?.name ?? "").toLowerCase();
-  if (name.includes("boxeo") || name.includes("agilidad")) {
-    return 1;
-  }
-  return 2;
+  // Track coinValues so UI updates when admin changes values.
+  coinValues.value;
+  const m = machine.value;
+  return getCoinValueForMachine(m?.name || "", m?.type);
 });
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
@@ -451,7 +459,7 @@ const chartCoins = computed(() => {
 });
 
 const chartDatasets = computed(() => {
-  const datasets: any[] = [
+  const datasets: ChartDataset<"bar", number[]>[] = [
     {
       label:
         chartMode.value === "month"
@@ -536,7 +544,7 @@ const totalMonthlyCompare = computed(() => {
 });
 
 const chartOptions = computed(() => {
-  return {
+  const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -551,8 +559,9 @@ const chartOptions = computed(() => {
         padding: 10,
         cornerRadius: 10,
         callbacks: {
-          title: (items: any[]) => {
-            const label = items?.[0]?.label ?? "";
+          title: (items: unknown[]) => {
+            const first = items?.[0] as { label?: unknown } | undefined;
+            const label = (first?.label as string | undefined) ?? "";
             if (chartMode.value === "hour") {
               return `${startDate.value} ${label}`.trim();
             }
@@ -561,19 +570,25 @@ const chartOptions = computed(() => {
             }
             return label;
           },
-          label: (ctx: any) => {
-            const raw = ctx?.parsed?.y ?? ctx?.raw;
+          label: (ctx: unknown) => {
+            const c = ctx as {
+              parsed?: { y?: unknown };
+              raw?: unknown;
+              dataIndex?: unknown;
+              dataset?: { label?: unknown };
+            };
+            const raw = c.parsed?.y ?? c.raw;
             const yValue = typeof raw === "number" ? raw : Number(raw);
             const safeY = Number.isFinite(yValue) ? yValue : 0;
 
             // If hour mode and viewing money, show coins + ingresos
             if (chartMode.value === "hour" && !isOperator.value) {
-              const idx = Number(ctx?.dataIndex ?? -1);
+              const idx = Number(c.dataIndex ?? -1);
               const coins = hourlyCoins.value[idx]?.coins ?? 0;
               return [`Monedas: ${coins}`, `Ingresos: $ ${safeY}`];
             }
 
-            const dsLabel = ctx?.dataset?.label;
+            const dsLabel = c.dataset?.label;
             const prefix =
               typeof dsLabel === "string" && dsLabel
                 ? dsLabel
@@ -596,7 +611,7 @@ const chartOptions = computed(() => {
               ? "Día"
               : "Fecha",
           color: "rgba(71, 85, 105, 0.9)",
-          font: { size: 12, weight: "600" },
+          font: { size: 12, weight: 600 },
           padding: { top: 6 },
         },
         offset: true,
@@ -622,7 +637,7 @@ const chartOptions = computed(() => {
           display: true,
           text: isOperator.value ? "Monedas" : "Ingresos ($)",
           color: "rgba(71, 85, 105, 0.9)",
-          font: { size: 12, weight: "600" },
+          font: { size: 12, weight: 600 },
           padding: { bottom: 6 },
         },
         beginAtZero: true,
@@ -642,7 +657,7 @@ const chartOptions = computed(() => {
           display: true,
           text: "Monedas",
           color: "rgba(71,85,105,0.9)",
-          font: { size: 12, weight: "600" },
+          font: { size: 12, weight: 600 },
         },
         beginAtZero: true,
         grid: { drawOnChartArea: false },
@@ -653,7 +668,9 @@ const chartOptions = computed(() => {
         },
       },
     },
-  } as any;
+  };
+
+  return options;
 });
 
 function fmtAmount(n: number) {
@@ -666,7 +683,12 @@ function fmtAmount(n: number) {
   <!-- Resumen content: metrics grid + chart -->
   <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
     <div
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
@@ -675,13 +697,24 @@ function fmtAmount(n: number) {
       </p>
       <p
         class="text-3xl font-semibold"
-        :class="isOn ? 'text-green-600' : 'text-slate-500'"
+        :class="
+          isOn
+            ? 'text-emerald-500'
+            : isDark()
+            ? 'text-zinc-300'
+            : 'text-slate-500'
+        "
       >
         {{ isOn ? "Encendida" : "Apagada" }}
       </p>
     </div>
     <div
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
@@ -694,7 +727,12 @@ function fmtAmount(n: number) {
     </div>
     <div
       v-if="!isOperator"
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
@@ -705,19 +743,35 @@ function fmtAmount(n: number) {
     </div>
     <div
       v-if="!isOperator"
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl px-4 py-3 shadow-sm border-slate-200/70"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
       <p
         class="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400"
       >
         Valor por moneda
       </p>
-      <p class="text-3xl font-semibold text-slate-900">$ {{ valuePerCoin }}</p>
+      <p
+        class="text-3xl font-semibold"
+        :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
+      >
+        $ {{ valuePerCoin }}
+      </p>
     </div>
   </section>
 
   <section
-    class="mt-4 rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
+    v-if="false"
+    class="mt-4 rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+    :class="
+      isDark()
+        ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+        : 'bg-white/60 border-slate-200/70 text-slate-900'
+    "
   >
     <div
       class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
@@ -745,7 +799,12 @@ function fmtAmount(n: number) {
         class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto"
       >
         <div
-          class="w-full sm:w-auto inline-flex items-center gap-1 rounded-full border p-1 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+          class="w-full sm:w-auto inline-flex items-center gap-1 rounded-full border p-1 text-xs sm:text-sm font-medium backdrop-blur"
+          :class="
+            isDark()
+              ? 'text-zinc-200 bg-zinc-950/20 border-zinc-800/70'
+              : 'text-slate-600 bg-white/50 border-slate-200/70'
+          "
           role="tablist"
           aria-label="Modo de gráfica"
         >
@@ -754,7 +813,11 @@ function fmtAmount(n: number) {
             class="rounded-full px-3 py-1.5 transition"
             :class="
               chartMode === 'day'
-                ? 'bg-sky-600 text-white'
+                ? isDark()
+                  ? 'bg-zinc-100/10 text-white'
+                  : 'bg-sky-600 text-white'
+                : isDark()
+                ? 'text-zinc-300 hover:bg-zinc-100/10'
                 : 'text-slate-600 hover:bg-white/40'
             "
             role="tab"
@@ -768,7 +831,11 @@ function fmtAmount(n: number) {
             class="rounded-full px-3 py-1.5 transition"
             :class="
               chartMode === 'hour'
-                ? 'bg-sky-600 text-white'
+                ? isDark()
+                  ? 'bg-zinc-100/10 text-white'
+                  : 'bg-sky-600 text-white'
+                : isDark()
+                ? 'text-zinc-300 hover:bg-zinc-100/10'
                 : 'text-slate-600 hover:bg-white/40'
             "
             role="tab"
@@ -783,7 +850,11 @@ function fmtAmount(n: number) {
             class="rounded-full px-3 py-1.5 transition"
             :class="
               chartMode === 'month'
-                ? 'bg-sky-600 text-white'
+                ? isDark()
+                  ? 'bg-zinc-100/10 text-white'
+                  : 'bg-sky-600 text-white'
+                : isDark()
+                ? 'text-zinc-300 hover:bg-zinc-100/10'
                 : 'text-slate-600 hover:bg-white/40'
             "
             role="tab"
@@ -798,24 +869,44 @@ function fmtAmount(n: number) {
           <div
             class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
             v-if="chartMode === 'day'"
+            :class="
+              isDark()
+                ? 'text-zinc-200 bg-zinc-950/20 border-zinc-800/70'
+                : 'text-slate-600 bg-white/50 border-slate-200/70'
+            "
           >
             <span class="hidden sm:inline">Rango:</span>
             <input
               v-model="startDate"
               type="date"
-              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                  : 'border-slate-200/70 bg-white/40 text-slate-700'
+              "
             />
             <span class="text-slate-400">a</span>
             <input
               v-model="endDate"
               type="date"
-              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                  : 'border-slate-200/70 bg-white/40 text-slate-700'
+              "
             />
 
             <button
               v-if="hasActiveChartFilter"
               type="button"
               class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                  : 'border-slate-200/70 bg-white/50 text-slate-700 hover:bg-white/70'
+              "
               @click="resetChartFilter"
             >
               Borrar filtro
@@ -825,18 +916,33 @@ function fmtAmount(n: number) {
           <div
             class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
             v-else-if="chartMode === 'hour'"
+            :class="
+              isDark()
+                ? 'text-zinc-200 bg-zinc-950/20 border-zinc-800/70'
+                : 'text-slate-600 bg-white/50 border-slate-200/70'
+            "
           >
             <span class="hidden sm:inline">Fecha:</span>
             <input
               v-model="startDate"
               type="date"
-              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+              class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                  : 'border-slate-200/70 bg-white/40 text-slate-700'
+              "
             />
 
             <button
               v-if="hasActiveChartFilter"
               type="button"
               class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                  : 'border-slate-200/70 bg-white/50 text-slate-700 hover:bg-white/70'
+              "
               @click="resetChartFilter"
             >
               Borrar filtro
@@ -847,24 +953,44 @@ function fmtAmount(n: number) {
         <div
           v-else
           class="w-full sm:w-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-600 bg-white/50 backdrop-blur border-slate-200/70"
+          :class="
+            isDark()
+              ? 'text-zinc-200 bg-zinc-950/20 border-zinc-800/70'
+              : 'text-slate-600 bg-white/50 border-slate-200/70'
+          "
         >
           <span class="hidden sm:inline">Mes:</span>
           <input
             v-model="monthPrimary"
             type="month"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                : 'border-slate-200/70 bg-white/40 text-slate-700'
+            "
           />
           <span class="hidden sm:inline text-slate-400">vs</span>
           <input
             v-model="monthCompare"
             type="month"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                : 'border-slate-200/70 bg-white/40 text-slate-700'
+            "
           />
 
           <button
             v-if="hasActiveChartFilter"
             type="button"
             class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                : 'border-slate-200/70 bg-white/50 text-slate-700 hover:bg-white/70'
+            "
             @click="resetChartFilter"
           >
             Borrar filtro
@@ -873,7 +999,12 @@ function fmtAmount(n: number) {
       </div>
     </div>
     <div
-      class="h-56 sm:h-72 lg:h-80 w-full rounded-xl border border-slate-200/70 px-2 py-4 bg-white/40 backdrop-blur flex items-center justify-center min-w-0"
+      class="h-56 sm:h-72 lg:h-80 w-full rounded-xl border px-2 py-4 backdrop-blur flex items-center justify-center min-w-0"
+      :class="
+        isDark()
+          ? 'border-zinc-800/70 bg-zinc-900/50'
+          : 'border-slate-200/70 bg-white/40'
+      "
     >
       <BarChart
         v-if="hasChartData"
@@ -892,7 +1023,10 @@ function fmtAmount(n: number) {
         }}
       </p>
     </div>
-    <div class="mt-4 text-sm text-slate-600">
+    <div
+      class="mt-4 text-sm"
+      :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+    >
       <span class="inline-block h-3 w-3 rounded-sm bg-emerald-500"></span>
       <span class="ml-2">
         {{
@@ -912,7 +1046,11 @@ function fmtAmount(n: number) {
       </template>
     </div>
     <!-- monedas-per-label UI removed per user request -->
-    <div v-if="chartMode === 'month'" class="mt-3 text-sm text-slate-700">
+    <div
+      v-if="chartMode === 'month'"
+      class="mt-3 text-sm"
+      :class="isDark() ? 'text-slate-200' : 'text-slate-700'"
+    >
       <span class="font-medium"
         >Total {{ isOperator ? "Monedas" : "Ingresos" }}:</span
       >

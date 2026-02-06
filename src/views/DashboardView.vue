@@ -271,7 +271,7 @@ onUnmounted(() => {
   <div
     :class="[
       'min-h-full px-3 py-4 sm:px-8 sm:py-6 space-y-6',
-      isDark() ? 'bg-slate-900' : 'bg-slate-50',
+      isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
     <DashboardHeader

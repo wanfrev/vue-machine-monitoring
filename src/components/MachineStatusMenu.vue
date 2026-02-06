@@ -25,18 +25,26 @@ const isDark = computed(() => !!props.dark);
     class="absolute top-12 z-20 rounded-xl border text-xs shadow-lg left-4 right-4 sm:left-auto sm:right-4 w-auto sm:w-48 max-w-[90vw]"
     :class="
       isDark
-        ? 'border-slate-700/60 bg-slate-900/70 backdrop-blur-xl text-slate-100'
+        ? 'border-zinc-800/70 bg-zinc-950/70 backdrop-blur-xl text-zinc-100'
         : 'border-slate-200/70 bg-white/70 backdrop-blur-xl text-slate-700'
     "
     data-status-menu
     @click.stop
   >
-    <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400">
+    <p
+      class="px-3 pt-2 pb-1 text-[11px] font-medium"
+      :class="isDark ? 'text-zinc-400' : 'text-slate-400'"
+    >
       Modo mantenimiento
     </p>
     <button
       type="button"
-      class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
+      class="flex w-full items-center justify-between px-3 py-1.5 text-left"
+      :class="
+        isDark
+          ? 'text-zinc-200 hover:bg-zinc-100/10'
+          : 'text-slate-600 hover:bg-slate-50'
+      "
       @click.stop="emit('toggle-maintenance', machine)"
     >
       <div class="flex items-center gap-2">
@@ -72,7 +80,12 @@ const isDark = computed(() => !!props.dark);
     </button>
     <button
       type="button"
-      class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-slate-50 text-slate-600"
+      class="flex w-full items-center justify-between px-3 py-1.5 text-left"
+      :class="
+        isDark
+          ? 'text-zinc-200 hover:bg-zinc-100/10'
+          : 'text-slate-600 hover:bg-slate-50'
+      "
       @click.stop="emit('toggle-test-mode', machine)"
     >
       <div class="flex items-center gap-2">
@@ -108,7 +121,12 @@ const isDark = computed(() => !!props.dark);
     </button>
     <button
       type="button"
-      class="w-full px-3 py-1.5 text-left text-[11px] text-slate-400 hover:bg-slate-50"
+      class="w-full px-3 py-1.5 text-left text-[11px]"
+      :class="
+        isDark
+          ? 'text-zinc-400 hover:bg-zinc-100/10'
+          : 'text-slate-400 hover:bg-slate-50'
+      "
       @click.stop="emit('close', machine.id)"
     >
       Cancelar

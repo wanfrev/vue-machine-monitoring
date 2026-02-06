@@ -2,6 +2,7 @@
 /* global defineProps, defineEmits */
 import { computed } from "vue";
 import MachineStatusMenu from "@/components/MachineStatusMenu.vue";
+import { useCoinValues } from "@/composables/useCoinValues";
 import {
   getIncomeFromCoins,
   machineStatusDotClass,
@@ -31,30 +32,34 @@ const emit = defineEmits<{
 
 const dark = computed(() => !!props.isDark);
 
-function getMachineIncomeToday(): number {
+const { coinValues } = useCoinValues();
+
+const incomeToday = computed(() => {
+  coinValues.value;
   return getIncomeFromCoins(
     props.dailyCoins,
     props.machine.name,
     props.machine.type
   );
-}
+});
 
-function getMachineIncomeWeek(): number {
+const incomeWeek = computed(() => {
+  coinValues.value;
   return getIncomeFromCoins(
     props.weeklyCoins,
     props.machine.name,
     props.machine.type
   );
-}
+});
 </script>
 
 <template>
   <article
-    class="relative flex flex-col justify-between rounded-2xl border bg-white/60 backdrop-blur-xl p-4 text-sm shadow-sm cursor-pointer"
+    class="relative flex flex-col justify-between rounded-2xl border backdrop-blur-xl p-4 text-sm shadow-sm cursor-pointer"
     :class="
       dark
-        ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
-        : 'bg-white/60 border-slate-200/70 text-slate-700'
+        ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+        : 'bg-white/80 border-slate-200/80 text-slate-700'
     "
     role="link"
     tabindex="0"
@@ -78,7 +83,7 @@ function getMachineIncomeWeek(): number {
         </div>
         <p
           class="mt-0.5 text-xs"
-          :class="dark ? 'text-slate-300' : 'text-slate-500'"
+          :class="dark ? 'text-zinc-300' : 'text-slate-500'"
         >
           {{ machine.location || "—" }}
         </p>
@@ -100,7 +105,7 @@ function getMachineIncomeWeek(): number {
         class="inline-flex h-8 w-8 shrink-0 flex-none items-center justify-center rounded-full border text-xs font-semibold shadow-sm cursor-pointer"
         :class="
           dark
-            ? 'border-slate-700/60 bg-slate-950/20 text-slate-100 hover:bg-slate-950/30'
+            ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
             : 'border-slate-200/70 bg-white/40 text-slate-600 hover:bg-white/60'
         "
         type="button"
@@ -142,73 +147,90 @@ function getMachineIncomeWeek(): number {
       @close="emit('close-menu', $event)"
     />
 
-    <div class="mt-3 flex items-end gap-4">
+    <div
+      class="mt-3 grid items-end gap-x-4 gap-y-2"
+      :class="!isOperator ? 'grid-cols-3' : 'grid-cols-1'"
+    >
       <template v-if="!isOperator">
-        <div class="flex flex-col leading-tight">
+        <div
+          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+        >
           <span
-            class="text-sm sm:text-base font-semibold"
-            :class="dark ? 'text-slate-50' : 'text-slate-900'"
+            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
           >
-            $ {{ getMachineIncomeToday() }}
+            $ {{ incomeToday }}
           </span>
           <span
-            class="mt-0.5 text-[10px] uppercase tracking-wide"
-            :class="dark ? 'text-slate-500' : 'text-slate-400'"
+            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
           >
             Hoy
           </span>
         </div>
 
-        <div class="flex flex-col leading-tight">
+        <div
+          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+        >
           <span
-            class="text-sm sm:text-base font-semibold"
-            :class="dark ? 'text-slate-50' : 'text-slate-900'"
+            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
           >
-            $ {{ getMachineIncomeWeek() }}
+            $ {{ incomeWeek }}
           </span>
           <span
-            class="mt-0.5 text-[10px] uppercase tracking-wide"
-            :class="dark ? 'text-slate-500' : 'text-slate-400'"
+            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
           >
             Semanal
           </span>
         </div>
       </template>
 
-      <div class="flex flex-col leading-tight">
+      <div
+        class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+      >
         <span
-          class="text-sm sm:text-base font-semibold"
-          :class="dark ? 'text-slate-50' : 'text-slate-900'"
+          class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+          :class="dark ? 'text-zinc-50' : 'text-slate-900'"
         >
           {{ dailyCoins }}
         </span>
         <span
-          class="mt-0.5 text-[10px] uppercase tracking-wide"
-          :class="dark ? 'text-slate-500' : 'text-slate-400'"
+          class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+          :class="dark ? 'text-zinc-500' : 'text-slate-400'"
         >
           Coins hoy
         </span>
       </div>
     </div>
 
-    <p class="mt-2 text-[11px] text-slate-400">
-      <span
-        class="font-medium"
-        :class="dark ? 'text-slate-300' : 'text-slate-500'"
-      >
-        Primer inicio:
-      </span>
-      {{ formatCaracasDateTime(firstOnToday || machine.last_on) }}
-      <span class="mx-2" :class="dark ? 'text-slate-600' : 'text-slate-300'">
-        •
-      </span>
-      <span
-        class="font-medium"
-        :class="dark ? 'text-slate-300' : 'text-slate-500'"
-      >
-        Ultimo cierre:
-      </span>
-      {{ formatCaracasDateTime(machine.last_off) }}
-    </p>
+    <div
+      class="mt-2 space-y-1 text-[11px]"
+      :class="dark ? 'text-zinc-400' : 'text-slate-400'"
+    >
+      <p class="flex flex-wrap gap-x-1">
+        <span
+          class="font-medium"
+          :class="dark ? 'text-zinc-300' : 'text-slate-500'"
+        >
+          Primer inicio:
+        </span>
+        <span class="break-words">
+          {{ formatCaracasDateTime(firstOnToday || machine.last_on) }}
+        </span>
+      </p>
+      <p class="flex flex-wrap gap-x-1">
+        <span
+          class="font-medium"
+          :class="dark ? 'text-zinc-300' : 'text-slate-500'"
+        >
+          Ultimo cierre:
+        </span>
+        <span class="break-words">
+          {{ formatCaracasDateTime(machine.last_off) }}
+        </span>
+      </p>
+    </div>
   </article>
 </template>

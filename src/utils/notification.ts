@@ -22,7 +22,7 @@ export function getNotificationDetailLine(
 
 export function getNotificationCardClass(isDark: boolean): string {
   return isDark
-    ? "border-slate-700/60 bg-slate-900/40"
+    ? "border-zinc-800/70 bg-zinc-900/60"
     : "border-slate-200/70 bg-white/80";
 }
 
@@ -33,9 +33,9 @@ export function getNotificationDotClass(
   if (type === "machine_on") return "bg-emerald-500";
   if (type === "machine_off") return "bg-red-500";
   if (type === "coin_inserted") return "bg-amber-400";
-  return isDark ? "bg-slate-500" : "bg-slate-400";
+  return isDark ? "bg-zinc-500" : "bg-slate-400";
 }
 
 export function getNotificationTitleTextClass(isDark: boolean): string {
-  return isDark ? "text-slate-100" : "text-slate-900";
+  return isDark ? "text-zinc-100" : "text-slate-900";
 }

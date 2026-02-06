@@ -5,7 +5,10 @@ import { useRoute, useRouter } from "vue-router";
 import { getMachines, getMachineHistory } from "../api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
+import { useTheme } from "@/composables/useTheme";
+import { useCoinValues } from "@/composables/useCoinValues";
 import { filterMachinesForRole } from "@/utils/access";
+import { getCoinValueForMachine } from "@/utils/machine";
 
 type Tx = {
   kind: "Ingreso" | "Evento";
@@ -18,6 +21,9 @@ type Tx = {
 };
 
 const txs = ref<Tx[]>([]);
+
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
 
 type Machine = {
   id: string;
@@ -112,15 +118,25 @@ const machine = ref<Machine | null>(null);
 // Total de monedas para el rango seleccionado
 const totalCoins = ref(0);
 
+const { coinValues } = useCoinValues();
+
 const valuePerCoin = computed(() => {
-  const name = (machine.value?.name ?? "").toLowerCase();
-  if (name.includes("boxeo") || name.includes("agilidad")) {
-    return 1;
-  }
-  return 2;
+  // Track coinValues so UI updates when admin changes values.
+  coinValues.value;
+  const m = machine.value;
+  return getCoinValueForMachine(m?.name || "", m?.type);
 });
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
+
+watch([valuePerCoin, isOperator], () => {
+  // Recompute amounts locally without refetching.
+  txs.value = txs.value.map((t) => {
+    if (t.kind !== "Ingreso") return t;
+    const amount = isOperator.value ? t.coins : t.coins * valuePerCoin.value;
+    return { ...t, amount };
+  });
+});
 
 function toLocalDateTime(utcString: string) {
   if (!utcString) return { date: "", time: "" };
@@ -293,31 +309,56 @@ watch(search, () => {
 <template>
   <section class="space-y-4">
     <div
-      class="rounded-2xl border bg-white/60 backdrop-blur-xl p-4 shadow-sm sm:p-6 border-slate-200/70"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
       <div
         class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
       >
         <h2 class="text-sm font-semibold">Historial detallado de monedas</h2>
         <div
-          class="w-full sm:w-auto flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm border-slate-200/70 bg-white/50 backdrop-blur text-slate-600"
+          class="w-full sm:w-auto flex flex-wrap items-center gap-2 rounded-full border px-3 py-2 text-xs sm:text-sm backdrop-blur"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-200'
+              : 'border-slate-200/70 bg-white/50 text-slate-600'
+          "
         >
           <input
             v-model="startDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+            class="min-w-0 flex-1 rounded-md border backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400/40 focus:border-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                : 'border-slate-200/70 bg-white/40 text-slate-700'
+            "
           />
           <span class="text-slate-400">a</span>
           <input
             v-model="endDate"
             type="date"
-            class="min-w-0 flex-1 rounded-md border border-slate-200/70 bg-white/40 backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+            class="min-w-0 flex-1 rounded-md border backdrop-blur px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-zinc-400/40 focus:border-zinc-500 dark:border-zinc-700/60 dark:bg-zinc-950/20 dark:text-zinc-100 dark:[color-scheme:dark]"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100'
+                : 'border-slate-200/70 bg-white/40 text-slate-700'
+            "
           />
 
           <button
             v-if="hasActiveDateFilter"
             type="button"
-            class="rounded-md border border-slate-200/70 bg-white/50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white/70"
+            class="rounded-md border px-2 py-1 text-xs font-medium"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+                : 'border-slate-200/70 bg-white/50 text-slate-700 hover:bg-white/70'
+            "
             @click="resetDateRange"
           >
             Borrar filtro
@@ -325,7 +366,12 @@ watch(search, () => {
         </div>
       </div>
       <div
-        class="mb-6 flex items-center gap-2 rounded-full border px-3 py-2 text-sm border-slate-200/70 bg-white/50 backdrop-blur text-slate-600"
+        class="mb-6 flex items-center gap-2 rounded-full border px-3 py-2 text-sm backdrop-blur"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-200'
+            : 'border-slate-200/70 bg-white/50 text-slate-600'
+        "
       >
         <span class="flex items-center">
           <svg
@@ -355,21 +401,43 @@ watch(search, () => {
       <div class="lg:hidden">
         <div
           v-if="visible.length === 0"
-          class="rounded-2xl border border-dashed border-slate-200/70 bg-white/40 backdrop-blur p-4 text-center text-sm text-slate-500"
+          class="rounded-2xl border border-dashed backdrop-blur p-4 text-center text-sm"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-900/40 text-zinc-300'
+              : 'border-slate-200/70 bg-white/40 text-slate-500'
+          "
         >
           No hay registros en el historial para este rango de fechas.
         </div>
-        <div v-else class="border-t border-slate-100 divide-y divide-slate-100">
+        <div
+          v-else
+          class="border-t divide-y"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 divide-zinc-800/70'
+              : 'border-slate-100 divide-slate-100'
+          "
+        >
           <div
             v-for="(t, i) in visible"
             :key="i"
             class="flex items-center justify-between py-3"
           >
-            <p class="text-xs text-slate-500">{{ t.date }} {{ t.time }}</p>
+            <p
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              {{ t.date }} {{ t.time }}
+            </p>
             <p
               class="text-base font-semibold text-right whitespace-nowrap"
               :class="
-                t.kind === 'Ingreso' ? 'text-slate-900' : 'text-slate-400'
+                t.kind === 'Ingreso'
+                  ? isDark()
+                    ? 'text-slate-100'
+                    : 'text-slate-900'
+                  : 'text-slate-400'
               "
             >
               {{
@@ -388,10 +456,22 @@ watch(search, () => {
 
       <!-- Tabla de escritorio simplificada (lg y arriba) -->
       <div
-        class="hidden overflow-hidden rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur-xl lg:block"
+        class="hidden overflow-hidden rounded-xl border backdrop-blur-xl lg:block"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-900/60'
+            : 'border-slate-200/70 bg-white/50'
+        "
       >
         <table class="w-full text-sm">
-          <thead class="bg-slate-50/80 backdrop-blur text-slate-700">
+          <thead
+            class="backdrop-blur"
+            :class="
+              isDark()
+                ? 'bg-slate-900/70 text-slate-200'
+                : 'bg-slate-50/80 text-slate-700'
+            "
+          >
             <tr>
               <th class="px-4 py-2 text-left">Fecha</th>
               <th class="px-4 py-2 text-right">Monto</th>
@@ -401,15 +481,27 @@ watch(search, () => {
             <tr
               v-for="(t, i) in visible"
               :key="i"
-              class="border-t border-slate-100 transition-colors hover:bg-slate-50/70"
+              class="border-t transition-colors"
+              :class="
+                isDark()
+                  ? 'border-zinc-800/70 hover:bg-zinc-100/5'
+                  : 'border-slate-100 hover:bg-slate-50/70'
+              "
             >
-              <td class="px-4 py-2 text-slate-500">
+              <td
+                class="px-4 py-2"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
                 <div>{{ t.date }} {{ t.time }}</div>
               </td>
               <td
                 class="px-4 py-2 font-semibold text-right"
                 :class="
-                  t.kind === 'Ingreso' ? 'text-slate-800' : 'text-slate-400'
+                  t.kind === 'Ingreso'
+                    ? isDark()
+                      ? 'text-zinc-100'
+                      : 'text-slate-800'
+                    : 'text-slate-400'
                 "
               >
                 {{
@@ -436,16 +528,26 @@ watch(search, () => {
 
       <div class="mt-4 grid grid-cols-2 gap-3">
         <div
-          class="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 text-sm"
+          class="rounded-xl border backdrop-blur px-4 py-3 text-sm"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-900/60'
+              : 'border-slate-200/70 bg-white/50'
+          "
         >
           <p class="text-slate-400">Registros mostrados</p>
-          <p class="text-slate-800">
+          <p :class="isDark() ? 'text-zinc-100' : 'text-slate-800'">
             <span class="font-semibold">{{ visible.length }}</span> /
             {{ filtered.length }}
           </p>
         </div>
         <div
-          class="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 text-sm"
+          class="rounded-xl border backdrop-blur px-4 py-3 text-sm"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-900/60'
+              : 'border-slate-200/70 bg-white/50'
+          "
         >
           <p class="text-slate-400">
             {{
@@ -460,11 +562,17 @@ watch(search, () => {
       </div>
 
       <div
-        class="mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-slate-600"
+        class="mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm"
         v-if="filtered.length > 0"
+        :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
       >
         <button
-          class="rounded-lg border px-3 py-1.5 border-slate-200/70 bg-white/50 backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/70"
+          class="rounded-lg border px-3 py-1.5 backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed"
+          :class="
+            isDark()
+              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+              : 'border-slate-200/70 bg-white/50 text-slate-600 hover:bg-white/70'
+          "
           :disabled="currentPage === 1"
           @click="currentPage = currentPage - 1"
         >
@@ -477,7 +585,12 @@ watch(search, () => {
           <span class="font-semibold">{{ totalPages }}</span>
         </span>
         <button
-          class="rounded-lg border px-3 py-1.5 border-slate-200/70 bg-white/50 backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/70"
+          class="rounded-lg border px-3 py-1.5 backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed"
+          :class="
+            isDark()
+              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
+              : 'border-slate-200/70 bg-white/50 text-slate-600 hover:bg-white/70'
+          "
           :disabled="currentPage === totalPages"
           @click="currentPage = currentPage + 1"
         >
