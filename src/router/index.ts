@@ -7,6 +7,7 @@ import MachineDetailLayout from "../views/MachineDetailLayout.vue";
 import MachineResumenView from "../views/MachineResumenView.vue";
 import MachineHistorialView from "../views/MachineHistorialView.vue";
 import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
+import ProfileView from "../views/ProfileView.vue";
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -61,6 +62,12 @@ const routes: Array<RouteRecordRaw> = [
     name: "employees",
     component: EmployeesView,
     meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: "/profile",
+    name: "profile",
+    component: ProfileView,
+    meta: { requiresAuth: true },
   },
 ];
 

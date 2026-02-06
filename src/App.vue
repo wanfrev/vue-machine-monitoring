@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted, watch } from "vue";
+import { ref, provide, onMounted, onUnmounted, watch, computed } from "vue";
+import { useRoute } from "vue-router";
+import AppBottomNav from "@/components/AppBottomNav.vue";
 
 const darkMode = ref(false);
 provide("darkMode", darkMode);
+
+const route = useRoute();
+const showBottomNav = computed(() => {
+  if (route.name === "login") return false;
+  return !!route.meta.requiresAuth;
+});
 
 // Service worker update banner
 const showUpdateBanner = ref(false);
@@ -98,6 +106,9 @@ onUnmounted(() => {
         </button>
       </div>
     </div>
-    <router-view />
+    <div :class="showBottomNav ? 'pb-20' : ''">
+      <router-view />
+    </div>
+    <AppBottomNav v-if="showBottomNav" />
   </div>
 </template>

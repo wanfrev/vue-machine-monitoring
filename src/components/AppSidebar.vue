@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed, ref, toRef } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
 import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
@@ -21,8 +21,25 @@ const isDark = computed(() => {
   return injectedDark.value;
 });
 
-// Prevent background scroll when sidebar is open
-useBodyScrollLock(toRef(props, "open"));
+const isDesktop = ref(false);
+const showSidebar = computed(() => props.open && isDesktop.value);
+
+function updateViewport() {
+  if (typeof window === "undefined") return;
+  isDesktop.value = window.matchMedia("(min-width: 1024px)").matches;
+}
+
+onMounted(() => {
+  updateViewport();
+  window.addEventListener("resize", updateViewport);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", updateViewport);
+});
+
+// Prevent background scroll when sidebar is open on desktop
+useBodyScrollLock(showSidebar);
 
 function close() {
   emit("close");
@@ -70,7 +87,7 @@ function isActiveRoute(name: string) {
   <!-- Overlay -->
   <transition name="fade" appear>
     <div
-      v-show="open"
+      v-show="showSidebar"
       class="fixed inset-0 z-40 bg-black/40"
       aria-hidden="true"
       @click="close"
@@ -80,7 +97,7 @@ function isActiveRoute(name: string) {
   <!-- Sidebar panel -->
   <transition name="slide-left" appear>
     <aside
-      v-show="open"
+      v-show="showSidebar"
       class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col rounded-2xl border px-4 py-5 shadow-xl backdrop-blur-xl sm:w-80"
       :class="
         isDark
