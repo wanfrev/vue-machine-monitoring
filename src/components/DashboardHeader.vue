@@ -110,6 +110,7 @@ function handleRefresh() {
     </div>
 
     <div
+      v-if="!isOperator"
       class="grid grid-cols-2 gap-3 pt-2 auto-rows-fr sm:grid-cols-2 lg:grid-cols-4"
     >
       <div

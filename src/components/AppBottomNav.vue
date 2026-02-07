@@ -20,20 +20,14 @@ const items = computed(() => {
       name: "dashboard",
       label: "Inicio",
     },
-    {
-      name: "machines",
-      label: "Maquinas",
-    },
-    {
-      name: "reports",
-      label: "Reportes",
-    },
   ];
 
-  // Ventas diarias solo aplica a empleados no-supervisores.
-  if (currentRole.value !== "admin" && !isSupervisor.value) {
-    base.splice(2, 0, { name: "daily-sales", label: "Ventas" });
+  const canSeeMachines = currentRole.value === "admin" || isSupervisor.value;
+  if (canSeeMachines) {
+    base.push({ name: "machines", label: "Maquinas" });
   }
+
+  base.push({ name: "reports", label: "Reportes" });
 
   if (currentRole.value === "admin") {
     base.push({ name: "employees", label: "Personal" });
@@ -115,19 +109,6 @@ const items = computed(() => {
             d="m19.94 7.68-.03-.09a.8.8 0 0 0-.2-.29l-5-5a1 1 0 0 0-.3-.2l-.09-.03a.9.9 0 0 0-.27-.05c-.02 0-.04-.01-.05-.01H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-12s-.01-.04-.01-.06c0-.09-.02-.17-.05-.26ZM6 20V4h7v4c0 .55.45 1 1 1h4v11z"
           ></path>
           <path d="M8 12h2v6H8zm3-2h2v8h-2zm3 4h2v4h-2z"></path>
-        </svg>
-
-        <svg
-          v-else-if="item.name === 'daily-sales'"
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-6 w-6"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            d="M12 2C9.24 2 7 4.24 7 7v1H4c-.55 0-1 .45-1 1v11c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-.55-.45-1-1-1h-3V7c0-2.76-2.24-5-5-5M9 7c0-1.65 1.35-3 3-3s3 1.35 3 3v1H9zm10 3v10H5V10z"
-          ></path>
         </svg>
 
         <svg

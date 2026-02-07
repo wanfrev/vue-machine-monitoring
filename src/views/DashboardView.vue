@@ -287,6 +287,7 @@ onUnmounted(() => {
     />
 
     <DashboardSearchFilters
+      v-if="!isOperator"
       :search-query="searchQuery"
       :selected-filter="selectedFilter"
       :visible-state-filters="visibleStateFilters"
@@ -299,7 +300,7 @@ onUnmounted(() => {
     />
 
     <DashboardNotifications
-      v-if="selectedFilter === 'notificaciones'"
+      v-if="!isOperator && selectedFilter === 'notificaciones'"
       :dark="isDark()"
       :is-today-only="isTodayOnly"
       :notification-from="notificationFrom"

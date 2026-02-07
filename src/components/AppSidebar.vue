@@ -72,10 +72,15 @@ function onProfileUpdated(payload: { name: string; username: string }) {
     payload.name || payload.username || currentUserName.value;
 }
 
+const isSupervisor = computed(() =>
+  String(userJobRole || "").toLowerCase().includes("supervisor")
+);
+const canSeeMachines = computed(() => userRole === "admin" || isSupervisor.value);
+
 const roleLabel = computed(() => {
   if (userRole === "admin") return "Administrador";
+  if (isSupervisor.value) return "Supervisor";
   const jr = String(userJobRole || "").toLowerCase();
-  if (jr.includes("supervisor")) return "Supervisor";
   if (jr.includes("operador")) return "Operador";
   if (userRole === "employee") return "Empleado";
   return "Usuario";
@@ -259,6 +264,7 @@ function isActiveRoute(name: string) {
 
         <!-- Machines link -->
         <button
+          v-if="canSeeMachines"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
             isActiveRoute('machines')
@@ -327,91 +333,6 @@ function isActiveRoute(name: string) {
                 />
               </svg>
               <span>Máquinas</span>
-            </span>
-          </div>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M9 18l6-6-6-6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-
-        <!-- Daily sales link (empleados no-supervisores) -->
-        <button
-          v-if="userRole !== 'admin' && !String(userJobRole || '').toLowerCase().includes('supervisor')"
-          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
-          :class="
-            isActiveRoute('daily-sales')
-              ? isDark
-                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
-              : isDark
-              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
-          "
-          @click="
-            $emit('close');
-            router.push({ name: 'daily-sales' });
-          "
-        >
-          <div class="flex items-center gap-3">
-            <span
-              v-if="isActiveRoute('daily-sales')"
-              class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
-            ></span>
-            <span class="inline-flex items-center gap-2">
-              <!-- Reutilizamos icono tipo chart -->
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M4 19V5"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M4 19h16"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M7.5 16V12"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M12 16V9"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M16.5 16V11"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-              </svg>
-              <span>Ventas diarias</span>
             </span>
           </div>
           <svg
