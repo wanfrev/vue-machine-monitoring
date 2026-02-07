@@ -5,6 +5,7 @@ import {
   getMachines,
   getMachineDailyIncome,
   getMachineHistory,
+  getDailySales,
   getUsers,
 } from "../api/client";
 import BarChart from "../components/BarChart.vue";
@@ -194,9 +195,6 @@ const valuePerCoin = computed(() => {
   return getCoinValueForMachine(m?.name || "", m?.type);
 });
 
-const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
-const isOn = computed(() => machine.value?.status === "active");
-
 const statusDotClass = computed(() => {
   const status = String(machine.value?.status || "inactive");
   if (status === "active") return "bg-emerald-500";
@@ -244,6 +242,62 @@ const createdAtLabel = computed(() =>
 const updatedAtLabel = computed(() =>
   getMachineDate(machine.value, ["updated_at", "updatedAt", "updated"])
 );
+
+type DailySaleRow = {
+  id?: number;
+  machineId: string;
+  date: string;
+  coins: number;
+  prizeBs?: number | null;
+  recordMessage?: string | null;
+  employeeUsername?: string;
+  employeeName?: string;
+  updatedAt?: string;
+};
+
+const loadingSavedSale = ref(false);
+const savedSale = ref<DailySaleRow | null>(null);
+
+function pickMySale(rows: DailySaleRow[]): DailySaleRow | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const username = localStorage.getItem("username") || "";
+  if (username) {
+    const mine = rows.find(
+      (r) => String(r?.employeeUsername || "") === username
+    );
+    if (mine) return mine as DailySaleRow;
+  }
+
+  if (rows.length === 1) return rows[0] as DailySaleRow;
+  return null;
+}
+
+async function loadSavedSaleForToday() {
+  if (!isOperator.value) {
+    savedSale.value = null;
+    return;
+  }
+  if (!machine.value?.id) {
+    savedSale.value = null;
+    return;
+  }
+
+  const todayLocalStr = formatDate(new Date());
+  loadingSavedSale.value = true;
+  try {
+    const rows = (await getDailySales({
+      startDate: todayLocalStr,
+      endDate: todayLocalStr,
+      machineId: String(machine.value.id),
+    })) as DailySaleRow[];
+    savedSale.value = pickMySale(rows);
+  } catch {
+    savedSale.value = null;
+  } finally {
+    loadingSavedSale.value = false;
+  }
+}
 
 function getDateRangeArray(start: string, end: string) {
   const arr: string[] = [];
@@ -426,6 +480,10 @@ async function fetchAllData() {
     }
 
     machine.value = current;
+
+    // Registro guardado (venta diaria) para hoy
+    await loadSavedSaleForToday();
+
     // Monedas de HOY usando getMachineDailyIncome con rango de un solo día (fecha local)
     const today = new Date();
     const todayLocalStr = formatDate(today);
@@ -772,91 +830,145 @@ function fmtAmount(n: number) {
 </script>
 
 <template>
-  <!-- Resumen content: general info + metrics grid + chart -->
+  <!-- Resumen content: general info for admin/supervisor, registro guardado for operator -->
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-    <div
-      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-      :class="
-        isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-        Datos generales
-      </p>
-      <div class="mt-3 flex items-center gap-2">
-        <span class="h-2.5 w-2.5 rounded-full" :class="statusDotClass"></span>
-        <p class="text-lg font-semibold">
-          {{ machine?.name || "Máquina" }}
+    <template v-if="!isOperator">
+      <div
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
+      >
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Datos generales
+        </p>
+        <div class="mt-3 flex items-center gap-2">
+          <span class="h-2.5 w-2.5 rounded-full" :class="statusDotClass"></span>
+          <p class="text-lg font-semibold">
+            {{ machine?.name || "Máquina" }}
+          </p>
+        </div>
+        <p
+          class="mt-2 text-sm"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          Tipo: {{ machine?.type || "Sin datos" }}
+        </p>
+        <p
+          class="mt-1 text-sm"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          Ubicación: {{ machine?.location || "Sin ubicación" }}
         </p>
       </div>
-      <p
-        class="mt-2 text-sm"
-        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-      >
-        Tipo: {{ machine?.type || "Sin datos" }}
-      </p>
-      <p
-        class="mt-1 text-sm"
-        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-      >
-        Ubicación: {{ machine?.location || "Sin ubicación" }}
-      </p>
-    </div>
 
-    <div
-      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-      :class="
-        isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-        Personal
-      </p>
-      <div class="mt-3 grid gap-2">
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-slate-400">Supervisor</span>
-          <span class="text-sm font-semibold">{{ supervisorLabel }}</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-slate-400">Operador</span>
-          <span class="text-sm font-semibold">{{ operatorLabel }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div
-      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-      :class="
-        isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-        Fechas
-      </p>
       <div
-        class="mt-3 flex flex-wrap items-center gap-2 text-sm"
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
+      >
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Personal
+        </p>
+        <div class="mt-3 grid gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-400">Supervisor</span>
+            <span class="text-sm font-semibold">{{ supervisorLabel }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-slate-400">Operador</span>
+            <span class="text-sm font-semibold">{{ operatorLabel }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+            : 'bg-white/60 border-slate-200/70 text-slate-900'
+        "
+      >
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Fechas
+        </p>
+        <div
+          class="mt-3 flex flex-wrap items-center gap-2 text-sm"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          <span>
+            Creado:
+            <span class="font-semibold">
+              {{ createdAtLabel || "Sin datos" }}
+            </span>
+          </span>
+          <span class="text-slate-400">•</span>
+          <span>
+            Última act.:
+            <span class="font-semibold">
+              {{ updatedAtLabel || "Sin datos" }}
+            </span>
+          </span>
+        </div>
+      </div>
+    </template>
+
+    <div
+      v-else
+      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
+        Registro guardado
+      </p>
+
+      <p
+        v-if="loadingSavedSale"
+        class="mt-3 text-sm"
         :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
       >
-        <span>
-          Creado:
-          <span class="font-semibold">
-            {{ createdAtLabel || "Sin datos" }}
-          </span>
-        </span>
-        <span class="text-slate-400">•</span>
-        <span>
-          Última act.:
-          <span class="font-semibold">
-            {{ updatedAtLabel || "Sin datos" }}
-          </span>
-        </span>
+        Cargando…
+      </p>
+
+      <div v-else-if="savedSale" class="mt-3 grid gap-2 text-sm">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-slate-400">Monedas</span>
+          <span class="font-semibold">{{ savedSale.coins }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-slate-400">Record</span>
+          <span class="font-semibold">{{ savedSale.prizeBs ?? 0 }}</span>
+        </div>
+        <div class="grid gap-1">
+          <span class="text-slate-400">Nota</span>
+          <span class="break-words">{{ savedSale.recordMessage || "—" }}</span>
+        </div>
+        <p
+          v-if="savedSale.updatedAt"
+          class="text-[11px]"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          Última actualización: {{ String(savedSale.updatedAt) }}
+        </p>
       </div>
+
+      <p
+        v-else
+        class="mt-3 text-sm"
+        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+      >
+        No hay registro guardado para hoy.
+      </p>
     </div>
   </section>
 
