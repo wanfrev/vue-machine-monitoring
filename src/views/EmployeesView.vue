@@ -125,8 +125,8 @@ onMounted(async () => {
   await Promise.all([loadEmployees(), loadMachines()]);
 });
 
-async function refreshPage() {
-  await Promise.all([loadEmployees(), loadMachines()]);
+function refreshPage() {
+  window.location.reload();
 }
 
 function openCreateModal() {

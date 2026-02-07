@@ -98,8 +98,8 @@ function hideToast() {
   toast.value = null;
 }
 
-async function refreshPage() {
-  await loadDashboardData();
+function refreshPage() {
+  window.location.reload();
 }
 
 function setSelectedFilterWithNotifications(filter: DashboardFilterKey) {

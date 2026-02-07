@@ -20,20 +20,28 @@ export function getNotificationDetailLine(
   return (notification.detail || "").trim();
 }
 
-export function getNotificationCardClass(isDark: boolean): string {
-  return isDark
-    ? "border-zinc-800/70 bg-zinc-900/60"
-    : "border-slate-200/70 bg-white/80";
-}
-
-export function getNotificationDotClass(
+export function getNotificationCardClass(
   type: DashboardNotificationType,
   isDark: boolean
 ): string {
-  if (type === "machine_on") return "bg-emerald-500";
-  if (type === "machine_off") return "bg-red-500";
-  if (type === "coin_inserted") return "bg-amber-400";
-  return isDark ? "bg-zinc-500" : "bg-slate-400";
+  if (type === "machine_on") {
+    return isDark
+      ? "border-emerald-600/40 bg-emerald-900/20"
+      : "border-emerald-200 bg-emerald-50";
+  }
+  if (type === "machine_off") {
+    return isDark
+      ? "border-red-600/40 bg-red-900/20"
+      : "border-red-200 bg-red-50";
+  }
+  if (type === "coin_inserted") {
+    return isDark
+      ? "border-amber-600/40 bg-amber-900/20"
+      : "border-amber-200 bg-amber-50";
+  }
+  return isDark
+    ? "border-zinc-800/70 bg-zinc-900/60"
+    : "border-slate-200/70 bg-white/80";
 }
 
 export function getNotificationTitleTextClass(isDark: boolean): string {

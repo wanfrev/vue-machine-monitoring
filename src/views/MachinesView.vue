@@ -92,8 +92,8 @@ onMounted(async () => {
   await loadMachines();
 });
 
-async function refreshPage() {
-  await loadMachines();
+function refreshPage() {
+  window.location.reload();
 }
 
 function openCreateModal() {

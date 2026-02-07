@@ -7,7 +7,6 @@ import type { DashboardNotification } from "@/types/dashboard";
 import {
   getNotificationCardClass,
   getNotificationDetailLine,
-  getNotificationDotClass,
   getNotificationTitle,
   getNotificationTitleTextClass,
 } from "@/utils/notification";
@@ -21,15 +20,13 @@ const isDark = computed(() => !!props.dark);
 </script>
 
 <template>
-  <div class="rounded-xl border p-3" :class="getNotificationCardClass(isDark)">
+  <div
+    class="rounded-xl border p-3"
+    :class="getNotificationCardClass(notification.type, isDark)"
+  >
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <div class="flex items-center gap-2 min-w-0">
-          <span
-            class="mt-0.5 h-2.5 w-2.5 rounded-full shrink-0"
-            :class="getNotificationDotClass(notification.type, isDark)"
-            aria-hidden="true"
-          ></span>
           <p
             class="text-xs font-semibold truncate"
             :class="getNotificationTitleTextClass(isDark)"
