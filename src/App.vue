@@ -93,7 +93,13 @@ onUnmounted(() => {
     ]"
   >
     <!-- Update banner -->
-    <div v-if="showUpdateBanner" class="fixed bottom-4 left-4 z-50">
+    <div
+      v-if="showUpdateBanner"
+      :class="[
+        'fixed left-4 z-50',
+        showBottomNav ? 'bottom-24' : 'bottom-4',
+      ]"
+    >
       <div
         class="rounded-lg bg-yellow-500 text-black px-4 py-2 shadow-lg flex items-center gap-3"
       >
