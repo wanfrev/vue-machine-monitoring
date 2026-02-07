@@ -36,19 +36,9 @@ export function canAccessMachine(params: {
   if (!machineId) return false;
   if (role === "admin") return true;
 
-  // In this app, role === 'employee' is used as Supervisor.
-  // Supervisors: only assigned machines.
-  if (role === "employee") {
-    if (!assigned.length) return false;
-    if (!assigned.includes(machineId)) return false;
-    return true;
-  }
-
-  // Operators/employees (role === 'operator'): only assigned machines.
-  if (role === "operator") {
-    if (!assigned.length) return false;
-    return assigned.includes(machineId);
-  }
+  // Any non-admin user: only assigned machines.
+  if (!assigned.length) return false;
+  return assigned.includes(machineId);
 
   // Default: keep existing behavior for other roles
   return true;
@@ -66,7 +56,7 @@ export function filterMachinesForRole<
   const assigned = params.assignedMachineIds || [];
   if (!assigned.length) {
     // For restricted roles, show nothing when nothing is assigned.
-    if (role === "employee" || role === "operator") return [];
+    if (role === "employee") return [];
     return machines;
   }
 

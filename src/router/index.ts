@@ -8,6 +8,8 @@ import MachineResumenView from "../views/MachineResumenView.vue";
 import MachineHistorialView from "../views/MachineHistorialView.vue";
 import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
 import ProfileView from "../views/ProfileView.vue";
+import ReportsView from "../views/ReportsView.vue";
+import DailySalesView from "../views/DailySalesView.vue";
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -25,6 +27,18 @@ const routes: Array<RouteRecordRaw> = [
     path: "/machines",
     name: "machines",
     component: MachinesView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/reports",
+    name: "reports",
+    component: ReportsView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/daily-sales",
+    name: "daily-sales",
+    component: DailySalesView,
     meta: { requiresAuth: true },
   },
   {

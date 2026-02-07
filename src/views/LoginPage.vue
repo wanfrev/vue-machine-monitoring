@@ -31,6 +31,12 @@ async function login() {
         localStorage.setItem("userName", res.user.name || res.user.username);
       }
 
+      if (res.user.jobRole) {
+        localStorage.setItem("jobRole", String(res.user.jobRole));
+      } else {
+        localStorage.removeItem("jobRole");
+      }
+
       // Máquinas asignadas
       const assignedIds =
         res.user.assignedMachineIds ?? res.user.assigned_machine_ids;

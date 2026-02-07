@@ -1,0 +1,996 @@
+<script setup lang="ts">
+import AppSidebar from "@/components/AppSidebar.vue";
+import { computed, onMounted, ref } from "vue";
+import { useTheme } from "@/composables/useTheme";
+import { getWeeklyReports, upsertWeeklyReport } from "@/api/client";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+
+type WeeklyReportRow = {
+  id?: number;
+  employeeId?: number;
+  employeeUsername?: string;
+  employeeName?: string;
+  weekEndDate: string;
+  boxeoCoins: number;
+  boxeoLost: number;
+  boxeoReturned: number;
+  agilidadCoins: number;
+  agilidadLost: number;
+  agilidadReturned: number;
+  remainingCoins: number;
+  pagoMovil: number;
+  dolares: number;
+  bolivares: number;
+  premio: number;
+  total: number;
+  updatedAt?: string;
+};
+
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
+
+const sidebarOpen = ref(false);
+const saving = ref(false);
+
+const { isAdmin, isSupervisor } = useCurrentUser();
+const canViewReportsList = computed(() => isAdmin.value || isSupervisor.value);
+
+const loadingList = ref(false);
+const listError = ref<string>("");
+const reports = ref<WeeklyReportRow[]>([]);
+const query = ref<string>("");
+const selectedReport = ref<WeeklyReportRow | null>(null);
+
+const todayYmd = () => new Date().toISOString().slice(0, 10);
+
+const weekEndDate = ref<string>(todayYmd());
+
+// Boxeo
+const boxeoCoins = ref<number | null>(null);
+const boxeoLost = ref<number | null>(null);
+const boxeoReturned = ref<number | null>(null);
+
+// Agilidad
+const agilidadCoins = ref<number | null>(null);
+const agilidadLost = ref<number | null>(null);
+const agilidadReturned = ref<number | null>(null);
+
+// Totales / pagos
+const remainingCoins = ref<number | null>(null);
+const pagoMovil = ref<number | null>(null);
+const dolares = ref<number | null>(null);
+const bolivares = ref<number | null>(null);
+const premio = ref<number | null>(null);
+const total = ref<number | null>(null);
+
+function apiErrorMessage(e: unknown): string {
+  const msg = (e as { response?: { data?: { message?: string } } })?.response
+    ?.data?.message;
+  return msg || "Ocurrió un error";
+}
+
+function toNum(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(v: unknown): UnknownRecord | null {
+  if (typeof v !== "object" || v === null) return null;
+  return v as UnknownRecord;
+}
+
+function pick(rec: UnknownRecord, keys: string[]): unknown {
+  for (const k of keys) {
+    if (k in rec) return rec[k];
+  }
+  return undefined;
+}
+
+function normalizeReport(row: unknown): WeeklyReportRow {
+  const rec = asRecord(row) ?? {};
+
+  const weekEndDate = String(pick(rec, ["weekEndDate", "week_end_date"]) ?? "");
+  const employeeUsername = pick(rec, ["employeeUsername", "employee_username"]);
+  const employeeName = pick(rec, ["employeeName", "employee_name"]);
+  const employeeIdValue = pick(rec, ["employeeId", "employee_id"]);
+  const updatedAt = pick(rec, ["updatedAt", "updated_at"]);
+
+  return {
+    id: typeof rec.id === "number" ? rec.id : undefined,
+    employeeId:
+      typeof employeeIdValue === "number" ? employeeIdValue : undefined,
+    employeeUsername:
+      typeof employeeUsername === "string" ? employeeUsername : undefined,
+    employeeName: typeof employeeName === "string" ? employeeName : undefined,
+    weekEndDate,
+    boxeoCoins: toNum(pick(rec, ["boxeoCoins", "boxeo_coins"])),
+    boxeoLost: toNum(pick(rec, ["boxeoLost", "boxeo_lost"])),
+    boxeoReturned: toNum(pick(rec, ["boxeoReturned", "boxeo_returned"])),
+    agilidadCoins: toNum(pick(rec, ["agilidadCoins", "agilidad_coins"])),
+    agilidadLost: toNum(pick(rec, ["agilidadLost", "agilidad_lost"])),
+    agilidadReturned: toNum(
+      pick(rec, ["agilidadReturned", "agilidad_returned"])
+    ),
+    remainingCoins: toNum(pick(rec, ["remainingCoins", "remaining_coins"])),
+    pagoMovil: toNum(pick(rec, ["pagoMovil", "pago_movil"])),
+    dolares: toNum(pick(rec, ["dolares"])),
+    bolivares: toNum(pick(rec, ["bolivares"])),
+    premio: toNum(pick(rec, ["premio"])),
+    total: toNum(pick(rec, ["total"])),
+    updatedAt: typeof updatedAt === "string" ? updatedAt : undefined,
+  };
+}
+
+async function loadWeeklyReportsList() {
+  if (!canViewReportsList.value) return;
+  loadingList.value = true;
+  listError.value = "";
+  try {
+    const rows: unknown = await getWeeklyReports();
+    reports.value = (Array.isArray(rows) ? rows : []).map((r) =>
+      normalizeReport(r)
+    );
+  } catch (e) {
+    listError.value = apiErrorMessage(e);
+    reports.value = [];
+  } finally {
+    loadingList.value = false;
+  }
+}
+
+function weekdayEs(dateYmd: string): string {
+  const [y, m, d] = dateYmd.split("-").map((x) => Number(x));
+  if (!y || !m || !d) return "";
+
+  // Use UTC noon to avoid timezone date shifts.
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const day = dt.getUTCDay();
+  const names = [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ];
+  return names[day] || "";
+}
+
+function ddmmyyyy(dateYmd: string): string {
+  const [y, m, d] = dateYmd.split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}/${y}`;
+}
+
+const headerDateLabel = computed(() => {
+  const w = weekdayEs(weekEndDate.value);
+  const f = ddmmyyyy(weekEndDate.value);
+  return [w, f].filter(Boolean).join(" ");
+});
+
+const filteredReports = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return reports.value;
+  return reports.value.filter((r) => {
+    const name = String(r.employeeName || "").toLowerCase();
+    const username = String(r.employeeUsername || "").toLowerCase();
+    const dateLabel = `${weekdayEs(r.weekEndDate)} ${ddmmyyyy(
+      r.weekEndDate
+    )}`.toLowerCase();
+    return (
+      name.includes(q) ||
+      username.includes(q) ||
+      String(r.weekEndDate || "")
+        .toLowerCase()
+        .includes(q) ||
+      dateLabel.includes(q)
+    );
+  });
+});
+
+function toNonNegInt(value: number | null): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.trunc(n);
+}
+
+function toNonNegMoney(value: number | null): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return n;
+}
+
+async function saveWeekly() {
+  if (!weekEndDate.value) {
+    window.alert("Selecciona la fecha de cierre");
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await upsertWeeklyReport({
+      weekEndDate: weekEndDate.value,
+      boxeoCoins: toNonNegInt(boxeoCoins.value),
+      boxeoLost: toNonNegInt(boxeoLost.value),
+      boxeoReturned: toNonNegInt(boxeoReturned.value),
+      agilidadCoins: toNonNegInt(agilidadCoins.value),
+      agilidadLost: toNonNegInt(agilidadLost.value),
+      agilidadReturned: toNonNegInt(agilidadReturned.value),
+      remainingCoins: toNonNegInt(remainingCoins.value),
+      pagoMovil: toNonNegMoney(pagoMovil.value),
+      dolares: toNonNegMoney(dolares.value),
+      bolivares: toNonNegMoney(bolivares.value),
+      premio: toNonNegMoney(premio.value),
+      total: toNonNegMoney(total.value),
+    });
+
+    window.alert("Reporte semanal guardado");
+  } catch (e: unknown) {
+    window.alert(apiErrorMessage(e));
+  } finally {
+    saving.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadWeeklyReportsList();
+});
+</script>
+
+<template>
+  <AppSidebar
+    :open="sidebarOpen"
+    :dark="isDark()"
+    @close="sidebarOpen = false"
+  />
+
+  <div
+    :class="[
+      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
+      isDark() ? 'bg-zinc-950' : 'bg-slate-100',
+    ]"
+  >
+    <header
+      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 hover:bg-transparent hover:text-white'
+                : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
+            "
+            aria-label="Abrir menú lateral"
+            @click="sidebarOpen = true"
+          >
+            <img
+              src="/img/icons/K11BOX.webp"
+              alt="MachineHub logo"
+              class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+            />
+          </button>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <h1 class="text-xl font-semibold sm:text-2xl">Reportes</h1>
+              <span
+                class="text-xs font-medium tracking-wide"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
+                Cierre semanal
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section
+      class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <!-- Admin/Supervisor: lista de reportes -->
+      <div v-if="canViewReportsList">
+        <div
+          class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+        >
+          <div class="space-y-1">
+            <h2 class="text-lg font-semibold">Reportes semanales</h2>
+            <p
+              class="text-sm"
+              :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+            >
+              Busca por nombre o usuario del empleado.
+            </p>
+          </div>
+
+          <label class="grid gap-1 w-full sm:w-80">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Buscar</span
+            >
+            <input
+              v-model="query"
+              type="text"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+              placeholder="Ej: maria / @maria"
+            />
+          </label>
+        </div>
+
+        <p
+          v-if="loadingList"
+          class="mt-4 text-sm"
+          :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+        >
+          Cargando…
+        </p>
+
+        <p
+          v-else-if="listError"
+          class="mt-4 text-sm"
+          :class="isDark() ? 'text-red-300' : 'text-red-600'"
+        >
+          {{ listError }}
+        </p>
+
+        <div v-else class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <button
+            v-for="r in filteredReports"
+            :key="
+              String(r.id ?? r.weekEndDate) + '-' + String(r.employeeId ?? '')
+            "
+            type="button"
+            class="rounded-2xl border p-4 text-left transition cursor-pointer"
+            :class="
+              isDark()
+                ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
+                : 'border-slate-200 bg-white/50 hover:bg-white/70'
+            "
+            @click="selectedReport = r"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold truncate">
+                  {{ r.employeeName || r.employeeUsername || "Empleado" }}
+                </p>
+                <p
+                  class="mt-0.5 text-xs"
+                  :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >
+                  {{ weekdayEs(r.weekEndDate) }} {{ ddmmyyyy(r.weekEndDate) }}
+                </p>
+              </div>
+              <span
+                class="text-xs font-semibold"
+                :class="isDark() ? 'text-zinc-200' : 'text-slate-700'"
+              >
+                Total: {{ toNum(r.total).toFixed(2) }}
+              </span>
+            </div>
+
+            <div class="mt-3 grid gap-1 text-sm">
+              <div class="flex items-center justify-between gap-3">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Boxeo</span
+                >
+                <span class="font-medium"
+                  >M {{ toNum(r.boxeoCoins) }} · P {{ toNum(r.boxeoLost) }} · D
+                  {{ toNum(r.boxeoReturned) }}</span
+                >
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Agilidad</span
+                >
+                <span class="font-medium"
+                  >M {{ toNum(r.agilidadCoins) }} · P
+                  {{ toNum(r.agilidadLost) }} · D
+                  {{ toNum(r.agilidadReturned) }}</span
+                >
+              </div>
+            </div>
+          </button>
+
+          <p
+            v-if="filteredReports.length === 0"
+            class="text-sm"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            No hay reportes.
+          </p>
+        </div>
+
+        <!-- Modal detalle -->
+        <div v-if="selectedReport" class="fixed inset-0 z-50">
+          <div
+            class="absolute inset-0 bg-black/50"
+            @click="selectedReport = null"
+            aria-hidden="true"
+          ></div>
+          <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div
+              class="w-full max-w-2xl rounded-2xl border p-4 shadow-xl"
+              :class="
+                isDark()
+                  ? 'border-zinc-800/70 bg-zinc-950 text-zinc-100'
+                  : 'border-slate-200 bg-white text-slate-900'
+              "
+              role="dialog"
+              aria-modal="true"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-base font-semibold truncate">
+                    {{
+                      selectedReport.employeeName ||
+                      selectedReport.employeeUsername ||
+                      "Empleado"
+                    }}
+                  </p>
+                  <p
+                    class="mt-0.5 text-sm"
+                    :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+                  >
+                    {{ weekdayEs(selectedReport.weekEndDate) }}
+                    {{ ddmmyyyy(selectedReport.weekEndDate) }}
+                  </p>
+                  <div class="mt-2">
+                    <p
+                      class="text-xs font-medium"
+                      :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+                    >
+                      Leyenda
+                    </p>
+                    <ul
+                      class="mt-1 text-xs list-disc pl-4 space-y-0.5"
+                      :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >
+                      <li>Monedas: válidas</li>
+                      <li>Perdidas: por error de máquina o viento</li>
+                      <li>Devueltas: monedero devolvió</li>
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
+                  :class="
+                    isDark()
+                      ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
+                      : 'border-slate-200/70 bg-white/50 hover:bg-white/70'
+                  "
+                  aria-label="Cerrar"
+                  @click="selectedReport = null"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div
+                  class="rounded-2xl border p-4"
+                  :class="
+                    isDark()
+                      ? 'border-zinc-800/70 bg-zinc-950/20'
+                      : 'border-slate-200 bg-white/50'
+                  "
+                >
+                  <h3 class="text-sm font-semibold">Boxeo</h3>
+                  <div class="mt-2 grid gap-1 text-sm">
+                    <div class="flex items-center justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Monedas</span
+                      >
+                      <span class="font-semibold">{{
+                        toNum(selectedReport.boxeoCoins)
+                      }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Perdidas</span
+                      >
+                      <span class="font-semibold">{{
+                        toNum(selectedReport.boxeoLost)
+                      }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Devueltas</span
+                      >
+                      <span class="font-semibold">{{
+                        toNum(selectedReport.boxeoReturned)
+                      }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="rounded-2xl border p-4"
+                  :class="
+                    isDark()
+                      ? 'border-zinc-800/70 bg-zinc-950/20'
+                      : 'border-slate-200 bg-white/50'
+                  "
+                >
+                  <h3 class="text-sm font-semibold">Agilidad</h3>
+                  <div class="mt-2 grid gap-1 text-sm">
+                    <div class="flex items-center justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Monedas</span
+                      >
+                      <span class="font-semibold">{{
+                        toNum(selectedReport.agilidadCoins)
+                      }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Perdidas</span
+                      >
+                      <span class="font-semibold">{{
+                        toNum(selectedReport.agilidadLost)
+                      }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Devueltas</span
+                      >
+                      <span class="font-semibold">{{
+                        toNum(selectedReport.agilidadReturned)
+                      }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-4 rounded-2xl border p-4"
+                :class="
+                  isDark()
+                    ? 'border-zinc-800/70 bg-zinc-950/20'
+                    : 'border-slate-200 bg-white/50'
+                "
+              >
+                <h3 class="text-sm font-semibold">Totales</h3>
+                <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                  <div class="flex items-center justify-between gap-3">
+                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                      >Monedas restantes</span
+                    >
+                    <span class="font-semibold">{{
+                      toNum(selectedReport.remainingCoins)
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                      >Pago móvil</span
+                    >
+                    <span class="font-semibold">{{
+                      toNum(selectedReport.pagoMovil).toFixed(2)
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                      >Dólares</span
+                    >
+                    <span class="font-semibold">{{
+                      toNum(selectedReport.dolares).toFixed(2)
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                      >Bolívares</span
+                    >
+                    <span class="font-semibold">{{
+                      toNum(selectedReport.bolivares).toFixed(2)
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                      >Premio</span
+                    >
+                    <span class="font-semibold">{{
+                      toNum(selectedReport.premio).toFixed(2)
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                      >Total</span
+                    >
+                    <span class="font-semibold">{{
+                      toNum(selectedReport.total).toFixed(2)
+                    }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empleado: formulario de cierre semanal -->
+      <div
+        v-else
+        class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+      >
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold">
+            {{ headerDateLabel || "Cierre semanal" }}
+          </h2>
+          <div>
+            <p
+              class="text-sm font-medium"
+              :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+            >
+              Leyenda
+            </p>
+            <ul
+              class="mt-1 text-sm list-disc pl-4 space-y-0.5"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              <li>Monedas: válidas</li>
+              <li>Perdidas: por error de máquina o viento</li>
+              <li>Devueltas: monedero devolvió</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="text-right">
+            <div
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Fecha de cierre
+            </div>
+            <div
+              class="text-sm font-medium"
+              :class="isDark() ? 'text-zinc-100' : 'text-slate-800'"
+            >
+              {{ headerDateLabel || "—" }}
+            </div>
+          </div>
+
+          <input
+            v-model="weekEndDate"
+            type="date"
+            class="h-10 rounded-xl border px-3 text-sm outline-none"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                : 'bg-white border-slate-200 text-slate-900'
+            "
+          />
+        </div>
+      </div>
+
+      <div v-if="!canViewReportsList" class="mt-6 grid gap-4 sm:grid-cols-2">
+        <div
+          class="rounded-2xl border p-4"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-950/20'
+              : 'border-slate-200 bg-white/50'
+          "
+        >
+          <h3 class="text-base font-semibold">Boxeo</h3>
+          <div class="mt-3 grid grid-cols-1 gap-3">
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Monedas:</span
+              >
+              <input
+                v-model.number="boxeoCoins"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Perdidas:</span
+              >
+              <input
+                v-model.number="boxeoLost"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Devueltas:</span
+              >
+              <input
+                v-model.number="boxeoReturned"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+          </div>
+        </div>
+
+        <div
+          class="rounded-2xl border p-4"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-950/20'
+              : 'border-slate-200 bg-white/50'
+          "
+        >
+          <h3 class="text-base font-semibold">Agilidad</h3>
+          <div class="mt-3 grid grid-cols-1 gap-3">
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Monedas:</span
+              >
+              <input
+                v-model.number="agilidadCoins"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Perdidas:</span
+              >
+              <input
+                v-model.number="agilidadLost"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Devueltas:</span
+              >
+              <input
+                v-model.number="agilidadReturned"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="!canViewReportsList"
+        class="mt-4 rounded-2xl border p-4"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-950/20'
+            : 'border-slate-200 bg-white/50'
+        "
+      >
+        <h3 class="text-base font-semibold">Totales</h3>
+
+        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Monedas: restantes:</span
+            >
+            <input
+              v-model.number="remainingCoins"
+              type="number"
+              min="0"
+              step="1"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Pago movil:</span
+            >
+            <input
+              v-model.number="pagoMovil"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Dolares:</span
+            >
+            <input
+              v-model.number="dolares"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Bolívares:</span
+            >
+            <input
+              v-model.number="bolivares"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Premio:</span
+            >
+            <input
+              v-model.number="premio"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >total:</span
+            >
+            <input
+              v-model.number="total"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+        </div>
+
+        <div class="mt-5 flex justify-end">
+          <button
+            type="button"
+            class="inline-flex h-11 items-center justify-center rounded-xl border px-5 text-sm font-medium transition cursor-pointer"
+            :disabled="saving"
+            :class="
+              saving
+                ? isDark()
+                  ? 'border-zinc-700/60 bg-zinc-950/30 text-zinc-400'
+                  : 'border-slate-200 bg-slate-50 text-slate-400'
+                : isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-white hover:bg-zinc-950/30'
+                : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
+            "
+            @click="saveWeekly"
+          >
+            {{ saving ? "Guardando…" : "Guardar reporte semanal" }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="h-10" />
+  </div>
+</template>

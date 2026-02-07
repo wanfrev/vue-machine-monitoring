@@ -211,7 +211,7 @@ const supervisorLabel = computed(() => {
     const ids = (e.assignedMachineIds ?? []).map(String);
     if (!ids.includes(machineId)) return false;
     const role = (e.jobRole || "").toLowerCase();
-    return e.role === "employee" || role === "supervisor";
+    return role.includes("supervisor");
   });
   if (!list.length) return "Sin asignar";
   const name = list[0].name || list[0].username || "";
@@ -226,7 +226,10 @@ const operatorLabel = computed(() => {
     const ids = (e.assignedMachineIds ?? []).map(String);
     if (!ids.includes(machineId)) return false;
     const role = (e.jobRole || "").toLowerCase();
-    return e.role === "operator" || role === "operador";
+    return (
+      role.includes("operador") ||
+      (!role.includes("supervisor") && e.role === "employee")
+    );
   });
   if (!list.length) return "Sin asignar";
   const name = list[0].name || list[0].username || "";

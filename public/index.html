@@ -14,6 +14,24 @@
     <link rel="apple-touch-icon" href="<%= BASE_URL %>img/icons/icon-no-padding-512.png">
     <link rel="manifest" href="<%= BASE_URL %>manifest.json">
     <meta name="theme-color" content="#ffffff">
+    <script>
+      // Prevent errors from third-party injected scripts that assume
+      // `window.ethereum` exists (some mobile wallet browsers inject
+      // code that accesses `window.ethereum.selectedAddress` directly).
+      // Provide a harmless stub to avoid TypeErrors while not enabling
+      // any wallet functionality.
+      try {
+        if (typeof window !== 'undefined' && typeof window.ethereum === 'undefined') {
+          Object.defineProperty(window, 'ethereum', {
+            value: {},
+            writable: true,
+            configurable: true,
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    </script>
     <title>MachineHub</title>
   </head>
   <body>

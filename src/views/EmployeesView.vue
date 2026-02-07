@@ -31,17 +31,31 @@ const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const employeeToEdit = ref<Employee | null>(null);
 
+function getApiErrorMessage(e: unknown): string {
+  const respMsg = (e as { response?: { data?: { message?: string } } })
+    ?.response?.data?.message;
+  return respMsg || "No se pudo guardar. Intenta de nuevo.";
+}
+
+function isSupervisorJobRole(jobRole?: string): boolean {
+  const jr = String(jobRole || "").toLowerCase();
+  return jr.includes("supervisor");
+}
+
 const totalPeople = computed(
-  () =>
-    employees.value.filter(
-      (e) => e.role === "employee" || e.role === "operator"
-    ).length
+  () => employees.value.filter((e) => e.role === "employee").length
 );
 const totalOperators = computed(
-  () => employees.value.filter((e) => e.role === "operator").length
+  () =>
+    employees.value.filter(
+      (e) => e.role === "employee" && !isSupervisorJobRole(e.jobRole)
+    ).length
 );
 const totalEmployees = computed(
-  () => employees.value.filter((e) => e.role === "employee").length
+  () =>
+    employees.value.filter(
+      (e) => e.role === "employee" && isSupervisorJobRole(e.jobRole)
+    ).length
 );
 
 type PeopleFilter = "todos" | "supervisores" | "operadores";
@@ -56,14 +70,12 @@ type ApiMachine = {
 
 const displayedEmployees = computed(() => {
   // Solo mostramos supervisores y operadores (no admins)
-  let list = employees.value.filter(
-    (e) => e.role === "employee" || e.role === "operator"
-  );
+  let list = employees.value.filter((e) => e.role === "employee");
 
   if (peopleFilter.value === "supervisores") {
-    list = list.filter((e) => e.role === "employee");
+    list = list.filter((e) => isSupervisorJobRole(e.jobRole));
   } else if (peopleFilter.value === "operadores") {
-    list = list.filter((e) => e.role === "operator");
+    list = list.filter((e) => !isSupervisorJobRole(e.jobRole));
   }
 
   list = filterBySearch(list, (e) =>
@@ -138,10 +150,13 @@ async function handleCreateEmployee(payload: {
   shift?: string;
   assignedMachineIds?: string[];
 }) {
-  const roleValue = payload.jobRole === "Operador" ? "operator" : "employee";
-  await createUser({ ...payload, role: roleValue });
-  showModal.value = false;
-  await loadEmployees();
+  try {
+    await createUser({ ...payload, role: "employee" });
+    showModal.value = false;
+    await loadEmployees();
+  } catch (e: unknown) {
+    window.alert(getApiErrorMessage(e));
+  }
 }
 
 import { updateUser } from "../api/client";
@@ -156,11 +171,13 @@ async function handleUpdateEmployee(payload: {
   shift?: string;
   assignedMachineIds?: string[];
 }) {
-  // Determinar el valor del campo 'role' según el jobRole seleccionado
-  const roleValue = payload.jobRole === "Operador" ? "operator" : "employee";
-  await updateUser(payload.id, { ...payload, role: roleValue });
-  showModal.value = false;
-  await loadEmployees();
+  try {
+    await updateUser(payload.id, { ...payload, role: "employee" });
+    showModal.value = false;
+    await loadEmployees();
+  } catch (e: unknown) {
+    window.alert(getApiErrorMessage(e));
+  }
 }
 
 function getEmployeeMachineLabels(e: Employee): string[] {
@@ -199,8 +216,7 @@ function getEmployeeAssignmentSummary(e: Employee): string | null {
 function getRoleLabel(e: Employee): string {
   if (e.jobRole) return e.jobRole;
   if (e.role === "admin") return "Admin";
-  if (e.role === "operator") return "Operador";
-  return "Supervisor";
+  return isSupervisorJobRole(e.jobRole) ? "Supervisor" : "Operador";
 }
 
 function getEmployeeInitials(e: Employee): string {
@@ -216,8 +232,12 @@ function getEmployeeInitials(e: Employee): string {
 async function handleDeleteEmployee(id: number) {
   const ok = window.confirm("¿Seguro que deseas eliminar este registro?");
   if (!ok) return;
-  await deleteUser(id);
-  await loadEmployees();
+  try {
+    await deleteUser(id);
+    await loadEmployees();
+  } catch (e: unknown) {
+    window.alert(getApiErrorMessage(e));
+  }
 }
 </script>
 

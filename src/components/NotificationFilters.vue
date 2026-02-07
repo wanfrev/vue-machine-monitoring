@@ -37,7 +37,6 @@ function applyRange() {
   emit("apply-range");
 }
 </script>
-
 <template>
   <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
     <button
@@ -45,9 +44,9 @@ function applyRange() {
       class="px-3 py-1.5 rounded-full text-[11px] font-medium border transition"
       :class="
         isTodayOnly
-          ? 'bg-slate-900 text-white border-slate-900'
+          ? 'bg-black text-white border-black'
           : isDark
-          ? 'bg-slate-950/10 text-slate-200 border-slate-700/60 hover:bg-slate-950/20'
+          ? 'bg-black text-white border-zinc-800 hover:bg-zinc-900'
           : 'bg-white/40 text-slate-700 border-slate-200/70 hover:bg-white/60'
       "
       @click="applyToday"
@@ -56,41 +55,46 @@ function applyRange() {
     </button>
 
     <div
-      class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto"
+      class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto min-w-0"
     >
       <input
         type="date"
         :value="notificationFrom || ''"
-        class="px-2.5 py-1.5 rounded text-[11px] border w-full sm:w-32 placeholder-slate-400"
+        class="px-2.5 py-1.5 rounded text-[11px] border w-full sm:w-32 flex-1 min-w-0 placeholder-zinc-500"
         :class="
           isDark
-            ? 'bg-slate-900 text-slate-200 border-slate-700/60 placeholder-slate-400'
+            ? 'bg-black text-zinc-100 border-zinc-800 placeholder-zinc-500'
             : 'bg-white/90 text-slate-700 border-slate-200/70 placeholder-slate-400'
         "
         @input="updateFrom(($event.target as HTMLInputElement).value)"
       />
-      <div class="flex items-center justify-center text-xs text-slate-400 py-1">
+
+      <div
+        class="flex items-center justify-center text-xs text-slate-400 py-1 w-full sm:w-auto text-center"
+      >
         a
       </div>
+
       <input
         type="date"
         :value="notificationTo || ''"
-        class="px-2.5 py-1.5 rounded text-[11px] border w-full sm:w-32 placeholder-slate-400"
+        class="px-2.5 py-1.5 rounded text-[11px] border w-full sm:w-32 flex-1 min-w-0 placeholder-zinc-500"
         :class="
           isDark
-            ? 'bg-slate-900 text-slate-200 border-slate-700/60 placeholder-slate-400'
+            ? 'bg-black text-zinc-100 border-zinc-800 placeholder-zinc-500'
             : 'bg-white/90 text-slate-700 border-slate-200/70 placeholder-slate-400'
         "
         @input="updateTo(($event.target as HTMLInputElement).value)"
       />
+
       <button
         type="button"
         class="px-3 py-1.5 rounded-full text-[11px] font-medium border transition w-full sm:w-auto"
         :class="
           isDark
             ? isTodayOnly
-              ? 'bg-transparent text-slate-500 border-slate-700/60 hover:border-slate-600 hover:text-slate-300'
-              : 'bg-transparent text-slate-200 border-slate-600 hover:border-slate-500'
+              ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-600 hover:text-zinc-100'
+              : 'bg-transparent text-zinc-200 border-zinc-700/60 hover:border-zinc-600'
             : isTodayOnly
             ? 'bg-transparent text-slate-400 border-slate-200/70 hover:border-slate-300 hover:text-slate-600'
             : 'bg-transparent text-slate-700 border-slate-300 hover:border-slate-400'

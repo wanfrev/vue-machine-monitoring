@@ -16,11 +16,14 @@ const currentUserName = ref(
 );
 
 const userRole = localStorage.getItem("role") || "";
+const userJobRole = localStorage.getItem("jobRole") || "";
 
 const roleLabel = computed(() => {
   if (userRole === "admin") return "Administrador";
+  const jr = String(userJobRole || "").toLowerCase();
+  if (jr.includes("supervisor")) return "Supervisor";
+  if (jr.includes("operador")) return "Operador";
   if (userRole === "employee") return "Empleado";
-  if (userRole === "operator") return "Operador";
   return "Usuario";
 });
 

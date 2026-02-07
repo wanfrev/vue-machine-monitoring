@@ -7,7 +7,7 @@ export async function updateUser(
     password?: string;
     jobRole: string;
     shift?: string;
-    role?: "employee" | "admin" | "operator";
+    role?: "employee" | "admin";
     // Arreglo de IDs de máquinas asignadas
     assignedMachineIds?: string[];
     // Compatibilidad: un solo ID
@@ -199,7 +199,7 @@ export async function createUser(payload: {
   assignedMachineIds?: string[];
   // Compatibilidad: un solo ID
   assignedMachineId?: string;
-  role: "employee" | "admin" | "operator";
+  role: "employee" | "admin";
 }) {
   const ids =
     payload.assignedMachineIds ??
@@ -221,6 +221,93 @@ export async function createUser(payload: {
 
 export async function deleteUser(id: string | number) {
   await api.delete(`/api/users/${id}`);
+}
+
+// Sales / Reports
+export async function getDailySales(
+  params: {
+    startDate?: string;
+    endDate?: string;
+    machineId?: string;
+    employeeId?: number;
+  } = {}
+) {
+  const res = await api.get(`/api/sales/daily`, { params });
+  return res.data as any[];
+}
+
+// Weekly reports (cierre semanal)
+export async function getWeeklyReports(
+  params: {
+    startDate?: string;
+    endDate?: string;
+    employeeId?: number;
+  } = {}
+) {
+  const res = await api.get(`/api/reports/weekly`, { params });
+  return res.data as any[];
+}
+
+export async function upsertWeeklyReport(payload: {
+  weekEndDate: string; // YYYY-MM-DD
+  boxeoCoins: number;
+  boxeoLost: number;
+  boxeoReturned: number;
+  agilidadCoins: number;
+  agilidadLost: number;
+  agilidadReturned: number;
+  remainingCoins: number;
+  pagoMovil: number;
+  dolares: number;
+  bolivares: number;
+  premio: number;
+  total: number;
+  // admin-only optional
+  employeeId?: number | null;
+}) {
+  const body: any = {
+    weekEndDate: payload.weekEndDate,
+    boxeoCoins: payload.boxeoCoins,
+    boxeoLost: payload.boxeoLost,
+    boxeoReturned: payload.boxeoReturned,
+    agilidadCoins: payload.agilidadCoins,
+    agilidadLost: payload.agilidadLost,
+    agilidadReturned: payload.agilidadReturned,
+    remainingCoins: payload.remainingCoins,
+    pagoMovil: payload.pagoMovil,
+    dolares: payload.dolares,
+    bolivares: payload.bolivares,
+    premio: payload.premio,
+    total: payload.total,
+  };
+  if (typeof payload.employeeId === "number") {
+    body.employeeId = payload.employeeId;
+  }
+  const res = await api.put(`/api/reports/weekly`, body);
+  return res.data;
+}
+
+export async function upsertDailySale(payload: {
+  machineId: string;
+  date: string; // YYYY-MM-DD
+  coins: number;
+  recordMessage?: string | null;
+  prizeBs?: number | null;
+  // admin-only optional
+  employeeId?: number | null;
+}) {
+  const body: any = {
+    machineId: payload.machineId,
+    date: payload.date,
+    coins: payload.coins,
+    recordMessage: payload.recordMessage ?? null,
+    prizeBs: typeof payload.prizeBs === "number" ? payload.prizeBs : null,
+  };
+  if (typeof payload.employeeId === "number") {
+    body.employeeId = payload.employeeId;
+  }
+  const res = await api.put(`/api/sales/daily`, body);
+  return res.data;
 }
 
 // Push subscription endpoints

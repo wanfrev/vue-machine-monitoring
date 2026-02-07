@@ -75,9 +75,7 @@ const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const machineToEdit = ref<Machine | null>(null);
 
-const isAdmin = computed(
-  () => currentRole.value !== "employee" && currentRole.value !== "operator"
-);
+const isAdmin = computed(() => currentRole.value === "admin");
 
 const isEditPricesOpen = ref(false);
 
