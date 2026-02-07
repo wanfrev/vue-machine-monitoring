@@ -11,7 +11,11 @@ const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
 
 function isActive(name: string) {
-  return String(route.name || "") === name;
+  const current = String(route.name || "");
+  if (name === "machines") {
+    return current === "machines" || current === "employees";
+  }
+  return current === name;
 }
 
 const items = computed(() => {
@@ -22,15 +26,15 @@ const items = computed(() => {
     },
   ];
 
-  const canSeeMachines = currentRole.value === "admin" || isSupervisor.value;
-  if (canSeeMachines) {
-    base.push({ name: "machines", label: "Maquinas" });
+  if (currentRole.value === "admin") {
+    base.push({ name: "finance", label: "Finanzas" });
   }
 
   base.push({ name: "reports", label: "Reportes" });
 
-  if (currentRole.value === "admin") {
-    base.push({ name: "employees", label: "Personal" });
+  const canSeeManagement = currentRole.value === "admin" || isSupervisor.value;
+  if (canSeeManagement) {
+    base.push({ name: "machines", label: "Gestion" });
   }
 
   base.push({ name: "profile", label: "Perfil" });
@@ -112,7 +116,7 @@ const items = computed(() => {
         </svg>
 
         <svg
-          v-else-if="item.name === 'employees'"
+          v-else-if="item.name === 'finance'"
           xmlns="http://www.w3.org/2000/svg"
           class="h-6 w-6"
           fill="currentColor"
@@ -120,10 +124,16 @@ const items = computed(() => {
           aria-hidden="true"
         >
           <path
-            d="M19 2H5c-.55 0-1 .45-1 1v4H2v2h2v2H2v2h2v2H2v2h2v4c0 .55.45 1 1 1h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2m0 18H6V4h13z"
+            d="M12 3c-4.97 0-9 1.57-9 3.5S7.03 10 12 10s9-1.57 9-3.5S16.97 3 12 3"
           ></path>
           <path
-            d="M12.5 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5m4.5 9c0-1.66-1.34-3-3-3h-3c-1.66 0-3 1.34-3 3v1h9z"
+            d="M3 10.5C3 12.43 7.03 14 12 14s9-1.57 9-3.5V8.6c-1.9 1.44-5.52 2.4-9 2.4s-7.1-.96-9-2.4z"
+          ></path>
+          <path
+            d="M3 14.5C3 16.43 7.03 18 12 18s9-1.57 9-3.5v-1.9c-1.9 1.44-5.52 2.4-9 2.4s-7.1-.96-9-2.4z"
+          ></path>
+          <path
+            d="M3 18.5C3 20.43 7.03 22 12 22s9-1.57 9-3.5v-1.9c-1.9 1.44-5.52 2.4-9 2.4s-7.1-.96-9-2.4z"
           ></path>
         </svg>
 

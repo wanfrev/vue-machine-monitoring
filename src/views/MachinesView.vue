@@ -27,6 +27,7 @@ type Machine = { id: string; name: string; status: string; location?: string };
 const loading = ref(false);
 const machines = ref<Machine[]>([]);
 const { currentRole, assignedMachineIds } = useCurrentUser();
+const canSeeEmployees = computed(() => currentRole.value === "admin");
 
 const scopedMachines = computed(() =>
   filterMachinesForRole(machines.value, {
@@ -149,6 +150,11 @@ function openMachineDetail(machine: Machine) {
   if (machine.location) query.location = machine.location;
   router.push({ name: "machine-resumen", params: { id: machine.name }, query });
 }
+
+function goToEmployees() {
+  if (!canSeeEmployees.value) return;
+  router.push({ name: "employees" });
+}
 </script>
 
 <template>
@@ -193,24 +199,56 @@ function openMachineDetail(machine: Machine) {
       @update:sidebarOpen="(val) => (sidebarOpen = val)"
       @refresh="refreshPage"
       @create="openCreateModal"
+    />
+
+    <div
+      class="grid grid-cols-2 gap-2 rounded-2xl border backdrop-blur-xl p-2"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
     >
-      <template v-if="isAdmin" #summary>
-        <div class="flex items-center justify-end">
-          <button
-            type="button"
-            class="h-10 rounded-xl px-4 text-sm font-semibold border transition"
-            :class="
-              isDark()
-                ? 'border-zinc-700/70 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-100/10'
-                : 'border-slate-200 bg-white/70 text-slate-800 hover:bg-slate-50'
-            "
-            @click="isEditPricesOpen = true"
-          >
-            Editar precios
-          </button>
-        </div>
-      </template>
-    </MachinesHeader>
+      <button
+        type="button"
+        class="w-full px-3 py-1.5 rounded-full border text-xs font-semibold transition"
+        :class="
+          isDark()
+            ? 'bg-zinc-100/10 text-white border-zinc-400/70'
+            : 'bg-slate-900 text-white border-slate-900'
+        "
+      >
+        Maquinas
+      </button>
+      <button
+        v-if="canSeeEmployees"
+        type="button"
+        class="w-full px-3 py-1.5 rounded-full border text-xs font-semibold transition"
+        :class="
+          isDark()
+            ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
+            : 'bg-transparent text-slate-600 border-slate-200 hover:border-slate-400'
+        "
+        @click="goToEmployees"
+      >
+        Personal
+      </button>
+    </div>
+
+    <div v-if="isAdmin" class="flex items-center justify-end">
+      <button
+        type="button"
+        class="h-10 rounded-xl px-4 text-sm font-semibold border transition"
+        :class="
+          isDark()
+            ? 'border-zinc-700/70 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-100/10'
+            : 'border-slate-200 bg-white/70 text-slate-800 hover:bg-slate-50'
+        "
+        @click="isEditPricesOpen = true"
+      >
+        Editar precios
+      </button>
+    </div>
 
     <section
       class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"

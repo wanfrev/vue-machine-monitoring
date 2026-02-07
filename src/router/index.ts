@@ -10,6 +10,7 @@ import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import ReportsView from "../views/ReportsView.vue";
 import DailySalesView from "../views/DailySalesView.vue";
+import FinanceView from "../views/FinanceView.vue";
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -34,6 +35,12 @@ const routes: Array<RouteRecordRaw> = [
     name: "reports",
     component: ReportsView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: "/finanzas",
+    name: "finance",
+    component: FinanceView,
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: "/daily-sales",

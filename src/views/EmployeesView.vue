@@ -7,9 +7,11 @@ import NewEmployee from "@/components/NewEmployee.vue";
 import { getUsers, createUser, deleteUser, getMachines } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
+import { useRouter } from "vue-router";
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
+const router = useRouter();
 
 type Employee = {
   id: number;
@@ -139,6 +141,10 @@ function openEditModal(employee: Employee) {
   modalMode.value = "edit";
   employeeToEdit.value = { ...employee };
   showModal.value = true;
+}
+
+function goToMachines() {
+  router.push({ name: "machines" });
 }
 
 async function handleCreateEmployee(payload: {
@@ -279,7 +285,7 @@ async function handleDeleteEmployee(id: number) {
             class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
             :class="
               isDark()
-                ? 'border-zinc-700/60 hover:bg-transparent hover:text-white'
+                ? 'border-zinc-700/70 hover:bg-transparent hover:text-white'
                 : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
             "
             aria-label="Abrir menú lateral"
@@ -346,7 +352,7 @@ async function handleDeleteEmployee(id: number) {
             class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
             :class="
               isDark()
-                ? 'border border-zinc-700/60 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 focus-visible:ring-zinc-400/40'
+                ? 'bg-zinc-200 text-zinc-900 hover:bg-zinc-100 focus-visible:ring-zinc-300/60'
                 : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
             "
             @click="openCreateModal"
@@ -357,6 +363,39 @@ async function handleDeleteEmployee(id: number) {
         </div>
       </div>
     </header>
+
+    <div
+      class="grid grid-cols-2 gap-2 rounded-2xl border backdrop-blur-xl p-2"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <button
+        type="button"
+        class="w-full px-3 py-1.5 rounded-full border text-xs font-semibold transition"
+        :class="
+          isDark()
+            ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
+            : 'bg-transparent text-slate-600 border-slate-200 hover:border-slate-400'
+        "
+        @click="goToMachines"
+      >
+        Maquinas
+      </button>
+      <button
+        type="button"
+        class="w-full px-3 py-1.5 rounded-full border text-xs font-semibold transition"
+        :class="
+          isDark()
+            ? 'bg-zinc-100/10 text-white border-zinc-400/70'
+            : 'bg-slate-900 text-white border-slate-900'
+        "
+      >
+        Personal
+      </button>
+    </div>
 
     <section
       class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"

@@ -75,7 +75,12 @@ function onProfileUpdated(payload: { name: string; username: string }) {
 const isSupervisor = computed(() =>
   String(userJobRole || "").toLowerCase().includes("supervisor")
 );
-const canSeeMachines = computed(() => userRole === "admin" || isSupervisor.value);
+const canSeeManagement = computed(
+  () => userRole === "admin" || isSupervisor.value
+);
+const isManagementActive = computed(
+  () => isActiveRoute("machines") || isActiveRoute("employees")
+);
 
 const roleLabel = computed(() => {
   if (userRole === "admin") return "Administrador";
@@ -262,12 +267,12 @@ function isActiveRoute(name: string) {
           </svg>
         </button>
 
-        <!-- Machines link -->
+        <!-- Finanzas link -->
         <button
-          v-if="canSeeMachines"
+          v-if="userRole === 'admin'"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
-            isActiveRoute('machines')
+            isActiveRoute('finance')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
                 : 'border-sky-100 bg-sky-50/80 text-sky-800'
@@ -277,17 +282,17 @@ function isActiveRoute(name: string) {
           "
           @click="
             $emit('close');
-            router.push({ name: 'machines' });
+            router.push({ name: 'finance' });
           "
         >
           <div class="flex items-center gap-3">
             <span
-              v-if="isActiveRoute('machines')"
+              v-if="isActiveRoute('finance')"
               class="h-6 w-0.5 rounded-full"
               :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
-              <!-- Icono Máquinas: grid/cubos -->
+              <!-- Icono Finanzas: monedas -->
               <svg
                 class="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -295,44 +300,34 @@ function isActiveRoute(name: string) {
                 xmlns="http://www.w3.org/2000/svg"
                 aria-hidden="true"
               >
-                <rect
-                  x="4"
-                  y="4"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                <ellipse
+                  cx="12"
+                  cy="6"
+                  rx="7"
+                  ry="3"
                   stroke="currentColor"
                   stroke-width="1.6"
                 />
-                <rect
-                  x="14"
-                  y="4"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                <path
+                  d="M5 10c0 1.66 3.13 3 7 3s7-1.34 7-3"
                   stroke="currentColor"
                   stroke-width="1.6"
+                  stroke-linecap="round"
                 />
-                <rect
-                  x="4"
-                  y="14"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                <path
+                  d="M5 14c0 1.66 3.13 3 7 3s7-1.34 7-3"
                   stroke="currentColor"
                   stroke-width="1.6"
+                  stroke-linecap="round"
                 />
-                <rect
-                  x="14"
-                  y="14"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                <path
+                  d="M5 18c0 1.66 3.13 3 7 3s7-1.34 7-3"
                   stroke="currentColor"
                   stroke-width="1.6"
+                  stroke-linecap="round"
                 />
               </svg>
-              <span>Máquinas</span>
+              <span>Finanzas</span>
             </span>
           </div>
           <svg
@@ -437,12 +432,12 @@ function isActiveRoute(name: string) {
           </svg>
         </button>
 
-        <!-- Employees link (admin only) -->
+        <!-- Gestion link -->
         <button
-          v-if="userRole === 'admin'"
+          v-if="canSeeManagement"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
-            isActiveRoute('employees')
+            isManagementActive
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
                 : 'border-sky-100 bg-sky-50/80 text-sky-800'
@@ -452,17 +447,17 @@ function isActiveRoute(name: string) {
           "
           @click="
             $emit('close');
-            router.push({ name: 'employees' });
+            router.push({ name: 'machines' });
           "
         >
           <div class="flex items-center gap-3">
             <span
-              v-if="isActiveRoute('employees')"
+              v-if="isManagementActive"
               class="h-6 w-0.5 rounded-full"
               :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
-              <!-- Icono Supervisores: usuarios -->
+              <!-- Icono Gestion: grid/cubos -->
               <svg
                 class="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -470,21 +465,44 @@ function isActiveRoute(name: string) {
                 xmlns="http://www.w3.org/2000/svg"
                 aria-hidden="true"
               >
-                <path
-                  d="M15.5 7.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
+                <rect
+                  x="4"
+                  y="4"
+                  width="6"
+                  height="6"
+                  rx="1.5"
                   stroke="currentColor"
                   stroke-width="1.6"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
                 />
-                <path
-                  d="M5 18.25C5 15.9 7.24 14 10 14h4c2.76 0 5 1.9 5 4.25"
+                <rect
+                  x="14"
+                  y="4"
+                  width="6"
+                  height="6"
+                  rx="1.5"
                   stroke="currentColor"
                   stroke-width="1.6"
-                  stroke-linecap="round"
+                />
+                <rect
+                  x="4"
+                  y="14"
+                  width="6"
+                  height="6"
+                  rx="1.5"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <rect
+                  x="14"
+                  y="14"
+                  width="6"
+                  height="6"
+                  rx="1.5"
+                  stroke="currentColor"
+                  stroke-width="1.6"
                 />
               </svg>
-              <span>Supervisores y Empleados</span>
+              <span>Gestion</span>
             </span>
           </div>
           <svg
@@ -504,6 +522,7 @@ function isActiveRoute(name: string) {
             />
           </svg>
         </button>
+
       </nav>
 
       <!-- Footer actions -->

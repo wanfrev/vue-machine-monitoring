@@ -131,50 +131,5 @@ function createMachine() {
     <div v-if="$slots.summary" class="mt-4">
       <slot name="summary" />
     </div>
-
-    <div v-else class="mt-4 flex flex-wrap gap-3 text-xs">
-      <div
-        class="inline-flex items-center gap-1 rounded-full bg-slate-900/5 px-3 py-1.5"
-        :class="
-          isDark()
-            ? 'bg-zinc-900/40 text-zinc-100'
-            : 'bg-slate-100 text-slate-800'
-        "
-      >
-        <span class="font-semibold">Total:</span>
-        <span>{{ totalMachines }}</span>
-      </div>
-      <div
-        class="inline-flex items-center gap-1 rounded-full bg-emerald-500/5 px-3 py-1.5"
-        :class="
-          isDark()
-            ? 'bg-emerald-900/30 text-emerald-100'
-            : 'bg-emerald-50 text-emerald-700'
-        "
-      >
-        <span class="font-semibold">Activas:</span>
-        <span>{{ activeMachines }}</span>
-      </div>
-      <div
-        class="inline-flex items-center gap-1 rounded-full bg-red-500/5 px-3 py-1.5"
-        :class="
-          isDark() ? 'bg-red-900/30 text-red-100' : 'bg-red-50 text-red-700'
-        "
-      >
-        <span class="font-semibold">Inactivas:</span>
-        <span>{{ inactiveMachines }}</span>
-      </div>
-      <div
-        class="inline-flex items-center gap-1 rounded-full bg-amber-500/5 px-3 py-1.5"
-        :class="
-          isDark()
-            ? 'bg-amber-900/30 text-amber-100'
-            : 'bg-amber-50 text-amber-700'
-        "
-      >
-        <span class="font-semibold">Mantenimiento:</span>
-        <span>{{ maintenanceMachines }}</span>
-      </div>
-    </div>
   </header>
 </template>
