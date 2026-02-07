@@ -17,6 +17,7 @@ const props = defineProps<{
   isDark: boolean;
   isAdmin: boolean;
   isOperator: boolean;
+  isFormOpen: boolean;
   isMenuOpen: boolean;
   dailyCoins: number;
   weeklyCoins: number;
@@ -26,6 +27,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "select", machine: Machine): void;
   (e: "toggle-menu", machineId: string): void;
+  (e: "toggle-form", machineId: string): void;
   (e: "toggle-maintenance", machine: Machine): void;
   (e: "toggle-test-mode", machine: Machine): void;
   (e: "close-menu", machineId: string): void;
@@ -53,6 +55,14 @@ const incomeWeek = computed(() => {
   );
 });
 
+const machineTypeLabel = computed(() =>
+  String(props.machine?.type || "").toLowerCase()
+);
+const isBoxeoMachine = computed(() => machineTypeLabel.value.includes("boxeo"));
+const isAgilidadMachine = computed(() =>
+  machineTypeLabel.value.includes("agilidad")
+);
+
 type DailySaleRow = {
   id?: number;
   machineId: string;
@@ -60,6 +70,8 @@ type DailySaleRow = {
   coins: number;
   recordMessage?: string | null;
   prizeBs?: number | null;
+  lost?: number | null;
+  returned?: number | null;
   employeeUsername?: string;
   employeeName?: string;
   updatedAt?: string;
@@ -72,6 +84,9 @@ const recordDigits = ref<string>("");
 const recordMessage = ref<string>("");
 const saving = ref(false);
 const operatorCoins = ref<number>(0);
+const lostCount = ref<number | null>(null);
+const returnedCount = ref<number | null>(null);
+const justSaved = ref(false);
 
 function apiErrorMessage(e: unknown): string {
   const msg = (e as { response?: { data?: { message?: string } } })?.response
@@ -118,7 +133,6 @@ function pickMySale(rows: DailySaleRow[]): DailySaleRow | null {
 }
 
 async function loadOperatorCoins() {
-  if (!props.isOperator) return;
   if (!props.machine?.id || !date.value) {
     operatorCoins.value = 0;
     return;
@@ -130,10 +144,23 @@ async function loadOperatorCoins() {
       endDate: date.value,
       machineId: String(props.machine.id),
     })) as DailySaleRow[];
-    const mine = pickMySale(rows);
-    operatorCoins.value = mine?.coins ?? 0;
+    if (props.isOperator) {
+      const mine = pickMySale(rows);
+      operatorCoins.value = mine?.coins ?? 0;
+      lostCount.value = Number(mine?.lost ?? 0) || 0;
+      returnedCount.value = Number(mine?.returned ?? 0) || 0;
+    } else {
+      operatorCoins.value = rows.reduce(
+        (sum, row) => sum + (Number(row?.coins) || 0),
+        0
+      );
+    }
   } catch {
     operatorCoins.value = 0;
+    if (props.isOperator) {
+      lostCount.value = 0;
+      returnedCount.value = 0;
+    }
   }
 }
 
@@ -153,9 +180,15 @@ async function saveDaily() {
       date: date.value,
       coins: nextCoins,
       prizeBs: toRecordOrNull(recordDigits.value),
+      lost: toNonNegInt(isAgilidadMachine.value ? lostCount.value : 0),
+      returned: toNonNegInt(isBoxeoMachine.value ? returnedCount.value : 0),
       recordMessage: recordMessage.value.trim() || null,
     })) as DailySaleRow;
     operatorCoins.value = saved?.coins ?? operatorCoins.value;
+    justSaved.value = true;
+    window.setTimeout(() => {
+      justSaved.value = false;
+    }, 1200);
     window.alert("Venta diaria guardada");
   } catch (e) {
     window.alert(apiErrorMessage(e));
@@ -269,7 +302,7 @@ watch([() => props.machine.id, date], () => {
 
     <div
       class="mt-3 grid items-end gap-x-4 gap-y-2"
-      :class="!isOperator ? 'grid-cols-3' : 'grid-cols-1'"
+      :class="!isOperator ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'"
     >
       <template v-if="!isOperator">
         <div
@@ -320,6 +353,22 @@ watch([() => props.machine.id, date], () => {
             Monedas hoy
           </span>
         </div>
+        <div
+          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+        >
+          <span
+            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+          >
+            {{ operatorCoins }}
+          </span>
+          <span
+            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
+          >
+            Monedas operador
+          </span>
+        </div>
       </template>
       <template v-else>
         <div
@@ -343,20 +392,40 @@ watch([() => props.machine.id, date], () => {
 
     <section
       v-if="isOperator"
-      class="mt-3 rounded-xl border p-3"
-      :class="
+      class="mt-3 rounded-xl border p-3 transition"
+      :class="[
         dark
           ? 'border-zinc-800/70 bg-zinc-950/20'
-          : 'border-slate-200 bg-white/60'
-      "
+          : 'border-slate-200 bg-white/60',
+        justSaved ? 'ring-1 ring-emerald-400/60' : '',
+      ]"
       @click.stop
       @keydown.stop
     >
       <div class="flex items-center justify-between gap-2">
         <h3 class="text-xs font-semibold">Registrar venta</h3>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition cursor-pointer"
+          :class="
+            dark
+              ? 'border-zinc-700/70 bg-zinc-950/30 text-zinc-200 hover:bg-zinc-950/40'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+          "
+          @click.stop="emit('toggle-form', machine.id)"
+        >
+          {{ isFormOpen ? "Cerrar" : "Registrar venta" }}
+        </button>
       </div>
 
-      <div class="mt-2 grid gap-2">
+      <div
+        class="grid gap-2 overflow-hidden transition-all duration-300"
+        :class="
+          isFormOpen
+            ? 'mt-2 max-h-[520px] opacity-100'
+            : 'mt-0 max-h-0 opacity-0 pointer-events-none'
+        "
+      >
         <label class="grid min-w-0 gap-1">
           <span
             class="text-[11px]"
@@ -420,22 +489,66 @@ watch([() => props.machine.id, date], () => {
             placeholder="Ej: cambio de operador, incidencia, etc."
           />
         </label>
-      </div>
 
-      <div class="mt-3 flex items-center justify-end">
-        <button
-          type="button"
-          class="h-9 rounded-lg border px-3 text-xs font-semibold transition cursor-pointer"
-          :class="
-            dark
-              ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/25'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/60'
-          "
-          :disabled="saving"
-          @click="saveDaily"
-        >
-          {{ saving ? "Guardando…" : "Guardar" }}
-        </button>
+        <label v-if="isAgilidadMachine" class="grid min-w-0 gap-1">
+          <span
+            class="text-[11px]"
+            :class="dark ? 'text-zinc-400' : 'text-slate-500'"
+            >Perdidas</span
+          >
+          <select
+            v-model.number="lostCount"
+            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            :class="
+              dark
+                ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                : 'bg-white border-slate-200 text-slate-900'
+            "
+          >
+            <option :value="0">0</option>
+            <option v-for="value in coinOptions" :key="value" :value="value">
+              {{ value }}
+            </option>
+          </select>
+        </label>
+
+        <label v-if="isBoxeoMachine" class="grid min-w-0 gap-1">
+          <span
+            class="text-[11px]"
+            :class="dark ? 'text-zinc-400' : 'text-slate-500'"
+            >Devueltas</span
+          >
+          <select
+            v-model.number="returnedCount"
+            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            :class="
+              dark
+                ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                : 'bg-white border-slate-200 text-slate-900'
+            "
+          >
+            <option :value="0">0</option>
+            <option v-for="value in coinOptions" :key="value" :value="value">
+              {{ value }}
+            </option>
+          </select>
+        </label>
+
+        <div class="mt-1 flex items-center justify-end">
+          <button
+            type="button"
+            class="h-9 rounded-lg border px-3 text-xs font-semibold transition cursor-pointer"
+            :class="
+              dark
+                ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/25'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/60'
+            "
+            :disabled="saving"
+            @click="saveDaily"
+          >
+            {{ saving ? "Guardando…" : "Guardar" }}
+          </button>
+        </div>
       </div>
     </section>
 

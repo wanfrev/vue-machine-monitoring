@@ -73,6 +73,8 @@ type DailySaleRow = {
   machineType?: string | null;
   machine_type?: string | null;
   coins?: number | null;
+  lost?: number | null;
+  returned?: number | null;
 };
 
 function apiErrorMessage(e: unknown): string {
@@ -152,29 +154,37 @@ async function loadWeeklyReportsList() {
   }
 }
 
-function weekdayEs(dateYmd: string): string {
-  const [y, m, d] = dateYmd.split("-").map((x) => Number(x));
-  if (!y || !m || !d) return "";
+function parseReportDate(value: string): Date | null {
+  if (!value) return null;
+  const ymd = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    const [, y, m, d] = ymd;
+    return new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12, 0, 0));
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
-  // Use UTC noon to avoid timezone date shifts.
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const day = dt.getUTCDay();
-  const names = [
-    "Domingo",
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-  ];
-  return names[day] || "";
+function capitalize(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function weekdayEs(dateYmd: string): string {
+  const dt = parseReportDate(dateYmd);
+  if (!dt) return "";
+  return capitalize(
+    new Intl.DateTimeFormat("es-VE", { weekday: "long" }).format(dt)
+  );
 }
 
 function ddmmyyyy(dateYmd: string): string {
-  const [y, m, d] = dateYmd.split("-");
-  if (!y || !m || !d) return "";
-  return `${d}/${m}/${y}`;
+  const dt = parseReportDate(dateYmd);
+  if (!dt) return "";
+  return new Intl.DateTimeFormat("es-VE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(dt);
 }
 
 function addDaysYmd(ymd: string, days: number) {
@@ -203,19 +213,25 @@ async function loadWeeklyCoins() {
 
     let boxeo = 0;
     let agilidad = 0;
+    let boxeoDevueltas = 0;
+    let agilidadPerdidas = 0;
     for (const row of rows) {
       const coins = Number(row.coins ?? 0);
       if (!Number.isFinite(coins)) continue;
       const type = getMachineType(row);
       if (type.includes("boxeo")) {
         boxeo += coins;
+        boxeoDevueltas += Number(row.returned ?? 0) || 0;
       } else if (type.includes("agilidad")) {
         agilidad += coins;
+        agilidadPerdidas += Number(row.lost ?? 0) || 0;
       }
     }
 
     boxeoCoins.value = boxeo;
     agilidadCoins.value = agilidad;
+    boxeoReturned.value = boxeoDevueltas;
+    agilidadLost.value = agilidadPerdidas;
   } catch (e) {
     boxeoCoins.value = 0;
     agilidadCoins.value = 0;
@@ -459,7 +475,7 @@ watch(weekEndDate, () => {
                   >Boxeo</span
                 >
                 <span class="font-medium"
-                  >M {{ toNum(r.boxeoCoins) }} · P {{ toNum(r.boxeoLost) }} · D
+                  >Monedas {{ toNum(r.boxeoCoins) }} · Devueltas
                   {{ toNum(r.boxeoReturned) }}</span
                 >
               </div>
@@ -468,9 +484,8 @@ watch(weekEndDate, () => {
                   >Agilidad</span
                 >
                 <span class="font-medium"
-                  >M {{ toNum(r.agilidadCoins) }} · P
-                  {{ toNum(r.agilidadLost) }} · D
-                  {{ toNum(r.agilidadReturned) }}</span
+                  >Monedas {{ toNum(r.agilidadCoins) }} · Perdidas
+                  {{ toNum(r.agilidadLost) }}</span
                 >
               </div>
             </div>
@@ -492,9 +507,11 @@ watch(weekEndDate, () => {
             @click="selectedReport = null"
             aria-hidden="true"
           ></div>
-          <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div
+            class="absolute inset-0 flex items-start sm:items-center justify-center p-4"
+          >
             <div
-              class="w-full max-w-2xl rounded-2xl border p-4 shadow-xl"
+              class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border p-4 shadow-xl"
               :class="
                 isDark()
                   ? 'border-zinc-800/70 bg-zinc-950 text-zinc-100'
@@ -574,15 +591,6 @@ watch(weekEndDate, () => {
                     <div class="flex items-center justify-between">
                       <span
                         :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                        >Perdidas</span
-                      >
-                      <span class="font-semibold">{{
-                        toNum(selectedReport.boxeoLost)
-                      }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span
-                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                         >Devueltas</span
                       >
                       <span class="font-semibold">{{
@@ -618,15 +626,6 @@ watch(weekEndDate, () => {
                       >
                       <span class="font-semibold">{{
                         toNum(selectedReport.agilidadLost)
-                      }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span
-                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                        >Devueltas</span
-                      >
-                      <span class="font-semibold">{{
-                        toNum(selectedReport.agilidadReturned)
                       }}</span>
                     </div>
                   </div>
@@ -789,26 +788,6 @@ watch(weekEndDate, () => {
               <span
                 class="text-xs"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Perdidas:</span
-              >
-              <input
-                v-model.number="boxeoLost"
-                type="number"
-                min="0"
-                step="1"
-                class="h-10 rounded-xl border px-3 text-sm outline-none"
-                :class="
-                  isDark()
-                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                    : 'bg-white border-slate-200 text-slate-900'
-                "
-              />
-            </label>
-
-            <label class="grid gap-1">
-              <span
-                class="text-xs"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Devueltas:</span
               >
               <input
@@ -865,26 +844,6 @@ watch(weekEndDate, () => {
               >
               <input
                 v-model.number="agilidadLost"
-                type="number"
-                min="0"
-                step="1"
-                class="h-10 rounded-xl border px-3 text-sm outline-none"
-                :class="
-                  isDark()
-                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                    : 'bg-white border-slate-200 text-slate-900'
-                "
-              />
-            </label>
-
-            <label class="grid gap-1">
-              <span
-                class="text-xs"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Devueltas:</span
-              >
-              <input
-                v-model.number="agilidadReturned"
                 type="number"
                 min="0"
                 step="1"

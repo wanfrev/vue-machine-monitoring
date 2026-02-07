@@ -2,7 +2,7 @@
 import AppSidebar from "@/components/AppSidebar.vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useTheme } from "@/composables/useTheme";
-import { getDailySales, getMachines, getUsers } from "@/api/client";
+import { getMachineDailyIncome, getMachines, getUsers } from "@/api/client";
 
 type MachineRow = {
   id: string;
@@ -10,16 +10,9 @@ type MachineRow = {
   location?: string;
 };
 
-type DailySaleRow = {
-  id?: number;
+type MachineCoinsRow = {
   machineId: string;
-  date: string;
   coins: number;
-  recordMessage?: string | null;
-  prizeBs?: number | null;
-  employeeUsername?: string;
-  employeeName?: string;
-  updatedAt?: string;
 };
 
 type UserRow = {
@@ -48,53 +41,8 @@ const selectedSupervisorId = ref<number | null>(null);
 const loadingAll = ref(false);
 const loadingSupervisor = ref(false);
 
-const allRows = ref<DailySaleRow[]>([]);
-const supervisorRows = ref<DailySaleRow[]>([]);
-
-function toNum(v: unknown): number {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(v: unknown): UnknownRecord | null {
-  if (typeof v !== "object" || v === null) return null;
-  return v as UnknownRecord;
-}
-
-function pick(rec: UnknownRecord, keys: string[]): unknown {
-  for (const k of keys) {
-    if (k in rec) return rec[k];
-  }
-  return undefined;
-}
-
-function normalizeSale(row: unknown): DailySaleRow {
-  const rec = asRecord(row) ?? {};
-  const machineId = String(pick(rec, ["machineId", "machine_id"]) ?? "");
-  const date = String(pick(rec, ["date", "saleDate", "sale_date"]) ?? "");
-  const coins = toNum(pick(rec, ["coins", "totalCoins", "total_coins"])) || 0;
-  const recordMessage = pick(rec, ["recordMessage", "record_message"]);
-  const prizeBs = pick(rec, ["prizeBs", "prize_bs"]);
-  const employeeUsername = pick(rec, ["employeeUsername", "employee_username"]);
-  const employeeName = pick(rec, ["employeeName", "employee_name"]);
-  const updatedAt = pick(rec, ["updatedAt", "updated_at"]);
-
-  return {
-    id: typeof rec.id === "number" ? rec.id : undefined,
-    machineId,
-    date,
-    coins,
-    recordMessage:
-      typeof recordMessage === "string" ? recordMessage : undefined,
-    prizeBs: typeof prizeBs === "number" ? prizeBs : undefined,
-    employeeUsername:
-      typeof employeeUsername === "string" ? employeeUsername : undefined,
-    employeeName: typeof employeeName === "string" ? employeeName : undefined,
-    updatedAt: typeof updatedAt === "string" ? updatedAt : undefined,
-  };
-}
+const allRows = ref<MachineCoinsRow[]>([]);
+const supervisorRows = ref<MachineCoinsRow[]>([]);
 
 function isSupervisorUser(u: UserRow): boolean {
   const jr = String(u.jobRole || "").toLowerCase();
@@ -173,9 +121,7 @@ const allRowsWithMachine = computed(() =>
   allMachineTotals.value.filter((row) => row.coins > 0)
 );
 
-const supervisorRowsWithMachine = computed(() =>
-  supervisorMachineTotals.value.filter((row) => row.coins > 0)
-);
+const supervisorRowsWithMachine = computed(() => supervisorMachineTotals.value);
 
 const allTotalCoins = computed(() =>
   allMachineTotals.value.reduce((sum, row) => sum + row.coins, 0)
@@ -217,13 +163,24 @@ async function loadAllCoins() {
   if (!allDate.value) return;
   loadingAll.value = true;
   try {
-    const rows = (await getDailySales({
-      startDate: allDate.value,
-      endDate: allDate.value,
-    })) as unknown[];
-    allRows.value = (Array.isArray(rows) ? rows : []).map((r) =>
-      normalizeSale(r)
+    const rows = await Promise.all(
+      machines.value.map(async (m) => {
+        try {
+          const data = await getMachineDailyIncome(String(m.id), {
+            startDate: allDate.value,
+            endDate: allDate.value,
+          });
+          const coins = (Array.isArray(data) ? data : []).reduce(
+            (sum, row) => sum + Number(row?.income ?? 0),
+            0
+          );
+          return { machineId: String(m.id), coins };
+        } catch {
+          return { machineId: String(m.id), coins: 0 };
+        }
+      })
     );
+    allRows.value = rows;
   } finally {
     loadingAll.value = false;
   }
@@ -233,17 +190,27 @@ async function loadSupervisorCoins() {
   if (!supervisorDate.value) return;
   loadingSupervisor.value = true;
   try {
-    const rows = (await getDailySales({
-      startDate: supervisorDate.value,
-      endDate: supervisorDate.value,
-    })) as unknown[];
-    const normalized = (Array.isArray(rows) ? rows : []).map((r) =>
-      normalizeSale(r)
-    );
     const allowed = supervisorMachineIds.value;
-    supervisorRows.value = normalized.filter((r) =>
-      allowed.has(String(r.machineId))
+    const rows = await Promise.all(
+      machines.value
+        .filter((m) => allowed.has(String(m.id)))
+        .map(async (m) => {
+          try {
+            const data = await getMachineDailyIncome(String(m.id), {
+              startDate: supervisorDate.value,
+              endDate: supervisorDate.value,
+            });
+            const coins = (Array.isArray(data) ? data : []).reduce(
+              (sum, row) => sum + Number(row?.income ?? 0),
+              0
+            );
+            return { machineId: String(m.id), coins };
+          } catch {
+            return { machineId: String(m.id), coins: 0 };
+          }
+        })
     );
+    supervisorRows.value = rows;
   } finally {
     loadingSupervisor.value = false;
   }
@@ -419,7 +386,7 @@ watch([supervisorDate, selectedSupervisorId], () => {
         <div v-else class="space-y-2">
           <div
             v-for="row in allRowsWithMachine"
-            :key="`${row.machineId}-${row.id ?? row.date}`"
+            :key="`${row.machineId}-${allDate}`"
             class="flex items-center justify-between rounded-xl border px-3 py-2"
             :class="
               isDark()
@@ -517,7 +484,7 @@ watch([supervisorDate, selectedSupervisorId], () => {
         <div v-else class="space-y-2">
           <div
             v-for="row in supervisorRowsWithMachine"
-            :key="`${row.machineId}-${row.id ?? row.date}`"
+            :key="`${row.machineId}-${supervisorDate}`"
             class="flex items-center justify-between rounded-xl border px-3 py-2"
             :class="
               isDark()

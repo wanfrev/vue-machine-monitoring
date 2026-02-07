@@ -293,6 +293,8 @@ export async function upsertDailySale(payload: {
   coins: number;
   recordMessage?: string | null;
   prizeBs?: number | null;
+  lost?: number | null;
+  returned?: number | null;
   // admin-only optional
   employeeId?: number | null;
 }) {
@@ -302,6 +304,8 @@ export async function upsertDailySale(payload: {
     coins: payload.coins,
     recordMessage: payload.recordMessage ?? null,
     prizeBs: typeof payload.prizeBs === "number" ? payload.prizeBs : null,
+    lost: typeof payload.lost === "number" ? payload.lost : 0,
+    returned: typeof payload.returned === "number" ? payload.returned : 0,
   };
   if (typeof payload.employeeId === "number") {
     body.employeeId = payload.employeeId;
