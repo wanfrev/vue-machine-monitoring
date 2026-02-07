@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import AppSidebar from "@/components/AppSidebar.vue";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useTheme } from "@/composables/useTheme";
-import { getWeeklyReports, upsertWeeklyReport } from "@/api/client";
+import {
+  getDailySales,
+  getWeeklyReports,
+  upsertWeeklyReport,
+} from "@/api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 
 type WeeklyReportRow = {
@@ -41,7 +45,8 @@ const reports = ref<WeeklyReportRow[]>([]);
 const query = ref<string>("");
 const selectedReport = ref<WeeklyReportRow | null>(null);
 
-const todayYmd = () => new Date().toISOString().slice(0, 10);
+const todayYmd = (date?: Date) =>
+  (date ?? new Date()).toISOString().slice(0, 10);
 
 const weekEndDate = ref<string>(todayYmd());
 
@@ -62,6 +67,13 @@ const dolares = ref<number | null>(null);
 const bolivares = ref<number | null>(null);
 const premio = ref<number | null>(null);
 const total = ref<number | null>(null);
+const loadingCoins = ref(false);
+
+type DailySaleRow = {
+  machineType?: string | null;
+  machine_type?: string | null;
+  coins?: number | null;
+};
 
 function apiErrorMessage(e: unknown): string {
   const msg = (e as { response?: { data?: { message?: string } } })?.response
@@ -165,6 +177,53 @@ function ddmmyyyy(dateYmd: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function addDaysYmd(ymd: string, days: number) {
+  const [y, m, d] = ymd.split("-").map((v) => Number(v));
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  date.setDate(date.getDate() + days);
+  return todayYmd(date);
+}
+
+function getMachineType(row: DailySaleRow): string {
+  const raw = row.machineType ?? row.machine_type ?? "";
+  return String(raw).toLowerCase();
+}
+
+async function loadWeeklyCoins() {
+  if (canViewReportsList.value) return;
+  if (!weekEndDate.value) return;
+
+  const startDate = addDaysYmd(weekEndDate.value, -6);
+  loadingCoins.value = true;
+  try {
+    const rows = (await getDailySales({
+      startDate,
+      endDate: weekEndDate.value,
+    })) as DailySaleRow[];
+
+    let boxeo = 0;
+    let agilidad = 0;
+    for (const row of rows) {
+      const coins = Number(row.coins ?? 0);
+      if (!Number.isFinite(coins)) continue;
+      const type = getMachineType(row);
+      if (type.includes("boxeo")) {
+        boxeo += coins;
+      } else if (type.includes("agilidad")) {
+        agilidad += coins;
+      }
+    }
+
+    boxeoCoins.value = boxeo;
+    agilidadCoins.value = agilidad;
+  } catch (e) {
+    boxeoCoins.value = 0;
+    agilidadCoins.value = 0;
+  } finally {
+    loadingCoins.value = false;
+  }
+}
+
 const headerDateLabel = computed(() => {
   const w = weekdayEs(weekEndDate.value);
   const f = ddmmyyyy(weekEndDate.value);
@@ -237,6 +296,11 @@ async function saveWeekly() {
 
 onMounted(() => {
   void loadWeeklyReportsList();
+  void loadWeeklyCoins();
+});
+
+watch(weekEndDate, () => {
+  void loadWeeklyCoins();
 });
 </script>
 
@@ -677,16 +741,16 @@ onMounted(() => {
             </div>
           </div>
 
-          <input
-            v-model="weekEndDate"
-            type="date"
-            class="h-10 rounded-xl border px-3 text-sm outline-none"
+          <div
+            class="h-10 inline-flex items-center rounded-xl border px-3 text-sm"
             :class="
               isDark()
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
                 : 'bg-white border-slate-200 text-slate-900'
             "
-          />
+          >
+            {{ ddmmyyyy(weekEndDate) || "—" }}
+          </div>
         </div>
       </div>
 

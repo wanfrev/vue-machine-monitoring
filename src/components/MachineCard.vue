@@ -71,8 +71,7 @@ const coins = ref<number | null>(null);
 const recordDigits = ref<string>("");
 const recordMessage = ref<string>("");
 const saving = ref(false);
-const loadingExisting = ref(false);
-const existingSale = ref<DailySaleRow | null>(null);
+const operatorCoins = ref<number>(0);
 
 function apiErrorMessage(e: unknown): string {
   const msg = (e as { response?: { data?: { message?: string } } })?.response
@@ -103,7 +102,7 @@ function onRecordInput(event: Event) {
   recordDigits.value = cleaned;
 }
 
-function pickMySale(rows: any[]): DailySaleRow | null {
+function pickMySale(rows: DailySaleRow[]): DailySaleRow | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
 
   const username = localStorage.getItem("username") || "";
@@ -118,26 +117,23 @@ function pickMySale(rows: any[]): DailySaleRow | null {
   return null;
 }
 
-async function loadExistingSale() {
+async function loadOperatorCoins() {
   if (!props.isOperator) return;
   if (!props.machine?.id || !date.value) {
-    existingSale.value = null;
+    operatorCoins.value = 0;
     return;
   }
 
-  loadingExisting.value = true;
   try {
     const rows = (await getDailySales({
       startDate: date.value,
       endDate: date.value,
       machineId: String(props.machine.id),
-    })) as any[];
-
-    existingSale.value = pickMySale(rows);
+    })) as DailySaleRow[];
+    const mine = pickMySale(rows);
+    operatorCoins.value = mine?.coins ?? 0;
   } catch {
-    existingSale.value = null;
-  } finally {
-    loadingExisting.value = false;
+    operatorCoins.value = 0;
   }
 }
 
@@ -150,15 +146,16 @@ async function saveDaily() {
 
   saving.value = true;
   try {
+    const coinInput = toNonNegInt(coins.value);
+    const nextCoins = operatorCoins.value + coinInput;
     const saved = (await upsertDailySale({
       machineId: String(props.machine.id),
       date: date.value,
-      coins: toNonNegInt(coins.value),
+      coins: nextCoins,
       prizeBs: toRecordOrNull(recordDigits.value),
       recordMessage: recordMessage.value.trim() || null,
     })) as DailySaleRow;
-
-    existingSale.value = saved;
+    operatorCoins.value = saved?.coins ?? operatorCoins.value;
     window.alert("Venta diaria guardada");
   } catch (e) {
     window.alert(apiErrorMessage(e));
@@ -168,11 +165,11 @@ async function saveDaily() {
 }
 
 onMounted(() => {
-  void loadExistingSale();
+  void loadOperatorCoins();
 });
 
 watch([() => props.machine.id, date], () => {
-  void loadExistingSale();
+  void loadOperatorCoins();
 });
 </script>
 
@@ -291,7 +288,6 @@ watch([() => props.machine.id, date], () => {
             Total Hoy
           </span>
         </div>
-
         <div
           class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
         >
@@ -308,24 +304,41 @@ watch([() => props.machine.id, date], () => {
             Total Semanal
           </span>
         </div>
+        <div
+          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+        >
+          <span
+            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+          >
+            {{ dailyCoins }}
+          </span>
+          <span
+            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
+          >
+            Monedas hoy
+          </span>
+        </div>
       </template>
-
-      <div
-        class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
-      >
-        <span
-          class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-          :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+      <template v-else>
+        <div
+          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
         >
-          {{ dailyCoins }}
-        </span>
-        <span
-          class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
-          :class="dark ? 'text-zinc-500' : 'text-slate-400'"
-        >
-          Monedas hoy
-        </span>
-      </div>
+          <span
+            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+          >
+            {{ operatorCoins }}
+          </span>
+          <span
+            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
+          >
+            Monedas operador
+          </span>
+        </div>
+      </template>
     </div>
 
     <section
@@ -344,7 +357,7 @@ watch([() => props.machine.id, date], () => {
       </div>
 
       <div class="mt-2 grid gap-2">
-        <label class="grid gap-1">
+        <label class="grid min-w-0 gap-1">
           <span
             class="text-[11px]"
             :class="dark ? 'text-zinc-400' : 'text-slate-500'"
@@ -352,7 +365,7 @@ watch([() => props.machine.id, date], () => {
           >
           <select
             v-model.number="coins"
-            class="h-9 rounded-lg border px-2 text-xs outline-none"
+            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -366,7 +379,7 @@ watch([() => props.machine.id, date], () => {
           </select>
         </label>
 
-        <label class="grid gap-1">
+        <label class="grid min-w-0 gap-1">
           <span
             class="text-[11px]"
             :class="dark ? 'text-zinc-400' : 'text-slate-500'"
@@ -378,7 +391,7 @@ watch([() => props.machine.id, date], () => {
             inputmode="numeric"
             pattern="\d*"
             maxlength="4"
-            class="h-9 rounded-lg border px-2 text-xs outline-none"
+            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -389,7 +402,7 @@ watch([() => props.machine.id, date], () => {
           />
         </label>
 
-        <label class="grid gap-1">
+        <label class="grid min-w-0 gap-1">
           <span
             class="text-[11px]"
             :class="dark ? 'text-zinc-400' : 'text-slate-500'"
@@ -398,7 +411,7 @@ watch([() => props.machine.id, date], () => {
           <input
             v-model="recordMessage"
             type="text"
-            class="h-9 rounded-lg border px-2 text-xs outline-none"
+            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -424,64 +437,10 @@ watch([() => props.machine.id, date], () => {
           {{ saving ? "Guardando…" : "Guardar" }}
         </button>
       </div>
-
-      <div
-        class="mt-3 rounded-xl border p-3"
-        :class="
-          dark
-            ? 'border-zinc-800/70 bg-zinc-950/20'
-            : 'border-slate-200 bg-white/50'
-        "
-      >
-        <h4 class="text-[11px] font-semibold">Registro guardado</h4>
-
-        <p
-          v-if="loadingExisting"
-          class="mt-1 text-xs"
-          :class="dark ? 'text-zinc-300' : 'text-slate-600'"
-        >
-          Cargando…
-        </p>
-
-        <div v-else-if="existingSale" class="mt-2 grid gap-1 text-xs">
-          <div class="flex items-center justify-between gap-2">
-            <span :class="dark ? 'text-zinc-400' : 'text-slate-500'"
-              >Monedas</span
-            >
-            <span class="font-semibold">{{ existingSale.coins }}</span>
-          </div>
-          <div class="flex items-center justify-between gap-2">
-            <span :class="dark ? 'text-zinc-400' : 'text-slate-500'"
-              >Record</span
-            >
-            <span class="font-semibold">{{ existingSale.prizeBs ?? 0 }}</span>
-          </div>
-          <div class="grid gap-1">
-            <span :class="dark ? 'text-zinc-400' : 'text-slate-500'">Nota</span>
-            <span class="break-words">
-              {{ existingSale.recordMessage || "—" }}
-            </span>
-          </div>
-          <p
-            v-if="existingSale.updatedAt"
-            class="text-[10px]"
-            :class="dark ? 'text-zinc-400' : 'text-slate-500'"
-          >
-            Ultima actualizacion: {{ String(existingSale.updatedAt) }}
-          </p>
-        </div>
-
-        <p
-          v-else
-          class="mt-1 text-xs"
-          :class="dark ? 'text-zinc-300' : 'text-slate-600'"
-        >
-          No hay registro guardado para esa fecha.
-        </p>
-      </div>
     </section>
 
     <div
+      v-if="!isOperator"
       class="mt-2 space-y-1 text-[11px]"
       :class="dark ? 'text-zinc-400' : 'text-slate-400'"
     >

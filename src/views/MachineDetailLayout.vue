@@ -14,8 +14,8 @@ const locationText = computed(
   () => (route.query.location as string) || "Centro comercial - Pasillo A"
 );
 
-const { currentRole, isAdmin, assignedMachineIds } = useCurrentUser();
-
+const { currentRole, isAdmin, isOperator, assignedMachineIds } =
+  useCurrentUser();
 type ApiMachine = { id: string | number; name: string; status?: string };
 const resolvedMachineId = ref<string | null>(null);
 const resolvedStatus = ref<string>("inactive");
@@ -371,6 +371,7 @@ watch(
           General
         </RouterLink>
         <RouterLink
+          v-if="!isOperator"
           :to="{
             name: 'machine-historial',
             params: { id: route.params.id },
@@ -390,6 +391,7 @@ watch(
           Monedas
         </RouterLink>
         <RouterLink
+          v-if="!isOperator"
           :to="{
             name: 'machine-estadisticas',
             params: { id: route.params.id },
