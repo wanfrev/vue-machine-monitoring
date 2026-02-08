@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
@@ -37,6 +37,9 @@ const initials = computed(() => {
 
 const isEditProfileOpen = ref(false);
 
+const showUpdateCard = ref(false);
+let swRegistration: ServiceWorkerRegistration | null = null;
+
 function openEditProfile() {
   isEditProfileOpen.value = true;
 }
@@ -49,6 +52,53 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
+
+function applyUpdate() {
+  if (swRegistration && swRegistration.waiting) {
+    // Ask the waiting SW to skipWaiting, then reload on controllerchange
+    swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+  }
+}
+
+function onSwUpdated(ev: Event) {
+  const custom = ev as CustomEvent<ServiceWorkerRegistration>;
+  swRegistration = custom.detail;
+  showUpdateCard.value = true;
+}
+
+function onControllerChange() {
+  window.location.reload();
+}
+
+async function checkWaitingSw() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration && registration.waiting) {
+      swRegistration = registration;
+      showUpdateCard.value = true;
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("swUpdated", onSwUpdated);
+  navigator.serviceWorker?.addEventListener(
+    "controllerchange",
+    onControllerChange
+  );
+  checkWaitingSw();
+});
+
+onUnmounted(() => {
+  window.removeEventListener("swUpdated", onSwUpdated);
+  navigator.serviceWorker?.removeEventListener(
+    "controllerchange",
+    onControllerChange
+  );
+});
 </script>
 
 <template>
@@ -144,6 +194,40 @@ function logout() {
               class="inline-block h-5 w-5 rounded-full bg-white shadow transition"
               :class="isDark() ? 'translate-x-6' : 'translate-x-1'"
             ></span>
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="showUpdateCard"
+        class="rounded-3xl border px-5 py-4"
+        :class="
+          isDark()
+            ? 'border-amber-400/30 bg-zinc-900/60'
+            : 'border-amber-200/70 bg-white'
+        "
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium">Nueva version disponible</p>
+            <p
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Recarga para aplicar la actualizacion
+            </p>
+          </div>
+          <button
+            type="button"
+            class="rounded-xl px-4 py-2 text-sm font-semibold"
+            :class="
+              isDark()
+                ? 'bg-amber-400/90 text-black hover:bg-amber-400'
+                : 'bg-amber-400 text-black hover:bg-amber-300'
+            "
+            @click="applyUpdate"
+          >
+            Recargar
           </button>
         </div>
       </div>

@@ -12,10 +12,6 @@ const showBottomNav = computed(() => {
   return !!route.meta.requiresAuth;
 });
 
-// Service worker update banner
-const showUpdateBanner = ref(false);
-let swRegistration: ServiceWorkerRegistration | null = null;
-
 function applyHtmlDarkClass(isDark: boolean) {
   try {
     const root = document.documentElement;
@@ -27,25 +23,6 @@ function applyHtmlDarkClass(isDark: boolean) {
   } catch (e) {
     // Ignorar si no hay document (por seguridad en entornos no-browser)
   }
-}
-
-function applyUpdate() {
-  if (swRegistration && swRegistration.waiting) {
-    // Ask the waiting SW to skipWaiting, then reload on controllerchange
-    swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
-  }
-}
-
-function onSwUpdated(ev: Event) {
-  // registration passed from registerServiceWorker.ts
-  const custom = ev as CustomEvent<ServiceWorkerRegistration>;
-  swRegistration = custom.detail;
-  showUpdateBanner.value = true;
-}
-
-function onControllerChange() {
-  // When the new SW takes control, reload to load new assets
-  window.location.reload();
 }
 
 onMounted(() => {
@@ -61,25 +38,11 @@ onMounted(() => {
   }
 
   applyHtmlDarkClass(darkMode.value);
-
-  window.addEventListener("swUpdated", onSwUpdated);
-  navigator.serviceWorker?.addEventListener(
-    "controllerchange",
-    onControllerChange
-  );
 });
 
 watch(darkMode, (value) => {
   localStorage.setItem("theme", value ? "dark" : "light");
   applyHtmlDarkClass(value);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("swUpdated", onSwUpdated);
-  navigator.serviceWorker?.removeEventListener(
-    "controllerchange",
-    onControllerChange
-  );
 });
 </script>
 
@@ -92,23 +55,6 @@ onUnmounted(() => {
         : 'bg-slate-50 text-slate-900',
     ]"
   >
-    <!-- Update banner -->
-    <div
-      v-if="showUpdateBanner"
-      :class="['fixed left-4 z-50', showBottomNav ? 'bottom-24' : 'bottom-4']"
-    >
-      <div
-        class="rounded-lg bg-yellow-500 text-black px-4 py-2 shadow-lg flex items-center gap-3"
-      >
-        <div class="text-sm font-medium">Nueva versión disponible</div>
-        <button
-          @click="applyUpdate"
-          class="ml-2 bg-black/10 px-3 py-1 rounded text-sm"
-        >
-          Recargar ahora
-        </button>
-      </div>
-    </div>
     <div :class="showBottomNav ? 'pb-20' : ''">
       <router-view />
     </div>
