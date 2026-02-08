@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppSidebar from "@/components/AppSidebar.vue";
 import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
 import {
   getDailySales,
@@ -43,7 +44,7 @@ const loadingList = ref(false);
 const listError = ref<string>("");
 const reports = ref<WeeklyReportRow[]>([]);
 const query = ref<string>("");
-const selectedReport = ref<WeeklyReportRow | null>(null);
+const router = useRouter();
 
 const todayYmd = (date?: Date) =>
   (date ?? new Date()).toISOString().slice(0, 10);
@@ -185,6 +186,22 @@ function ddmmyyyy(dateYmd: string): string {
     month: "2-digit",
     year: "numeric",
   }).format(dt);
+}
+
+function openReport(row: WeeklyReportRow) {
+  if (typeof row.id === "number") {
+    router.push({ name: "report-detail", params: { reportId: row.id } });
+    return;
+  }
+
+  router.push({
+    name: "report-detail",
+    query: {
+      weekEndDate: row.weekEndDate,
+      employeeId: row.employeeId ? String(row.employeeId) : "",
+      employeeUsername: row.employeeUsername || "",
+    },
+  });
 }
 
 function addDaysYmd(ymd: string, days: number) {
@@ -447,7 +464,7 @@ watch(weekEndDate, () => {
                 ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
                 : 'border-slate-200 bg-white/50 hover:bg-white/70'
             "
-            @click="selectedReport = r"
+            @click="openReport(r)"
           >
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -498,202 +515,6 @@ watch(weekEndDate, () => {
           >
             No hay reportes.
           </p>
-        </div>
-
-        <!-- Modal detalle -->
-        <div v-if="selectedReport" class="fixed inset-0 z-50">
-          <div
-            class="absolute inset-0 bg-black/50"
-            @click="selectedReport = null"
-            aria-hidden="true"
-          ></div>
-          <div
-            class="absolute inset-0 flex items-start sm:items-center justify-center p-4"
-          >
-            <div
-              class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border p-4 shadow-xl"
-              :class="
-                isDark()
-                  ? 'border-zinc-800/70 bg-zinc-950 text-zinc-100'
-                  : 'border-slate-200 bg-white text-slate-900'
-              "
-              role="dialog"
-              aria-modal="true"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="text-base font-semibold truncate">
-                    {{
-                      selectedReport.employeeName ||
-                      selectedReport.employeeUsername ||
-                      "Empleado"
-                    }}
-                  </p>
-                  <p
-                    class="mt-0.5 text-sm"
-                    :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
-                  >
-                    {{ weekdayEs(selectedReport.weekEndDate) }}
-                    {{ ddmmyyyy(selectedReport.weekEndDate) }}
-                  </p>
-                  <div class="mt-2">
-                    <p
-                      class="text-xs font-medium"
-                      :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
-                    >
-                      Leyenda
-                    </p>
-                    <ul
-                      class="mt-1 text-xs list-disc pl-4 space-y-0.5"
-                      :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                    >
-                      <li>Monedas: válidas</li>
-                      <li>Perdidas: por error de máquina o viento</li>
-                      <li>Devueltas: monedero devolvió</li>
-                    </ul>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  class="inline-flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
-                      : 'border-slate-200/70 bg-white/50 hover:bg-white/70'
-                  "
-                  aria-label="Cerrar"
-                  @click="selectedReport = null"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                <div
-                  class="rounded-2xl border p-4"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-800/70 bg-zinc-950/20'
-                      : 'border-slate-200 bg-white/50'
-                  "
-                >
-                  <h3 class="text-sm font-semibold">Boxeo</h3>
-                  <div class="mt-2 grid gap-1 text-sm">
-                    <div class="flex items-center justify-between">
-                      <span
-                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                        >Monedas</span
-                      >
-                      <span class="font-semibold">{{
-                        toNum(selectedReport.boxeoCoins)
-                      }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span
-                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                        >Devueltas</span
-                      >
-                      <span class="font-semibold">{{
-                        toNum(selectedReport.boxeoReturned)
-                      }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  class="rounded-2xl border p-4"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-800/70 bg-zinc-950/20'
-                      : 'border-slate-200 bg-white/50'
-                  "
-                >
-                  <h3 class="text-sm font-semibold">Agilidad</h3>
-                  <div class="mt-2 grid gap-1 text-sm">
-                    <div class="flex items-center justify-between">
-                      <span
-                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                        >Monedas</span
-                      >
-                      <span class="font-semibold">{{
-                        toNum(selectedReport.agilidadCoins)
-                      }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span
-                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                        >Perdidas</span
-                      >
-                      <span class="font-semibold">{{
-                        toNum(selectedReport.agilidadLost)
-                      }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                class="mt-4 rounded-2xl border p-4"
-                :class="
-                  isDark()
-                    ? 'border-zinc-800/70 bg-zinc-950/20'
-                    : 'border-slate-200 bg-white/50'
-                "
-              >
-                <h3 class="text-sm font-semibold">Totales</h3>
-                <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                  <div class="flex items-center justify-between gap-3">
-                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                      >Monedas restantes</span
-                    >
-                    <span class="font-semibold">{{
-                      toNum(selectedReport.remainingCoins)
-                    }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                      >Pago móvil</span
-                    >
-                    <span class="font-semibold">{{
-                      toNum(selectedReport.pagoMovil).toFixed(2)
-                    }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                      >Dólares</span
-                    >
-                    <span class="font-semibold">{{
-                      toNum(selectedReport.dolares).toFixed(2)
-                    }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                      >Bolívares</span
-                    >
-                    <span class="font-semibold">{{
-                      toNum(selectedReport.bolivares).toFixed(2)
-                    }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                      >Premio</span
-                    >
-                    <span class="font-semibold">{{
-                      toNum(selectedReport.premio).toFixed(2)
-                    }}</span>
-                  </div>
-                  <div class="flex items-center justify-between gap-3">
-                    <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                      >Total</span
-                    >
-                    <span class="font-semibold">{{
-                      toNum(selectedReport.total).toFixed(2)
-                    }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

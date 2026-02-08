@@ -15,6 +15,10 @@ import { useTheme } from "@/composables/useTheme";
 import { useCoinValues } from "@/composables/useCoinValues";
 import { filterMachinesForRole } from "@/utils/access";
 import { getCoinValueForMachine } from "@/utils/machine";
+import {
+  getLocalSalesHistory,
+  type LocalSaleEntry,
+} from "@/utils/localSalesHistory";
 import type { ChartDataset } from "chart.js";
 
 type Machine = {
@@ -257,6 +261,7 @@ type DailySaleRow = {
 
 const loadingSavedSale = ref(false);
 const savedSale = ref<DailySaleRow | null>(null);
+const localSales = ref<LocalSaleEntry[]>([]);
 
 function pickMySale(rows: DailySaleRow[]): DailySaleRow | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
@@ -276,10 +281,12 @@ function pickMySale(rows: DailySaleRow[]): DailySaleRow | null {
 async function loadSavedSaleForToday() {
   if (!isOperator.value) {
     savedSale.value = null;
+    localSales.value = [];
     return;
   }
   if (!machine.value?.id) {
     savedSale.value = null;
+    localSales.value = [];
     return;
   }
 
@@ -296,7 +303,23 @@ async function loadSavedSaleForToday() {
     savedSale.value = null;
   } finally {
     loadingSavedSale.value = false;
+    const username = localStorage.getItem("username") || "";
+    localSales.value = getLocalSalesHistory({
+      machineId: String(machine.value.id),
+      date: todayLocalStr,
+      employeeUsername: username || undefined,
+    });
   }
+}
+
+function formatSaleTime(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-VE", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function getDateRangeArray(start: string, end: string) {
@@ -939,6 +962,55 @@ function fmtAmount(n: number) {
       >
         Cargando…
       </p>
+
+      <div v-else-if="localSales.length" class="mt-3 grid gap-3 text-sm">
+        <div
+          v-for="sale in localSales"
+          :key="sale.id"
+          class="rounded-xl border px-3 py-2"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-950/30'
+              : 'border-slate-200 bg-white/40'
+          "
+        >
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-slate-400">Monedas</span>
+            <span class="font-semibold">{{ sale.coins }}</span>
+          </div>
+          <div
+            v-if="sale.prizeBs !== null && sale.prizeBs !== undefined"
+            class="flex items-center justify-between gap-2"
+          >
+            <span class="text-slate-400">Record</span>
+            <span class="font-semibold">{{ sale.prizeBs }}</span>
+          </div>
+          <div
+            v-if="sale.lost !== null && sale.lost !== undefined"
+            class="flex items-center justify-between gap-2"
+          >
+            <span class="text-slate-400">Perdidas</span>
+            <span class="font-semibold">{{ sale.lost }}</span>
+          </div>
+          <div
+            v-if="sale.returned !== null && sale.returned !== undefined"
+            class="flex items-center justify-between gap-2"
+          >
+            <span class="text-slate-400">Devueltas</span>
+            <span class="font-semibold">{{ sale.returned }}</span>
+          </div>
+          <div v-if="sale.recordMessage" class="mt-1 grid gap-1">
+            <span class="text-slate-400">Nota</span>
+            <span class="break-words">{{ sale.recordMessage }}</span>
+          </div>
+          <p
+            class="mt-1 text-[11px]"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Hora: {{ formatSaleTime(sale.createdAt) || "—" }}
+          </p>
+        </div>
+      </div>
 
       <div v-else-if="savedSale" class="mt-3 grid gap-2 text-sm">
         <div class="flex items-center justify-between gap-2">

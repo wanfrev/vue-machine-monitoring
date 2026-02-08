@@ -171,7 +171,7 @@ async function login() {
 
 .login-shell {
   min-height: 100vh;
-  background: #0f172a;
+  background: #0b0f14;
   font-family: "Manrope", "Plus Jakarta Sans", "Segoe UI", sans-serif;
 }
 
@@ -193,11 +193,11 @@ async function login() {
 }
 
 .login-shell.is-dark {
-  background: #05070c;
+  background: #050608;
 }
 
 .login-shell.is-dark .login-left {
-  background: #0b111a;
+  background: #0b0f14;
   box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.35);
 }
 
@@ -215,7 +215,7 @@ async function login() {
 }
 
 .login-shell.is-dark .login-input {
-  background: #0f172a;
+  background: #101317;
   border-color: rgba(148, 163, 184, 0.25);
   color: #e2e8f0;
 }
@@ -244,10 +244,10 @@ async function login() {
   min-height: 35vh;
   background: radial-gradient(
       circle at 20% 20%,
-      rgba(56, 189, 248, 0.35),
+      rgba(148, 163, 184, 0.25),
       transparent 40%
     ),
-    linear-gradient(135deg, #0f172a 0%, #111827 45%, #1e293b 100%);
+    linear-gradient(135deg, #0b0f14 0%, #111318 45%, #1a1f26 100%);
   overflow: hidden;
 }
 

@@ -2,7 +2,12 @@
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { getSocket } from "../api/realtime";
 import { useRoute, useRouter } from "vue-router";
-import { getMachines, getMachineHistory, getUsers } from "../api/client";
+import {
+  getDailySales,
+  getMachines,
+  getMachineHistory,
+  getUsers,
+} from "../api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useDateRangeStorage } from "@/composables/useDateRangeStorage";
 import { useTheme } from "@/composables/useTheme";
@@ -40,6 +45,11 @@ type Employee = {
   name: string;
   jobRole?: string;
   assignedMachineIds?: string[];
+};
+
+type DailySaleRow = {
+  coins?: number | null;
+  employeeUsername?: string;
 };
 
 const route = useRoute();
@@ -127,6 +137,7 @@ const machine = ref<Machine | null>(null);
 const employees = ref<Employee[]>([]);
 // Total de monedas para el rango seleccionado
 const totalCoins = ref(0);
+const operatorCoins = ref(0);
 
 const { coinValues } = useCoinValues();
 
@@ -286,10 +297,44 @@ async function loadHistory() {
       });
     txs.value = mapped;
     totalCoins.value = sumCoins;
+    await loadOperatorCoinsToday();
   } catch (e) {
     console.error("Error cargando historial de máquina:", e);
     txs.value = [];
     totalCoins.value = 0;
+    operatorCoins.value = 0;
+  }
+}
+
+async function loadOperatorCoinsToday() {
+  if (!machine.value) {
+    operatorCoins.value = 0;
+    return;
+  }
+
+  try {
+    const todayLocalStr = formatDate(new Date());
+    const rows = (await getDailySales({
+      startDate: todayLocalStr,
+      endDate: todayLocalStr,
+      machineId: String(machine.value.id),
+    })) as DailySaleRow[];
+
+    const username = localStorage.getItem("username") || "";
+    if (isOperator.value && username) {
+      operatorCoins.value = rows.reduce((sum, row) => {
+        if (row.employeeUsername !== username) return sum;
+        return sum + (Number(row.coins) || 0);
+      }, 0);
+      return;
+    }
+
+    operatorCoins.value = rows.reduce(
+      (sum, row) => sum + (Number(row.coins) || 0),
+      0
+    );
+  } catch (e) {
+    operatorCoins.value = 0;
   }
 }
 
@@ -413,7 +458,7 @@ watch(search, () => {
         </p>
         <div
           class="mt-3 grid grid-cols-1 gap-3"
-          :class="!isOperator ? 'sm:grid-cols-2' : ''"
+          :class="!isOperator ? 'sm:grid-cols-3' : 'sm:grid-cols-2'"
         >
           <div>
             <p class="text-2xl font-semibold">{{ totalCoins }}</p>
@@ -424,6 +469,15 @@ watch(search, () => {
               Total monedas
             </p>
           </div>
+          <div>
+            <p class="text-2xl font-semibold">{{ operatorCoins }}</p>
+            <p
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Monedas operadora
+            </p>
+          </div>
           <div v-if="!isOperator">
             <p class="text-2xl font-semibold">$ {{ totalIncome }}</p>
             <p
@@ -431,15 +485,6 @@ watch(search, () => {
               :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
               Ingreso total
-            </p>
-          </div>
-          <div v-else>
-            <p class="text-2xl font-semibold">--</p>
-            <p
-              class="text-xs"
-              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-            >
-              Ingresos no disponibles
             </p>
           </div>
         </div>

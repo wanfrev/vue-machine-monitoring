@@ -10,6 +10,7 @@ import {
   machineStatusLabel,
 } from "@/utils/machine";
 import { formatCaracasDateTime, getTodayLocalStr } from "@/utils/date";
+import { addLocalSaleEntry } from "@/utils/localSalesHistory";
 import type { Machine } from "@/types/machine";
 
 const props = defineProps<{
@@ -175,16 +176,43 @@ async function saveDaily() {
   try {
     const coinInput = toNonNegInt(coins.value);
     const nextCoins = operatorCoins.value + coinInput;
+    const recordValue = toRecordOrNull(recordDigits.value);
+    const noteValue = recordMessage.value.trim() || null;
     const saved = (await upsertDailySale({
       machineId: String(props.machine.id),
       date: date.value,
       coins: nextCoins,
-      prizeBs: toRecordOrNull(recordDigits.value),
+      prizeBs: recordValue,
       lost: toNonNegInt(isAgilidadMachine.value ? lostCount.value : 0),
       returned: toNonNegInt(isBoxeoMachine.value ? returnedCount.value : 0),
-      recordMessage: recordMessage.value.trim() || null,
+      recordMessage: noteValue,
     })) as DailySaleRow;
     operatorCoins.value = saved?.coins ?? operatorCoins.value;
+    const lostValue = toNonNegInt(
+      isAgilidadMachine.value ? lostCount.value : 0
+    );
+    const returnedValue = toNonNegInt(
+      isBoxeoMachine.value ? returnedCount.value : 0
+    );
+    if (
+      coinInput > 0 ||
+      recordValue !== null ||
+      noteValue ||
+      lostValue > 0 ||
+      returnedValue > 0
+    ) {
+      addLocalSaleEntry({
+        machineId: String(props.machine.id),
+        date: date.value,
+        coins: coinInput,
+        prizeBs: recordValue,
+        lost: isAgilidadMachine.value ? lostValue : null,
+        returned: isBoxeoMachine.value ? returnedValue : null,
+        recordMessage: noteValue,
+        createdAt: new Date().toISOString(),
+        employeeUsername: localStorage.getItem("username") || undefined,
+      });
+    }
     justSaved.value = true;
     window.setTimeout(() => {
       justSaved.value = false;
@@ -434,7 +462,7 @@ watch([() => props.machine.id, date], () => {
           >
           <select
             v-model.number="coins"
-            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            class="operator-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -498,7 +526,7 @@ watch([() => props.machine.id, date], () => {
           >
           <select
             v-model.number="lostCount"
-            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            class="operator-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -520,7 +548,7 @@ watch([() => props.machine.id, date], () => {
           >
           <select
             v-model.number="returnedCount"
-            class="block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            class="operator-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -582,3 +610,18 @@ watch([() => props.machine.id, date], () => {
     </div>
   </article>
 </template>
+
+<style scoped>
+.operator-select {
+  color-scheme: dark;
+}
+
+.operator-select option {
+  background-color: #0b0f14;
+  color: #e2e8f0;
+}
+
+.operator-select option:disabled {
+  color: rgba(226, 232, 240, 0.6);
+}
+</style>

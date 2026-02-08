@@ -6,6 +6,7 @@ import { getDailySales, getMachines, upsertDailySale } from "@/api/client";
 import { getTodayLocalStr } from "@/utils/date";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { filterMachinesForRole } from "@/utils/access";
+import { addLocalSaleEntry } from "@/utils/localSalesHistory";
 
 type Machine = {
   id: string;
@@ -157,15 +158,31 @@ async function saveDaily() {
 
   saving.value = true;
   try {
+    const coinInput = toNonNegInt(coins.value);
+    const prizeValue = toNonNegMoneyOrNull(prizeBs.value);
+    const noteValue = recordMessage.value.trim() || null;
     const saved = (await upsertDailySale({
       machineId: machineId.value,
       date: date.value,
-      coins: toNonNegInt(coins.value),
-      prizeBs: toNonNegMoneyOrNull(prizeBs.value),
-      recordMessage: recordMessage.value.trim() || null,
+      coins: coinInput,
+      prizeBs: prizeValue,
+      recordMessage: noteValue,
     })) as DailySaleRow;
 
     existingSale.value = saved;
+    if (!isAdmin.value && (coinInput > 0 || prizeValue !== null || noteValue)) {
+      addLocalSaleEntry({
+        machineId: machineId.value,
+        date: date.value,
+        coins: coinInput,
+        prizeBs: prizeValue,
+        lost: null,
+        returned: null,
+        recordMessage: noteValue,
+        createdAt: new Date().toISOString(),
+        employeeUsername: localStorage.getItem("username") || undefined,
+      });
+    }
 
     window.alert("Venta diaria guardada");
   } catch (e) {
