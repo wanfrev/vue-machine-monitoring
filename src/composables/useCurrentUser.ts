@@ -1,29 +1,43 @@
 import { ref, computed } from "vue";
-import { getAssignedMachineIdsFromStorage } from "@/utils/access";
+import {
+  canSeeManagement,
+  canViewReports,
+  getAssignedMachineIdsFromStorage,
+  getRoleLabel,
+  resolveRoleKind,
+} from "@/utils/access";
+import { getRoleCapabilities } from "@/permissions/roleCapabilities";
 
 export function useCurrentUser() {
   const currentRole = ref(localStorage.getItem("role") || "");
   const currentJobRole = ref(localStorage.getItem("jobRole") || "");
   const assignedMachineIds = ref<string[]>(getAssignedMachineIdsFromStorage());
 
-  const isSupervisor = computed(() => {
-    const jr = String(currentJobRole.value || "").toLowerCase();
-    return jr.includes("supervisor");
-  });
-
-  const isAdmin = computed(() => currentRole.value === "admin");
-  // Legacy naming: isOperator is used throughout the app to mean "non-admin".
-  // Supervisors should see admin-style UI, so treat them as non-operators.
-  const isOperator = computed(
-    () => currentRole.value === "employee" && !isSupervisor.value
+  const roleKind = computed(() =>
+    resolveRoleKind(currentRole.value, currentJobRole.value)
   );
+
+  const isAdmin = computed(() => roleKind.value === "admin");
+  const isSupervisor = computed(() => roleKind.value === "supervisor");
+  const isOperator = computed(() => roleKind.value === "operator");
+  const roleLabel = computed(() =>
+    getRoleLabel(currentRole.value, currentJobRole.value)
+  );
+  const capabilities = computed(() => getRoleCapabilities(roleKind.value));
+  const canManage = computed(() => canSeeManagement(roleKind.value));
+  const canViewReportsList = computed(() => canViewReports(roleKind.value));
 
   return {
     currentRole,
     currentJobRole,
     assignedMachineIds,
+    roleKind,
+    roleLabel,
+    capabilities,
     isAdmin,
     isOperator,
     isSupervisor,
+    canManage,
+    canViewReportsList,
   };
 }

@@ -6,6 +6,7 @@ import { setAuthToken } from "../api/client";
 import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
 import { useTheme } from "@/composables/useTheme";
 import EditProfileModal from "@/components/EditProfileModal.vue";
+import { useCurrentUser } from "@/composables/useCurrentUser";
 // Multi-word component name to satisfy eslint vue/multi-word-component-names
 // (Implicit from filename AppSidebar.vue)
 /* eslint-disable */
@@ -51,9 +52,7 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
-// Obtener el rol del usuario desde localStorage
-const userRole = localStorage.getItem("role") || "";
-const userJobRole = localStorage.getItem("jobRole") || "";
+const { roleLabel, isAdmin, canManage } = useCurrentUser();
 
 const currentUserName = ref(
   localStorage.getItem("userName") ||
@@ -72,24 +71,10 @@ function onProfileUpdated(payload: { name: string; username: string }) {
     payload.name || payload.username || currentUserName.value;
 }
 
-const isSupervisor = computed(() =>
-  String(userJobRole || "").toLowerCase().includes("supervisor")
-);
-const canSeeManagement = computed(
-  () => userRole === "admin" || isSupervisor.value
-);
+const canSeeManagement = computed(() => canManage.value);
 const isManagementActive = computed(
   () => isActiveRoute("machines") || isActiveRoute("employees")
 );
-
-const roleLabel = computed(() => {
-  if (userRole === "admin") return "Administrador";
-  if (isSupervisor.value) return "Supervisor";
-  const jr = String(userJobRole || "").toLowerCase();
-  if (jr.includes("operador")) return "Operador";
-  if (userRole === "employee") return "Empleado";
-  return "Usuario";
-});
 
 function isActiveRoute(name: string) {
   return String(route.name || "") === name;
@@ -150,7 +135,7 @@ function isActiveRoute(name: string) {
                 {{ currentUserName }}
               </p>
               <button
-                v-if="userRole === 'admin'"
+                v-if="isAdmin"
                 type="button"
                 class="mt-2 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition"
                 :class="

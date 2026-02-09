@@ -3,8 +3,9 @@ import AppSidebar from "@/components/AppSidebar.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
-import { getWeeklyReports } from "@/api/client";
+import { getUsers, getWeeklyReports } from "@/api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
+import { resolveRoleKind } from "@/utils/access";
 
 type WeeklyReportRow = {
   id?: number;
@@ -38,8 +39,8 @@ const loading = ref(false);
 const error = ref<string>("");
 const report = ref<WeeklyReportRow | null>(null);
 
-const { isAdmin, isSupervisor } = useCurrentUser();
-const canViewReports = computed(() => isAdmin.value || isSupervisor.value);
+const { canViewReportsList, roleKind, assignedMachineIds } = useCurrentUser();
+const canViewReports = computed(() => canViewReportsList.value);
 
 const reportId = computed(() => String(route.params.reportId || "").trim());
 
@@ -49,6 +50,14 @@ function toNum(v: unknown): number {
 }
 
 type UnknownRecord = Record<string, unknown>;
+
+type UserRow = {
+  id: number;
+  username?: string;
+  role?: string;
+  jobRole?: string;
+  assignedMachineIds?: string[];
+};
 
 function asRecord(v: unknown): UnknownRecord | null {
   if (typeof v !== "object" || v === null) return null;
@@ -143,10 +152,40 @@ async function loadReport() {
   loading.value = true;
   error.value = "";
   try {
-    const rows: unknown = await getWeeklyReports();
-    const normalized = (Array.isArray(rows) ? rows : []).map((r) =>
+    const needsSupervisorFilter = roleKind.value === "supervisor";
+    const [rows, users] = (await Promise.all([
+      getWeeklyReports(),
+      needsSupervisorFilter ? getUsers() : null,
+    ])) as [unknown, UserRow[] | null];
+
+    let normalized = (Array.isArray(rows) ? rows : []).map((r) =>
       normalizeReport(r)
     );
+
+    if (needsSupervisorFilter) {
+      const assigned = new Set(assignedMachineIds.value.map(String));
+      const allowedEmployeeIds = new Set<number>();
+      const allowedUsernames = new Set<string>();
+      for (const u of users || []) {
+        const kind = resolveRoleKind(u.role, u.jobRole);
+        if (kind !== "operator") continue;
+        const machineIds = (u.assignedMachineIds || []).map(String);
+        const matches = machineIds.some((id) => assigned.has(id));
+        if (!matches) continue;
+        if (typeof u.id === "number") allowedEmployeeIds.add(u.id);
+        if (u.username) allowedUsernames.add(String(u.username));
+      }
+
+      normalized = normalized.filter((r) => {
+        if (typeof r.employeeId === "number") {
+          return allowedEmployeeIds.has(r.employeeId);
+        }
+        if (r.employeeUsername) {
+          return allowedUsernames.has(r.employeeUsername);
+        }
+        return false;
+      });
+    }
 
     let found: WeeklyReportRow | undefined;
     if (reportId.value) {

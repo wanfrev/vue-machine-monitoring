@@ -63,6 +63,22 @@ const isBoxeoMachine = computed(() => machineTypeLabel.value.includes("boxeo"));
 const isAgilidadMachine = computed(() =>
   machineTypeLabel.value.includes("agilidad")
 );
+const statusBadgeClass = computed(() => {
+  const status = String(props.machine?.status || "inactive");
+  if (status === "active") {
+    return dark.value
+      ? "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/30"
+      : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70";
+  }
+  if (status === "maintenance") {
+    return dark.value
+      ? "bg-amber-500/15 text-amber-200 ring-1 ring-amber-500/30"
+      : "bg-amber-50 text-amber-700 ring-1 ring-amber-200/70";
+  }
+  return dark.value
+    ? "bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/30"
+    : "bg-rose-50 text-rose-700 ring-1 ring-rose-200/70";
+});
 
 type DailySaleRow = {
   id?: number;
@@ -184,7 +200,11 @@ async function saveDaily() {
       coins: nextCoins,
       prizeBs: recordValue,
       lost: toNonNegInt(isAgilidadMachine.value ? lostCount.value : 0),
-      returned: toNonNegInt(isBoxeoMachine.value ? returnedCount.value : 0),
+      returned: toNonNegInt(
+        isBoxeoMachine.value || isAgilidadMachine.value
+          ? returnedCount.value
+          : 0
+      ),
       recordMessage: noteValue,
     })) as DailySaleRow;
     operatorCoins.value = saved?.coins ?? operatorCoins.value;
@@ -192,7 +212,7 @@ async function saveDaily() {
       isAgilidadMachine.value ? lostCount.value : 0
     );
     const returnedValue = toNonNegInt(
-      isBoxeoMachine.value ? returnedCount.value : 0
+      isBoxeoMachine.value || isAgilidadMachine.value ? returnedCount.value : 0
     );
     if (
       coinInput > 0 ||
@@ -207,7 +227,10 @@ async function saveDaily() {
         coins: coinInput,
         prizeBs: recordValue,
         lost: isAgilidadMachine.value ? lostValue : null,
-        returned: isBoxeoMachine.value ? returnedValue : null,
+        returned:
+          isBoxeoMachine.value || isAgilidadMachine.value
+            ? returnedValue
+            : null,
         recordMessage: noteValue,
         createdAt: new Date().toISOString(),
         employeeUsername: localStorage.getItem("username") || undefined,
@@ -250,17 +273,23 @@ watch([() => props.machine.id, date], () => {
     <header class="mb-3 flex items-start justify-between gap-2">
       <div class="min-w-0">
         <div class="flex items-center gap-2 min-w-0">
+          <h2 class="min-w-0 truncate text-base font-semibold">
+            {{ machine.name }}
+          </h2>
           <span
-            class="h-2.5 w-2.5 rounded-full"
-            :class="machineStatusDotClass(machine.status)"
+            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            :class="statusBadgeClass"
             aria-hidden="true"
             role="status"
             :aria-label="machineStatusLabel(machine.status)"
             :title="machineStatusLabel(machine.status)"
-          ></span>
-          <h2 class="min-w-0 truncate text-base font-semibold">
-            {{ machine.name }}
-          </h2>
+          >
+            <span
+              class="h-1.5 w-1.5 rounded-full"
+              :class="machineStatusDotClass(machine.status)"
+              aria-hidden="true"
+            ></span>
+          </span>
         </div>
         <p
           class="mt-0.5 text-xs"
@@ -301,14 +330,7 @@ watch([() => props.machine.id, date], () => {
           aria-hidden="true"
         >
           <path
-            d="M12 2v10"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M7.05 6.05a7 7 0 1 0 9.9 0"
+            d="M21 6.5l-4 4a5 5 0 0 1-6.5 6.5L3 21l4-7.5A5 5 0 0 1 13.5 7l4-4 3.5 3.5z"
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
@@ -462,14 +484,14 @@ watch([() => props.machine.id, date], () => {
           >
           <select
             v-model.number="coins"
-            class="operator-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            class="app-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
                 : 'bg-white border-slate-200 text-slate-900'
             "
           >
-            <option :value="null" disabled>Selecciona…</option>
+            <option :value="null" disabled>Selecciona...</option>
             <option v-for="value in coinOptions" :key="value" :value="value">
               {{ value }}
             </option>
@@ -522,11 +544,11 @@ watch([() => props.machine.id, date], () => {
           <span
             class="text-[11px]"
             :class="dark ? 'text-zinc-400' : 'text-slate-500'"
-            >Perdidas</span
+            >Turno perdido</span
           >
           <select
             v-model.number="lostCount"
-            class="operator-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            class="app-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -544,11 +566,33 @@ watch([() => props.machine.id, date], () => {
           <span
             class="text-[11px]"
             :class="dark ? 'text-zinc-400' : 'text-slate-500'"
-            >Devueltas</span
+            >Devueltas por monedero</span
           >
           <select
             v-model.number="returnedCount"
-            class="operator-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            class="app-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
+            :class="
+              dark
+                ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                : 'bg-white border-slate-200 text-slate-900'
+            "
+          >
+            <option :value="0">0</option>
+            <option v-for="value in coinOptions" :key="value" :value="value">
+              {{ value }}
+            </option>
+          </select>
+        </label>
+
+        <label v-if="isAgilidadMachine" class="grid min-w-0 gap-1">
+          <span
+            class="text-[11px]"
+            :class="dark ? 'text-zinc-400' : 'text-slate-500'"
+            >Devueltas por monedero</span
+          >
+          <select
+            v-model.number="returnedCount"
+            class="app-select block h-9 w-full min-w-0 rounded-lg border px-2 text-xs outline-none"
             :class="
               dark
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -610,18 +654,3 @@ watch([() => props.machine.id, date], () => {
     </div>
   </article>
 </template>
-
-<style scoped>
-.operator-select {
-  color-scheme: dark;
-}
-
-.operator-select option {
-  background-color: #0b0f14;
-  color: #e2e8f0;
-}
-
-.operator-select option:disabled {
-  color: rgba(226, 232, 240, 0.6);
-}
-</style>

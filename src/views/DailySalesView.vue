@@ -77,6 +77,12 @@ const hasNoAssignedMachines = computed(() => {
   return !isAdmin.value && machines.value.length === 0;
 });
 
+function compareMachineLabel(a: Machine, b: Machine): number {
+  const labelA = a.name || a.id || "";
+  const labelB = b.name || b.id || "";
+  return labelA.localeCompare(labelB, "es", { sensitivity: "base" });
+}
+
 async function loadMachines() {
   loading.value = true;
   try {
@@ -85,7 +91,7 @@ async function loadMachines() {
     machines.value = filterMachinesForRole(all, {
       role: currentRole.value,
       assignedMachineIds: assignedMachineIds.value,
-    });
+    }).sort(compareMachineLabel);
 
     // If the selected machine is not allowed, clear it.
     if (
@@ -297,7 +303,7 @@ watch([machineId, date], () => {
           >
           <select
             v-model="machineId"
-            class="h-10 rounded-xl border px-3 text-sm outline-none"
+            class="app-select h-10 rounded-xl border px-3 text-sm outline-none"
             :class="
               isDark()
                 ? 'bg-zinc-950/30 border-zinc-700/60 text-white'

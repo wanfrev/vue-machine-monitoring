@@ -12,6 +12,7 @@ import ReportsView from "../views/ReportsView.vue";
 import ReportDetailView from "../views/ReportDetailView.vue";
 import DailySalesView from "../views/DailySalesView.vue";
 import FinanceView from "../views/FinanceView.vue";
+import { isSupervisorJobRole } from "../utils/access";
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -47,7 +48,7 @@ const routes: Array<RouteRecordRaw> = [
     path: "/finanzas",
     name: "finance",
     component: FinanceView,
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true, requiresFinance: true },
   },
   {
     path: "/daily-sales",
@@ -109,6 +110,14 @@ router.beforeEach((to, from, next) => {
   const isAuth = !!token && localStorage.getItem("auth") === "true";
   if (to.meta.requiresAuth && !isAuth) {
     next({ name: "login" });
+  } else if (to.meta.requiresFinance) {
+    const role = localStorage.getItem("role") || "";
+    const jobRole = localStorage.getItem("jobRole") || "";
+    if (role !== "admin" && !isSupervisorJobRole(jobRole)) {
+      next({ name: "dashboard" });
+    } else {
+      next();
+    }
   } else if (to.meta.requiresAdmin) {
     const role = localStorage.getItem("role") || "";
     if (role !== "admin") {

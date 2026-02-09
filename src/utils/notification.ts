@@ -26,18 +26,18 @@ export function getNotificationCardClass(
 ): string {
   if (type === "machine_on") {
     return isDark
-      ? "border-emerald-600/40 bg-emerald-900/20"
-      : "border-emerald-200 bg-emerald-50";
+      ? "border-emerald-500/30 bg-emerald-500/10"
+      : "border-emerald-200 bg-emerald-50/80";
   }
   if (type === "machine_off") {
     return isDark
-      ? "border-red-600/40 bg-red-900/20"
-      : "border-red-200 bg-red-50";
+      ? "border-rose-500/30 bg-rose-500/10"
+      : "border-rose-200 bg-rose-50/80";
   }
   if (type === "coin_inserted") {
     return isDark
-      ? "border-amber-600/40 bg-amber-900/20"
-      : "border-amber-200 bg-amber-50";
+      ? "border-amber-500/30 bg-amber-500/10"
+      : "border-amber-200 bg-amber-50/80";
   }
   return isDark
     ? "border-zinc-800/70 bg-zinc-900/60"

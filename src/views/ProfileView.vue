@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import EditProfileModal from "@/components/EditProfileModal.vue";
+import { useCurrentUser } from "@/composables/useCurrentUser";
 
 const router = useRouter();
 const { isDark: isDarkRef, toggleDarkMode } = useTheme();
@@ -15,17 +16,7 @@ const currentUserName = ref(
     "Usuario"
 );
 
-const userRole = localStorage.getItem("role") || "";
-const userJobRole = localStorage.getItem("jobRole") || "";
-
-const roleLabel = computed(() => {
-  if (userRole === "admin") return "Administrador";
-  const jr = String(userJobRole || "").toLowerCase();
-  if (jr.includes("supervisor")) return "Supervisor";
-  if (jr.includes("operador")) return "Operador";
-  if (userRole === "employee") return "Empleado";
-  return "Usuario";
-});
+const { roleLabel } = useCurrentUser();
 
 const initials = computed(() => {
   const base = String(currentUserName.value || "").trim();
@@ -200,22 +191,59 @@ onUnmounted(() => {
 
       <div
         v-if="showUpdateCard"
-        class="rounded-3xl border px-5 py-4"
+        class="relative overflow-hidden rounded-3xl border px-5 py-4"
         :class="
           isDark()
-            ? 'border-amber-400/30 bg-zinc-900/60'
+            ? 'border-amber-400/30 bg-zinc-900/70'
             : 'border-amber-200/70 bg-white'
         "
       >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium">Nueva version disponible</p>
-            <p
-              class="text-xs"
-              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        <span
+          class="absolute left-0 top-3 bottom-3 w-1 rounded-full"
+          :class="isDark() ? 'bg-amber-400' : 'bg-amber-500'"
+        ></span>
+        <div class="flex items-center justify-between gap-4 pl-1">
+          <div class="flex items-center gap-3">
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-full"
+              :class="
+                isDark()
+                  ? 'bg-amber-500/15 text-amber-200'
+                  : 'bg-amber-100 text-amber-700'
+              "
             >
-              Recarga para aplicar la actualizacion
-            </p>
+              <svg
+                class="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 3v10"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M5.5 7.5a7 7 0 1 0 13 0"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold">Nueva version disponible</p>
+              <p
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
+                Recarga para aplicar la actualizacion
+              </p>
+            </div>
           </div>
           <button
             type="button"

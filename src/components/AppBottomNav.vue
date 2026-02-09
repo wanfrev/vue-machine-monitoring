@@ -6,7 +6,7 @@ import { useTheme } from "@/composables/useTheme";
 
 const router = useRouter();
 const route = useRoute();
-const { currentRole, isSupervisor } = useCurrentUser();
+const { roleKind, capabilities } = useCurrentUser();
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
 
@@ -26,14 +26,13 @@ const items = computed(() => {
     },
   ];
 
-  if (currentRole.value === "admin") {
+  if (capabilities.value.canSeeFinance) {
     base.push({ name: "finance", label: "Finanzas" });
   }
 
   base.push({ name: "reports", label: "Reportes" });
 
-  const canSeeManagement = currentRole.value === "admin" || isSupervisor.value;
-  if (canSeeManagement) {
+  if (capabilities.value.canManageArea) {
     base.push({ name: "machines", label: "Gestion" });
   }
 

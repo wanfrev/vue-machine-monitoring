@@ -321,7 +321,7 @@ function submit() {
                 >
                 <select
                   v-model="jobRole"
-                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  class="app-select w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
                   :class="
                     isDark
                       ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 focus:ring-zinc-400/40 focus:border-zinc-500'

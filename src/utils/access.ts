@@ -1,4 +1,41 @@
 export type UserRole = string;
+export type RoleKind = "admin" | "supervisor" | "operator";
+
+export function isSupervisorJobRole(jobRole?: string | null): boolean {
+  const jr = String(jobRole || "").toLowerCase();
+  return jr.includes("supervisor");
+}
+
+export function resolveRoleKind(
+  role?: string | null,
+  jobRole?: string | null
+): RoleKind {
+  const safeRole = String(role || "");
+  if (safeRole === "admin") return "admin";
+  if (isSupervisorJobRole(jobRole)) return "supervisor";
+  return "operator";
+}
+
+export function getRoleLabel(
+  role?: string | null,
+  jobRole?: string | null
+): string {
+  const kind = resolveRoleKind(role, jobRole);
+  if (kind === "admin") return "Administrador";
+  if (kind === "supervisor") return "Supervisor";
+  const jr = String(jobRole || "").toLowerCase();
+  if (jr.includes("operador")) return "Operador";
+  if (String(role || "") === "employee") return "Empleado";
+  return "Usuario";
+}
+
+export function canSeeManagement(kind: RoleKind): boolean {
+  return kind === "admin" || kind === "supervisor";
+}
+
+export function canViewReports(kind: RoleKind): boolean {
+  return kind === "admin" || kind === "supervisor";
+}
 
 export function getAssignedMachineIdsFromStorage(): string[] {
   // Prefer the array if present

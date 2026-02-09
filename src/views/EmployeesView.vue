@@ -8,6 +8,7 @@ import { getUsers, createUser, deleteUser, getMachines } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
 import { useRouter } from "vue-router";
+import { isSupervisorJobRole } from "@/utils/access";
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
@@ -37,11 +38,6 @@ function getApiErrorMessage(e: unknown): string {
   const respMsg = (e as { response?: { data?: { message?: string } } })
     ?.response?.data?.message;
   return respMsg || "No se pudo guardar. Intenta de nuevo.";
-}
-
-function isSupervisorJobRole(jobRole?: string): boolean {
-  const jr = String(jobRole || "").toLowerCase();
-  return jr.includes("supervisor");
 }
 
 const totalPeople = computed(

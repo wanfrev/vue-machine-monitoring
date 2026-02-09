@@ -138,6 +138,9 @@ const employees = ref<Employee[]>([]);
 // Total de monedas para el rango seleccionado
 const totalCoins = ref(0);
 const operatorCoins = ref(0);
+const summaryDate = ref(formatDate(new Date()));
+const summaryTotalCoins = ref(0);
+const summaryOperatorCoins = ref(0);
 
 const { coinValues } = useCoinValues();
 
@@ -149,6 +152,9 @@ const valuePerCoin = computed(() => {
 });
 
 const totalIncome = computed(() => totalCoins.value * valuePerCoin.value);
+const summaryIncome = computed(
+  () => summaryTotalCoins.value * valuePerCoin.value
+);
 
 watch([valuePerCoin, isOperator], () => {
   // Recompute amounts locally without refetching.
