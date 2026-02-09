@@ -6,11 +6,9 @@ import { useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
 import {
   getDailySales,
-  getUsers,
   getWeeklyReports,
   upsertWeeklyReport,
 } from "@/api/client";
-import { resolveRoleKind } from "@/utils/access";
 
 type WeeklyReportRow = {
   id?: number;
@@ -48,8 +46,6 @@ const sidebarOpen = ref(false);
 const saving = ref(false);
 
 const canViewReportsList = computed(() => props.canViewReportsList);
-const roleKind = computed(() => props.roleKind || "");
-const assignedMachineIds = computed(() => props.assignedMachineIds || []);
 
 const loadingList = ref(false);
 const listError = ref<string>("");
@@ -85,16 +81,6 @@ type DailySaleRow = {
   machineType?: string | null;
   machine_type?: string | null;
   coins?: number | null;
-  lost?: number | null;
-  returned?: number | null;
-};
-
-type UserRow = {
-  id: number;
-  username?: string;
-  role?: string;
-  jobRole?: string;
-  assignedMachineIds?: string[];
 };
 
 function apiErrorMessage(e: unknown): string {
@@ -162,45 +148,10 @@ async function loadWeeklyReportsList() {
   loadingList.value = true;
   listError.value = "";
   try {
-    const rawRowsPromise = getWeeklyReports();
-    const needsSupervisorFilter = roleKind.value === "supervisor";
-    const usersPromise = needsSupervisorFilter ? getUsers() : null;
-    const [rows, users] = (await Promise.all([
-      rawRowsPromise,
-      usersPromise,
-    ])) as [unknown, UserRow[] | null];
-
-    const normalized = (Array.isArray(rows) ? rows : []).map((r) =>
+    const rows = await getWeeklyReports();
+    reports.value = (Array.isArray(rows) ? rows : []).map((r) =>
       normalizeReport(r)
     );
-
-    if (!needsSupervisorFilter) {
-      reports.value = normalized;
-      return;
-    }
-
-    const assigned = new Set(assignedMachineIds.value.map(String));
-    const allowedEmployeeIds = new Set<number>();
-    const allowedUsernames = new Set<string>();
-    for (const u of users || []) {
-      const kind = resolveRoleKind(u.role, u.jobRole);
-      if (kind !== "operator") continue;
-      const machineIds = (u.assignedMachineIds || []).map(String);
-      const matches = machineIds.some((id) => assigned.has(id));
-      if (!matches) continue;
-      if (typeof u.id === "number") allowedEmployeeIds.add(u.id);
-      if (u.username) allowedUsernames.add(String(u.username));
-    }
-
-    reports.value = normalized.filter((r) => {
-      if (typeof r.employeeId === "number") {
-        return allowedEmployeeIds.has(r.employeeId);
-      }
-      if (r.employeeUsername) {
-        return allowedUsernames.has(r.employeeUsername);
-      }
-      return false;
-    });
   } catch (e) {
     listError.value = apiErrorMessage(e);
     reports.value = [];

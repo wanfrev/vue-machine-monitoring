@@ -10,6 +10,7 @@ import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import ReportsView from "../views/ReportsView.vue";
 import ReportDetailView from "../views/ReportDetailView.vue";
+import EmployeeSalesDetailView from "../views/EmployeeSalesDetailView.vue";
 import DailySalesView from "../views/DailySalesView.vue";
 import FinanceView from "../views/FinanceView.vue";
 import { isSupervisorJobRole } from "../utils/access";
@@ -36,6 +37,12 @@ const routes: Array<RouteRecordRaw> = [
     path: "/reports",
     name: "reports",
     component: ReportsView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/reports/employee/:employeeId",
+    name: "employee-report-detail",
+    component: EmployeeSalesDetailView,
     meta: { requiresAuth: true },
   },
   {

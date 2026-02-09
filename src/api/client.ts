@@ -236,6 +236,19 @@ export async function getDailySales(
   return res.data as any[];
 }
 
+export async function getEmployeeSalesSummary(
+  params: {
+    startDate?: string;
+    endDate?: string;
+    employeeId?: number;
+  } = {}
+) {
+  const res = await api.get(`/api/sales/daily`, {
+    params: { ...params, summary: "employee" },
+  });
+  return res.data as any[];
+}
+
 // Weekly reports (cierre semanal)
 export async function getWeeklyReports(
   params: {
@@ -295,6 +308,7 @@ export async function upsertDailySale(payload: {
   prizeBs?: number | null;
   lost?: number | null;
   returned?: number | null;
+  entryCoins?: number | null;
   // admin-only optional
   employeeId?: number | null;
 }) {
@@ -307,11 +321,26 @@ export async function upsertDailySale(payload: {
     lost: typeof payload.lost === "number" ? payload.lost : 0,
     returned: typeof payload.returned === "number" ? payload.returned : 0,
   };
+  if (typeof payload.entryCoins === "number") {
+    body.entryCoins = payload.entryCoins;
+  }
   if (typeof payload.employeeId === "number") {
     body.employeeId = payload.employeeId;
   }
   const res = await api.put(`/api/sales/daily`, body);
   return res.data;
+}
+
+export async function getDailySaleEntries(
+  params: {
+    startDate?: string;
+    endDate?: string;
+    machineId?: string;
+    employeeId?: number;
+  } = {}
+) {
+  const res = await api.get(`/api/sales/daily/entries`, { params });
+  return res.data as any[];
 }
 
 // Push subscription endpoints
