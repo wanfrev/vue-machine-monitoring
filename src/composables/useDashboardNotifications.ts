@@ -43,8 +43,9 @@ export function useDashboardNotifications(
   const notificationFrom = ref<string | null>(null);
   const notificationTo = ref<string | null>(null);
   const notificationPage = ref(1);
-  const notificationPageSize = 20;
+  const notificationPageSize = 100;
   const serverNotificationTotalPages = ref<number | null>(null);
+  const isLoadingNotifications = ref(false);
   let notificationCounter = 1;
 
   const visibleNotifications = computed(() => notifications.value);
@@ -69,6 +70,13 @@ export function useDashboardNotifications(
       start + notificationPageSize
     );
   });
+
+  function getTodayKey() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
 
   function normalizeTimestamp(ts: string) {
     const d = new Date(ts);
@@ -180,6 +188,8 @@ export function useDashboardNotifications(
   }
 
   async function loadNotificationsFromServer(page = 1) {
+    if (isLoadingNotifications.value) return;
+    isLoadingNotifications.value = true;
     try {
       const params: {
         page: number;
@@ -280,11 +290,24 @@ export function useDashboardNotifications(
       recalcUnreadCountFromLastSeen();
     } catch (e) {
       console.warn("No se pudieron obtener eventos del backend:", e);
+    } finally {
+      isLoadingNotifications.value = false;
     }
   }
 
   function restoreNotificationPreferences() {
     try {
+      const todayKey = getTodayKey();
+      const storedDay = localStorage.getItem("notifications_day");
+      if (storedDay !== todayKey) {
+        localStorage.setItem("notifications_day", todayKey);
+        isTodayOnly.value = true;
+        notificationFrom.value = null;
+        notificationTo.value = null;
+        notificationPage.value = 1;
+        return;
+      }
+
       const storedToday = localStorage.getItem("notifications_today");
       const storedFrom = localStorage.getItem("notifications_from");
       const storedTo = localStorage.getItem("notifications_to");
@@ -315,6 +338,7 @@ export function useDashboardNotifications(
     [isTodayOnly, notificationFrom, notificationTo],
     () => {
       try {
+        localStorage.setItem("notifications_day", getTodayKey());
         localStorage.setItem("notifications_today", String(isTodayOnly.value));
         if (notificationFrom.value) {
           localStorage.setItem("notifications_from", notificationFrom.value);
@@ -331,6 +355,17 @@ export function useDashboardNotifications(
       }
       notificationPage.value = 1;
       void loadNotificationsFromServer(1);
+    },
+    { immediate: false }
+  );
+
+  watch(
+    notificationPage,
+    (page, prev) => {
+      if (page === prev) return;
+      if (serverNotificationTotalPages.value == null) return;
+      if (isLoadingNotifications.value) return;
+      void loadNotificationsFromServer(page);
     },
     { immediate: false }
   );
