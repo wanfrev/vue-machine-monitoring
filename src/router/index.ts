@@ -9,6 +9,7 @@ import MachineHistorialView from "../views/MachineHistorialView.vue";
 import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
 import ProfileView from "../views/ProfileView.vue";
 import ReportsView from "../views/ReportsView.vue";
+import ReportsDailyView from "../views/ReportsDailyView.vue";
 import ReportDetailView from "../views/ReportDetailView.vue";
 import EmployeeSalesDetailView from "../views/EmployeeSalesDetailView.vue";
 import DailySalesView from "../views/DailySalesView.vue";
@@ -37,6 +38,12 @@ const routes: Array<RouteRecordRaw> = [
     path: "/reports",
     name: "reports",
     component: ReportsView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/reports-daily",
+    name: "reports-daily",
+    component: ReportsDailyView,
     meta: { requiresAuth: true },
   },
   {

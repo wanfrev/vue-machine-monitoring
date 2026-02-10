@@ -35,6 +35,12 @@ type Props = {
   canViewReportsList: boolean;
   roleKind: string;
   assignedMachineIds: string[];
+  title?: string;
+  subtitle?: string;
+  reportKindLabel?: string;
+  reportKindPlural?: string;
+  showTabs?: boolean;
+  activeTab?: "sales" | "daily";
 };
 
 const props = defineProps<Props>();
@@ -46,6 +52,22 @@ const sidebarOpen = ref(false);
 const saving = ref(false);
 
 const canViewReportsList = computed(() => props.canViewReportsList);
+const reportKindLabel = computed(() =>
+  (props.reportKindLabel || "semanal").trim()
+);
+const reportKindPlural = computed(() =>
+  (props.reportKindPlural || "semanales").trim()
+);
+const headerTitle = computed(() => props.title?.trim() || "Reportes");
+const headerSubtitle = computed(
+  () => props.subtitle?.trim() || `Cierre ${reportKindLabel.value}`
+);
+const headerDateFallback = computed(() => `Cierre ${reportKindLabel.value}`);
+const saveButtonLabel = computed(
+  () => `Guardar reporte ${reportKindLabel.value}`
+);
+const showTabs = computed(() => Boolean(props.showTabs));
+const activeTab = computed(() => props.activeTab || "daily");
 
 const loadingList = ref(false);
 const listError = ref<string>("");
@@ -81,6 +103,8 @@ type DailySaleRow = {
   machineType?: string | null;
   machine_type?: string | null;
   coins?: number | null;
+  returned?: number | null;
+  lost?: number | null;
 };
 
 function apiErrorMessage(e: unknown): string {
@@ -237,6 +261,7 @@ async function loadWeeklyCoins() {
     let agilidad = 0;
     let boxeoDevueltas = 0;
     let agilidadPerdidas = 0;
+    let agilidadDevueltas = 0;
     for (const row of rows) {
       const coins = Number(row.coins ?? 0);
       if (!Number.isFinite(coins)) continue;
@@ -247,6 +272,7 @@ async function loadWeeklyCoins() {
       } else if (type.includes("agilidad")) {
         agilidad += coins;
         agilidadPerdidas += Number(row.lost ?? 0) || 0;
+        agilidadDevueltas += Number(row.returned ?? 0) || 0;
       }
     }
 
@@ -254,6 +280,7 @@ async function loadWeeklyCoins() {
     agilidadCoins.value = agilidad;
     boxeoReturned.value = boxeoDevueltas;
     agilidadLost.value = agilidadPerdidas;
+    agilidadReturned.value = agilidadDevueltas;
   } catch (e) {
     boxeoCoins.value = 0;
     agilidadCoins.value = 0;
@@ -324,7 +351,7 @@ async function saveWeekly() {
       total: toNonNegMoney(total.value),
     });
 
-    window.alert("Reporte semanal guardado");
+    window.alert(`Reporte ${reportKindLabel.value} guardado`);
   } catch (e: unknown) {
     window.alert(apiErrorMessage(e));
   } finally {
@@ -384,18 +411,62 @@ watch(weekEndDate, () => {
           </button>
           <div class="min-w-0">
             <div class="flex flex-wrap items-baseline gap-2">
-              <h1 class="text-xl font-semibold sm:text-2xl">Reportes</h1>
+              <h1 class="text-xl font-semibold sm:text-2xl">
+                {{ headerTitle }}
+              </h1>
               <span
                 class="text-xs font-medium tracking-wide"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >
-                Cierre semanal
+                {{ headerSubtitle }}
               </span>
             </div>
           </div>
         </div>
       </div>
     </header>
+
+    <div v-if="showTabs" class="w-full flex justify-center mb-4">
+      <div
+        class="inline-flex rounded-xl border p-1 text-xs font-semibold"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-900/60'
+            : 'border-slate-200 bg-white/70'
+        "
+      >
+        <router-link
+          :to="{ name: 'reports' }"
+          class="px-3 py-1.5 rounded-lg transition"
+          :class="
+            activeTab === 'sales'
+              ? isDark()
+                ? 'bg-zinc-800 text-white'
+                : 'bg-white text-slate-900 shadow-sm'
+              : isDark()
+              ? 'text-zinc-400 hover:text-white'
+              : 'text-slate-500 hover:text-slate-900'
+          "
+        >
+          Ventas
+        </router-link>
+        <router-link
+          :to="{ name: 'reports-daily' }"
+          class="px-3 py-1.5 rounded-lg transition"
+          :class="
+            activeTab === 'daily'
+              ? isDark()
+                ? 'bg-zinc-800 text-white'
+                : 'bg-white text-slate-900 shadow-sm'
+              : isDark()
+              ? 'text-zinc-400 hover:text-white'
+              : 'text-slate-500 hover:text-slate-900'
+          "
+        >
+          Reportes diarios
+        </router-link>
+      </div>
+    </div>
 
     <section
       class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"
@@ -410,7 +481,9 @@ watch(weekEndDate, () => {
           class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
         >
           <div class="space-y-1">
-            <h2 class="text-lg font-semibold">Reportes semanales</h2>
+            <h2 class="text-lg font-semibold">
+              Reportes {{ reportKindPlural }}
+            </h2>
             <p
               class="text-sm"
               :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
@@ -528,7 +601,7 @@ watch(weekEndDate, () => {
       >
         <div class="space-y-1">
           <h2 class="text-lg font-semibold">
-            {{ headerDateLabel || "Cierre semanal" }}
+            {{ headerDateLabel || headerDateFallback }}
           </h2>
           <div>
             <p
@@ -668,6 +741,26 @@ watch(weekEndDate, () => {
               >
               <input
                 v-model.number="agilidadLost"
+                type="number"
+                min="0"
+                step="1"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Devueltas:</span
+              >
+              <input
+                v-model.number="agilidadReturned"
                 type="number"
                 min="0"
                 step="1"
@@ -832,7 +925,7 @@ watch(weekEndDate, () => {
             "
             @click="saveWeekly"
           >
-            {{ saving ? "Guardando…" : "Guardar reporte semanal" }}
+            {{ saving ? "Guardando…" : saveButtonLabel }}
           </button>
         </div>
       </div>

@@ -252,8 +252,8 @@ onMounted(() => {
       class="rounded-2xl border px-4 py-4 shadow-sm sm:px-6 sm:py-5"
       :class="
         isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
+          ? 'border-zinc-800/70 text-white'
+          : 'border-slate-200/70 text-slate-900'
       "
     >
       <p
@@ -272,59 +272,102 @@ onMounted(() => {
         {{ error }}
       </p>
 
-      <div
-        v-else
-        class="divide-y"
-        :class="isDark() ? 'divide-zinc-800/70' : 'divide-slate-200'"
-      >
+      <div v-else class="space-y-3">
         <div
           v-for="row in rows"
           :key="String(row.id || '') + '-' + row.date + '-' + row.machineName"
-          class="py-4 flex items-center justify-between gap-3"
+          class="grid gap-2 rounded-2xl border px-3 py-3 shadow-sm sm:px-4"
+          :class="
+            isDark()
+              ? 'bg-zinc-900/60 border-zinc-800/70'
+              : 'bg-white/70 border-slate-200/70'
+          "
         >
-          <div class="min-w-0">
-            <div class="text-base font-semibold truncate">
-              {{ row.machineName || "Maquina" }}
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold truncate">
+                {{ row.machineName || "Maquina" }}
+              </div>
+              <div
+                class="text-[11px] mt-0"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
+                {{ ddmmyyyy(row.date) || row.date }}
+                <span v-if="formatTime(row.createdAt)" class="ml-2">
+                  {{ formatTime(row.createdAt) }}
+                </span>
+              </div>
             </div>
+
             <div
-              class="text-xs mt-0.5"
-              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              class="rounded-md border px-2 py-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] w-fit ml-auto shrink-0"
+              :class="
+                isDark()
+                  ? 'border-zinc-800/70 bg-zinc-950/40'
+                  : 'border-slate-200 bg-white/70'
+              "
             >
-              {{ ddmmyyyy(row.date) || row.date }}
-              <span v-if="formatTime(row.createdAt)" class="ml-2">
-                {{ formatTime(row.createdAt) }}
-              </span>
-            </div>
-            <div
-              v-if="row.recordMessage"
-              class="text-xs mt-1"
-              :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
-            >
-              {{ row.recordMessage }}
+              <div class="flex items-center justify-between gap-2">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'">
+                  Devuelta
+                </span>
+                <span
+                  class="font-semibold"
+                  :class="isDark() ? 'text-amber-200' : 'text-amber-700'"
+                >
+                  {{ (row.returned || 0).toLocaleString("es-VE") }}
+                </span>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'">
+                  Monedas
+                </span>
+                <span class="font-semibold">
+                  {{ row.coins.toLocaleString("es-VE") }}
+                </span>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'">
+                  Perdidas
+                </span>
+                <span
+                  class="font-semibold"
+                  :class="isDark() ? 'text-rose-200' : 'text-rose-700'"
+                >
+                  {{ (row.lost || 0).toLocaleString("es-VE") }}
+                </span>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'">
+                  Record
+                </span>
+                <span
+                  class="font-semibold"
+                  :class="isDark() ? 'text-emerald-200' : 'text-emerald-700'"
+                >
+                  {{ (row.prizeBs || 0).toLocaleString("es-VE") }}
+                </span>
+              </div>
             </div>
           </div>
-          <div class="text-right">
-            <div class="text-base font-semibold">
-              {{ row.coins.toLocaleString("es-VE") }}
-            </div>
+
+          <div
+            v-if="row.recordMessage"
+            class="rounded-lg border px-2 py-0.5 text-[11px]"
+            :class="
+              isDark()
+                ? 'border-zinc-800/70 bg-zinc-950/40 text-zinc-200'
+                : 'border-slate-200 bg-white/60 text-slate-700'
+            "
+          >
             <div
-              v-if="
-                (row.prizeBs || 0) > 0 ||
-                (row.lost || 0) > 0 ||
-                (row.returned || 0) > 0
-              "
-              class="text-xs mt-0.5"
+              class="text-[9px] uppercase tracking-wide"
               :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
-              <span v-if="(row.prizeBs || 0) > 0"
-                >Record {{ row.prizeBs }}</span
-              >
-              <span v-if="(row.lost || 0) > 0" class="ml-2">
-                Perdidas {{ row.lost }}
-              </span>
-              <span v-if="(row.returned || 0) > 0" class="ml-2">
-                Devueltas {{ row.returned }}
-              </span>
+              Incidente
+            </div>
+            <div class="mt-0 break-words">
+              {{ row.recordMessage }}
             </div>
           </div>
         </div>

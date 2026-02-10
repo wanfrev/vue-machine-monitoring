@@ -2,8 +2,7 @@
 import ReportsViewBase from "@/views/ReportsViewBase.vue";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 
-const { roleKind, assignedMachineIds } = useCurrentUser();
-const canViewReportsList = false;
+const { roleKind, assignedMachineIds, canViewReportsList } = useCurrentUser();
 </script>
 
 <template>
@@ -13,5 +12,7 @@ const canViewReportsList = false;
     :assigned-machine-ids="assignedMachineIds"
     report-kind-label="diario"
     report-kind-plural="diarios"
+    :show-tabs="canViewReportsList"
+    active-tab="daily"
   />
 </template>

@@ -10,6 +10,10 @@ import { useCoinValues } from "./composables/useCoinValues";
 const savedToken = localStorage.getItem("token");
 setAuthToken(savedToken);
 
+const initialPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+sessionStorage.setItem("appInitialPath", initialPath);
+sessionStorage.setItem("appInitialHandled", "0");
+
 // Preload coin values (best-effort)
 try {
   const { ensureLoaded } = useCoinValues();

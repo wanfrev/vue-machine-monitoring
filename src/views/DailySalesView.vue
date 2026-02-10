@@ -190,6 +190,9 @@ async function saveDaily() {
       });
     }
 
+    coins.value = 0;
+    prizeBs.value = 0;
+    recordMessage.value = "";
     window.alert("Venta diaria guardada");
   } catch (e) {
     window.alert(apiErrorMessage(e));

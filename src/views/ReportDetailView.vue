@@ -153,16 +153,24 @@ async function loadReport() {
   error.value = "";
   try {
     const needsSupervisorFilter = roleKind.value === "supervisor";
-    const [rows, users] = (await Promise.all([
-      getWeeklyReports(),
-      needsSupervisorFilter ? getUsers() : null,
-    ])) as [unknown, UserRow[] | null];
+    const rows = (await getWeeklyReports()) as unknown;
+
+    let users: UserRow[] | null = null;
+    if (needsSupervisorFilter) {
+      try {
+        users = (await getUsers()) as UserRow[];
+      } catch (e) {
+        // If fetching users fails (e.g. 403), do not block: skip supervisor filtering
+        users = null;
+        // optionally: console.warn('Could not load users for supervisor filter', e);
+      }
+    }
 
     let normalized = (Array.isArray(rows) ? rows : []).map((r) =>
       normalizeReport(r)
     );
 
-    if (needsSupervisorFilter) {
+    if (needsSupervisorFilter && users) {
       const assigned = new Set(assignedMachineIds.value.map(String));
       const allowedEmployeeIds = new Set<number>();
       const allowedUsernames = new Set<string>();
@@ -227,6 +235,21 @@ async function loadReport() {
 }
 
 onMounted(() => {
+  const navEntry = performance.getEntriesByType("navigation")[0] as
+    | PerformanceNavigationTiming
+    | undefined;
+  const initialPath = sessionStorage.getItem("appInitialPath") || "";
+  const initialHandled = sessionStorage.getItem("appInitialHandled") === "1";
+  if (
+    !initialHandled &&
+    navEntry?.type === "reload" &&
+    initialPath === router.currentRoute.value.fullPath
+  ) {
+    sessionStorage.setItem("appInitialHandled", "1");
+    router.replace({ name: "reports" });
+    return;
+  }
+  sessionStorage.setItem("appInitialHandled", "1");
   void loadReport();
 });
 </script>
@@ -412,6 +435,14 @@ onMounted(() => {
                 >
                 <span class="font-semibold">{{
                   toNum(report.agilidadLost)
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Devueltas</span
+                >
+                <span class="font-semibold">{{
+                  toNum(report.agilidadReturned)
                 }}</span>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
 import { getEmployeeSalesSummary } from "@/api/client";
+import { useCurrentUser } from "@/composables/useCurrentUser";
 
 type EmployeeSummary = {
   employeeId: number;
@@ -22,6 +23,7 @@ const error = ref("");
 const query = ref("");
 const rows = ref<EmployeeSummary[]>([]);
 const router = useRouter();
+const { canViewReportsList } = useCurrentUser();
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -195,6 +197,40 @@ onMounted(() => {
         </div>
       </div>
     </header>
+
+    <div v-if="canViewReportsList" class="w-full flex justify-center mb-4">
+      <div
+        class="inline-flex rounded-xl border p-1 text-xs font-semibold"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-900/60'
+            : 'border-slate-200 bg-white/70'
+        "
+      >
+        <router-link
+          :to="{ name: 'reports' }"
+          class="px-3 py-1.5 rounded-lg transition"
+          :class="
+            isDark()
+              ? 'bg-zinc-800 text-white'
+              : 'bg-white text-slate-900 shadow-sm'
+          "
+        >
+          Ventas
+        </router-link>
+        <router-link
+          :to="{ name: 'reports-daily' }"
+          class="px-3 py-1.5 rounded-lg transition"
+          :class="
+            isDark()
+              ? 'text-zinc-400 hover:text-white'
+              : 'text-slate-500 hover:text-slate-900'
+          "
+        >
+          Reportes diarios
+        </router-link>
+      </div>
+    </div>
 
     <section
       class="rounded-2xl border px-4 py-4 shadow-sm sm:px-6 sm:py-5"
