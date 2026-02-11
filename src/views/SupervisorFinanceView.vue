@@ -26,15 +26,29 @@ const { currentRole, assignedMachineIds } = useCurrentUser();
 
 const sidebarOpen = ref(false);
 
-const todayYmd = () => new Date().toISOString().slice(0, 10);
+function formatYmd(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function parseYmd(ymd: string) {
+  const [y, m, d] = ymd.split("-").map((v) => Number(v));
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+const todayYmd = () => formatYmd(new Date());
 
 const allDate = ref<string>(todayYmd());
 const machineDate = ref<string>(todayYmd());
 const chartStartDate = ref<string>(todayYmd());
 const chartEndDate = ref<string>(todayYmd());
+const ALL_MACHINES_ID = "all";
 
 const machines = ref<MachineRow[]>([]);
 const selectedMachineId = ref<string | null>(null);
+const chartMachineId = ref<string | null>(null);
 
 const loadingAll = ref(false);
 const loadingMachine = ref(false);
@@ -45,18 +59,17 @@ const machineTotalCoins = ref(0);
 const chartRows = ref<{ date: string; coins: number }[]>([]);
 
 function addDaysYmd(ymd: string, days: number) {
-  const [y, m, d] = ymd.split("-").map((v) => Number(v));
-  const date = new Date(y, (m || 1) - 1, d || 1);
+  const date = parseYmd(ymd);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return formatYmd(date);
 }
 
 function getDateRangeArray(start: string, end: string) {
   const arr: string[] = [];
-  let current = new Date(start);
-  const last = new Date(end);
+  let current = parseYmd(start);
+  const last = parseYmd(end);
   while (current <= last) {
-    arr.push(current.toISOString().slice(0, 10));
+    arr.push(formatYmd(current));
     current.setDate(current.getDate() + 1);
   }
   return arr;
@@ -178,6 +191,10 @@ async function loadMachines() {
   if (selectedMachineId.value === null && machineOptions.value.length) {
     selectedMachineId.value = machineOptions.value[0]?.id ?? null;
   }
+
+  if (chartMachineId.value === null && machineOptions.value.length) {
+    chartMachineId.value = selectedMachineId.value ?? null;
+  }
 }
 
 async function loadAllCoins() {
@@ -227,32 +244,50 @@ async function loadSelectedMachineCoins() {
 }
 
 async function loadChartCoins() {
-  if (
-    !selectedMachineId.value ||
-    !chartStartDate.value ||
-    !chartEndDate.value
-  ) {
+  if (!chartStartDate.value || !chartEndDate.value) {
+    chartRows.value = [];
+    return;
+  }
+  const selectedId = chartMachineId.value;
+  if (!selectedId) {
     chartRows.value = [];
     return;
   }
   loadingChart.value = true;
   try {
-    const data = await getMachineDailyIncome(selectedMachineId.value, {
-      startDate: chartStartDate.value,
-      endDate: chartEndDate.value,
-    });
-    const mapped = (Array.isArray(data) ? data : []).map((d) => ({
-      date: d.date ? String(d.date).slice(0, 10) : "",
-      coins: Number(d.income ?? 0) || 0,
-    }));
     const allDates = getDateRangeArray(
       chartStartDate.value,
       chartEndDate.value
     );
-    chartRows.value = allDates.map((date) => {
-      const found = mapped.find((m) => m.date === date);
-      return { date, coins: found ? found.coins : 0 };
-    });
+    const totalsByDate = new Map<string, number>();
+    const machineIds =
+      selectedId === ALL_MACHINES_ID
+        ? machines.value.map((m) => String(m.id))
+        : [selectedId];
+
+    await Promise.all(
+      machineIds.map(async (machineId) => {
+        try {
+          const data = await getMachineDailyIncome(machineId, {
+            startDate: chartStartDate.value,
+            endDate: chartEndDate.value,
+          });
+          for (const row of Array.isArray(data) ? data : []) {
+            const date = row?.date ? String(row.date).slice(0, 10) : "";
+            if (!date) continue;
+            const coins = Number(row?.income ?? 0) || 0;
+            totalsByDate.set(date, (totalsByDate.get(date) || 0) + coins);
+          }
+        } catch {
+          // ignore per-machine errors
+        }
+      })
+    );
+
+    chartRows.value = allDates.map((date) => ({
+      date,
+      coins: totalsByDate.get(date) || 0,
+    }));
   } finally {
     loadingChart.value = false;
   }
@@ -263,6 +298,11 @@ function refreshPage() {
 }
 
 onMounted(async () => {
+  const today = todayYmd();
+  allDate.value = today;
+  machineDate.value = today;
+  chartStartDate.value = today;
+  chartEndDate.value = today;
   await loadMachines();
   await loadAllCoins();
   await loadSelectedMachineCoins();
@@ -277,7 +317,7 @@ watch([machineDate, selectedMachineId], () => {
   void loadSelectedMachineCoins();
 });
 
-watch([chartStartDate, chartEndDate, selectedMachineId], () => {
+watch([chartStartDate, chartEndDate, chartMachineId], () => {
   void loadChartCoins();
 });
 </script>
@@ -546,14 +586,14 @@ watch([chartStartDate, chartEndDate, selectedMachineId], () => {
             Ver monedas por dia, semana o rango personalizado
           </p>
         </div>
-        <div class="flex flex-wrap items-end gap-3">
-          <label class="text-xs">
+        <div class="flex flex-col gap-3 w-full sm:w-auto">
+          <label class="text-xs w-full sm:w-auto">
             <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >Maquina</span
             >
             <select
-              v-model="selectedMachineId"
-              class="app-select mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
+              v-model="chartMachineId"
+              class="app-select mt-1 h-9 w-full rounded-lg border px-2 text-xs outline-none"
               :class="
                 isDark()
                   ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -561,19 +601,20 @@ watch([chartStartDate, chartEndDate, selectedMachineId], () => {
               "
             >
               <option :value="null" disabled>Selecciona...</option>
+              <option :value="ALL_MACHINES_ID">Todas las maquinas</option>
               <option v-for="m in machineOptions" :key="m.id" :value="m.id">
                 {{ m.label }}
               </option>
             </select>
           </label>
-          <label class="text-xs">
+          <label class="text-xs w-full sm:w-auto">
             <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >Desde</span
             >
             <input
               v-model="chartStartDate"
               type="date"
-              class="mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
+              class="mt-1 h-9 w-full rounded-lg border px-2 text-xs outline-none"
               :class="
                 isDark()
                   ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
@@ -581,14 +622,14 @@ watch([chartStartDate, chartEndDate, selectedMachineId], () => {
               "
             />
           </label>
-          <label class="text-xs">
+          <label class="text-xs w-full sm:w-auto">
             <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >Hasta</span
             >
             <input
               v-model="chartEndDate"
               type="date"
-              class="mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
+              class="mt-1 h-9 w-full rounded-lg border px-2 text-xs outline-none"
               :class="
                 isDark()
                   ? 'bg-zinc-950/30 border-zinc-700/60 text-white'

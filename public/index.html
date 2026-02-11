@@ -1,19 +1,25 @@
 <!DOCTYPE html>
 <html lang="">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
-    >
-    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
-    <link rel="apple-touch-icon" href="<%= BASE_URL %>img/icons/icon-no-padding-512.png">
-    <link rel="manifest" href="<%= BASE_URL %>manifest.json">
-    <meta name="theme-color" content="#ffffff">
+    />
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico" />
+    <link
+      rel="apple-touch-icon"
+      href="<%= BASE_URL %>img/icons/icon-no-padding-512.png"
+    />
+    <link rel="manifest" href="<%= BASE_URL %>manifest.json" />
+    <meta name="theme-color" content="#ffffff" />
     <script>
       // Prevent errors from third-party injected scripts that assume
       // `window.ethereum` exists (some mobile wallet browsers inject
@@ -21,8 +27,11 @@
       // Provide a harmless stub to avoid TypeErrors while not enabling
       // any wallet functionality.
       try {
-        if (typeof window !== 'undefined' && typeof window.ethereum === 'undefined') {
-          Object.defineProperty(window, 'ethereum', {
+        if (
+          typeof window !== "undefined" &&
+          typeof window.ethereum === "undefined"
+        ) {
+          Object.defineProperty(window, "ethereum", {
             value: {},
             writable: true,
             configurable: true,
@@ -36,7 +45,11 @@
   </head>
   <body>
     <noscript>
-      <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+      <strong
+        >We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work
+        properly without JavaScript enabled. Please enable it to
+        continue.</strong
+      >
     </noscript>
     <div id="app"></div>
     <!-- built files will be auto injected -->

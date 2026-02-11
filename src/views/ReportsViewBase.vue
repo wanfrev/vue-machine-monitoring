@@ -68,6 +68,7 @@ const saveButtonLabel = computed(
 );
 const showTabs = computed(() => Boolean(props.showTabs));
 const activeTab = computed(() => props.activeTab || "daily");
+const isDailyReport = computed(() => reportKindLabel.value === "diario");
 
 const loadingList = ref(false);
 const listError = ref<string>("");
@@ -218,8 +219,14 @@ function ddmmyyyy(dateYmd: string): string {
 }
 
 function openReport(row: WeeklyReportRow) {
+  const reportKindQuery =
+    reportKindLabel.value === "diario" ? { reportKind: "diario" } : {};
   if (typeof row.id === "number") {
-    router.push({ name: "report-detail", params: { reportId: row.id } });
+    router.push({
+      name: "report-detail",
+      params: { reportId: row.id },
+      query: reportKindQuery,
+    });
     return;
   }
 
@@ -229,6 +236,7 @@ function openReport(row: WeeklyReportRow) {
       weekEndDate: row.weekEndDate,
       employeeId: row.employeeId ? String(row.employeeId) : "",
       employeeUsername: row.employeeUsername || "",
+      ...reportKindQuery,
     },
   });
 }
@@ -335,7 +343,7 @@ async function saveWeekly() {
 
   saving.value = true;
   try {
-    await upsertWeeklyReport({
+    const payload: WeeklyReportRow = {
       weekEndDate: weekEndDate.value,
       boxeoCoins: toNonNegInt(boxeoCoins.value),
       boxeoLost: toNonNegInt(boxeoLost.value),
@@ -343,13 +351,24 @@ async function saveWeekly() {
       agilidadCoins: toNonNegInt(agilidadCoins.value),
       agilidadLost: toNonNegInt(agilidadLost.value),
       agilidadReturned: toNonNegInt(agilidadReturned.value),
-      remainingCoins: toNonNegInt(remainingCoins.value),
-      pagoMovil: toNonNegMoney(pagoMovil.value),
-      dolares: toNonNegMoney(dolares.value),
-      bolivares: toNonNegMoney(bolivares.value),
-      premio: toNonNegMoney(premio.value),
-      total: toNonNegMoney(total.value),
-    });
+      remainingCoins: 0,
+      pagoMovil: 0,
+      dolares: 0,
+      bolivares: 0,
+      premio: 0,
+      total: 0,
+    };
+
+    if (!isDailyReport.value) {
+      payload.remainingCoins = toNonNegInt(remainingCoins.value);
+      payload.pagoMovil = toNonNegMoney(pagoMovil.value);
+      payload.dolares = toNonNegMoney(dolares.value);
+      payload.bolivares = toNonNegMoney(bolivares.value);
+      payload.premio = toNonNegMoney(premio.value);
+      payload.total = toNonNegMoney(total.value);
+    }
+
+    await upsertWeeklyReport(payload);
 
     window.alert(`Reporte ${reportKindLabel.value} guardado`);
   } catch (e: unknown) {
@@ -777,7 +796,7 @@ watch(weekEndDate, () => {
       </div>
 
       <div
-        v-if="!canViewReportsList"
+        v-if="!canViewReportsList && !isDailyReport"
         class="mt-4 rounded-2xl border p-4"
         :class="
           isDark()
@@ -908,26 +927,26 @@ watch(weekEndDate, () => {
             />
           </label>
         </div>
+      </div>
 
-        <div class="mt-5 flex justify-end">
-          <button
-            type="button"
-            class="inline-flex h-11 items-center justify-center rounded-xl border px-5 text-sm font-medium transition cursor-pointer"
-            :disabled="saving"
-            :class="
-              saving
-                ? isDark()
-                  ? 'border-zinc-700/60 bg-zinc-950/30 text-zinc-400'
-                  : 'border-slate-200 bg-slate-50 text-slate-400'
-                : isDark()
-                ? 'border-zinc-700/60 bg-zinc-950/20 text-white hover:bg-zinc-950/30'
-                : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
-            "
-            @click="saveWeekly"
-          >
-            {{ saving ? "Guardando…" : saveButtonLabel }}
-          </button>
-        </div>
+      <div v-if="!canViewReportsList" class="mt-5 flex justify-end">
+        <button
+          type="button"
+          class="inline-flex h-11 items-center justify-center rounded-xl border px-5 text-sm font-medium transition cursor-pointer"
+          :disabled="saving"
+          :class="
+            saving
+              ? isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/30 text-zinc-400'
+                : 'border-slate-200 bg-slate-50 text-slate-400'
+              : isDark()
+              ? 'border-zinc-700/60 bg-zinc-950/20 text-white hover:bg-zinc-950/30'
+              : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
+          "
+          @click="saveWeekly"
+        >
+          {{ saving ? "Guardando…" : saveButtonLabel }}
+        </button>
       </div>
     </section>
 

@@ -43,6 +43,10 @@ const { canViewReportsList, roleKind, assignedMachineIds } = useCurrentUser();
 const canViewReports = computed(() => canViewReportsList.value);
 
 const reportId = computed(() => String(route.params.reportId || "").trim());
+const isDailyReport = computed(() => route.query.reportKind === "diario");
+const reportSubtitle = computed(() =>
+  isDailyReport.value ? "Reporte diario" : "Reporte semanal"
+);
 
 function toNum(v: unknown): number {
   const n = Number(v);
@@ -303,7 +307,7 @@ onMounted(() => {
                 class="text-xs font-medium tracking-wide"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >
-                Reporte semanal
+                {{ reportSubtitle }}
               </span>
             </div>
           </div>
@@ -450,6 +454,7 @@ onMounted(() => {
         </div>
 
         <div
+          v-if="!isDailyReport"
           class="rounded-2xl border p-4"
           :class="
             isDark()
