@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
 const props = defineProps<{
   currentUserName: string;
@@ -18,6 +18,35 @@ const emit = defineEmits<{
 }>();
 
 const isDark = computed(() => !!props.dark);
+const now = ref(new Date());
+const timeFormatter = new Intl.DateTimeFormat("es-ES", {
+  hour12: true,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+const dateFormatter = new Intl.DateTimeFormat("es-ES", {
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+const timeText = computed(() => timeFormatter.format(now.value));
+const dateText = computed(() => dateFormatter.format(now.value));
+
+let clockTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  clockTimer = setInterval(() => {
+    now.value = new Date();
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (clockTimer) {
+    clearInterval(clockTimer);
+  }
+});
 
 function handleOpenSidebar() {
   emit("open-sidebar");
@@ -71,7 +100,21 @@ function handleRefresh() {
           >.
         </p>
       </div>
-      <div class="shrink-0">
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="text-right leading-tight">
+          <p
+            class="text-xs font-semibold uppercase tracking-wide"
+            :class="isDark ? 'text-slate-300' : 'text-slate-500'"
+          >
+            {{ timeText }}
+          </p>
+          <p
+            class="text-xs"
+            :class="isDark ? 'text-slate-400' : 'text-slate-500'"
+          >
+            {{ dateText }}
+          </p>
+        </div>
         <button
           type="button"
           class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
