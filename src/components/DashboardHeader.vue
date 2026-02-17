@@ -66,8 +66,10 @@ function handleRefresh() {
         : 'bg-white/80 border-slate-200/80 text-slate-900'
     "
   >
-    <div class="flex items-start justify-between gap-4">
-      <div class="space-y-1">
+    <div
+      class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2"
+    >
+      <div class="min-w-0 space-y-1">
         <div class="flex items-center gap-2">
           <button
             type="button"
@@ -100,7 +102,7 @@ function handleRefresh() {
           >.
         </p>
       </div>
-      <div class="flex items-center gap-3 shrink-0">
+      <div class="flex flex-col items-end gap-2 shrink-0">
         <div class="text-right leading-tight">
           <p
             class="text-xs font-semibold uppercase tracking-wide"
