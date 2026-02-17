@@ -19,8 +19,6 @@ type Employee = {
   username: string;
   role: string;
   name: string;
-  shift?: string;
-  documentId?: string;
   jobRole?: string;
   assignedMachineIds?: string[];
 };
@@ -77,7 +75,7 @@ const displayedEmployees = computed(() => {
   }
 
   list = filterBySearch(list, (e) =>
-    `${e.name || ""} ${e.username || ""} ${e.documentId || ""}`.trim()
+    `${e.name || ""} ${e.username || ""}`.trim()
   );
 
   return list.slice().sort((a, b) =>
@@ -144,12 +142,10 @@ function goToMachines() {
 }
 
 async function handleCreateEmployee(payload: {
-  documentId: string;
   name: string;
   username: string;
   password: string;
   jobRole: string;
-  shift?: string;
   assignedMachineIds?: string[];
 }) {
   try {
@@ -165,12 +161,10 @@ import { updateUser } from "../api/client";
 
 async function handleUpdateEmployee(payload: {
   id: number;
-  documentId: string;
   name: string;
   username: string;
   password?: string;
   jobRole: string;
-  shift?: string;
   assignedMachineIds?: string[];
 }) {
   try {
@@ -518,20 +512,17 @@ async function handleDeleteEmployee(id: number) {
             "
           >
             <tr>
-              <th class="px-4 py-2 whitespace-nowrap">Cédula</th>
               <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
-              <th class="px-4 py-2 whitespace-nowrap">Rol</th>
-              <th class="px-4 py-2 whitespace-nowrap">Turno</th>
               <th class="px-4 py-2 whitespace-nowrap">Máquinas (ubicación)</th>
               <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td class="px-4 py-3" colspan="6">Cargando...</td>
+              <td class="px-4 py-3" colspan="4">Cargando...</td>
             </tr>
             <tr v-else-if="!displayedEmployees.length">
-              <td class="px-4 py-10" colspan="6">
+              <td class="px-4 py-10" colspan="4">
                 <div
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
                   :class="
@@ -555,9 +546,6 @@ async function handleDeleteEmployee(id: number) {
                   : 'border-slate-200/70 hover:bg-red-100/50'
               "
             >
-              <td class="px-4 py-2 whitespace-nowrap text-xs text-slate-500">
-                {{ e.documentId || "—" }}
-              </td>
               <td class="px-4 py-2 whitespace-nowrap">
                 <div class="flex items-center gap-2 min-w-0">
                   <div
@@ -594,18 +582,6 @@ async function handleDeleteEmployee(id: number) {
                     </div>
                   </div>
                 </div>
-              </td>
-              <td class="px-4 py-2 whitespace-nowrap">
-                <span
-                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200'
-                      : 'border-slate-200/70 bg-white/40 text-slate-700'
-                  "
-                >
-                  {{ e.shift || "—" }}
-                </span>
               </td>
               <td class="px-4 py-2 whitespace-nowrap">
                 <p class="text-xs text-slate-600 flex items-center gap-1">
@@ -741,9 +717,6 @@ async function handleDeleteEmployee(id: number) {
                       {{ e.name }}
                     </div>
                     <div class="mt-0.5 flex flex-wrap items-center gap-2">
-                      <span class="text-xs text-slate-400">
-                        {{ e.documentId || "—" }}
-                      </span>
                       <span
                         class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
                         :class="
@@ -770,16 +743,6 @@ async function handleDeleteEmployee(id: number) {
                     <span>{{
                       getEmployeeAssignmentSummary(e) || "Sin asignación"
                     }}</span>
-                  </div>
-                  <div
-                    class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
-                    :class="
-                      isDark()
-                        ? 'bg-slate-800 text-slate-200'
-                        : 'bg-slate-100 text-slate-700'
-                    "
-                  >
-                    {{ e.shift || "—" }}
                   </div>
                 </div>
               </div>

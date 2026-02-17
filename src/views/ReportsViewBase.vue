@@ -6,6 +6,8 @@ import { useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
 import {
   getDailySales,
+  getMachines,
+  getUsers,
   getWeeklyReports,
   upsertWeeklyReport,
 } from "@/api/client";
@@ -52,6 +54,7 @@ const sidebarOpen = ref(false);
 const saving = ref(false);
 
 const canViewReportsList = computed(() => props.canViewReportsList);
+const isAdmin = computed(() => props.roleKind === "admin");
 const reportKindLabel = computed(() =>
   (props.reportKindLabel || "semanal").trim()
 );
@@ -108,6 +111,12 @@ type DailySaleRow = {
   lost?: number | null;
 };
 
+type MachineRow = {
+  id?: string | number;
+  name?: string | null;
+  type?: string | null;
+};
+
 function apiErrorMessage(e: unknown): string {
   const msg = (e as { response?: { data?: { message?: string } } })?.response
     ?.data?.message;
@@ -131,6 +140,30 @@ function pick(rec: UnknownRecord, keys: string[]): unknown {
     if (k in rec) return rec[k];
   }
   return undefined;
+}
+
+function isSupervisorJobRole(jobRole: unknown): boolean {
+  if (typeof jobRole !== "string") return false;
+  return jobRole.trim().toLowerCase().includes("supervisor");
+}
+
+type UserRow = {
+  id?: number;
+  jobRole?: string;
+  job_role?: string;
+};
+
+function getSupervisorIds(rows: unknown[]): Set<number> {
+  const ids = new Set<number>();
+  for (const row of rows) {
+    const rec = asRecord(row) as UserRow | null;
+    if (!rec) continue;
+    const id = Number(rec.id);
+    if (!Number.isFinite(id)) continue;
+    const jobRole = rec.jobRole ?? rec.job_role ?? "";
+    if (isSupervisorJobRole(jobRole)) ids.add(id);
+  }
+  return ids;
 }
 
 function normalizeReport(row: unknown): WeeklyReportRow {
@@ -173,10 +206,16 @@ async function loadWeeklyReportsList() {
   loadingList.value = true;
   listError.value = "";
   try {
-    const rows = await getWeeklyReports();
-    reports.value = (Array.isArray(rows) ? rows : []).map((r) =>
-      normalizeReport(r)
-    );
+    const [rows, users] = await Promise.all([
+      getWeeklyReports(),
+      isAdmin.value ? getUsers() : Promise.resolve([]),
+    ]);
+    const supervisorIds = getSupervisorIds(users as unknown[]);
+    reports.value = (Array.isArray(rows) ? rows : [])
+      .map((r) => normalizeReport(r))
+      .filter((r) =>
+        isAdmin.value ? !supervisorIds.has(Number(r.employeeId ?? 0)) : true
+      );
   } catch (e) {
     listError.value = apiErrorMessage(e);
     reports.value = [];
@@ -251,6 +290,38 @@ function addDaysYmd(ymd: string, days: number) {
 function getMachineType(row: DailySaleRow): string {
   const raw = row.machineType ?? row.machine_type ?? "";
   return String(raw).toLowerCase();
+}
+
+function getMachineTypeLabel(machine: MachineRow): string {
+  const raw = machine.type ?? machine.name ?? "";
+  return String(raw).toLowerCase();
+}
+
+const assignedMachines = ref<MachineRow[]>([]);
+const showAgilidad = computed(() => {
+  if (canViewReportsList.value) return true;
+  if (!assignedMachines.value.length) return false;
+  return assignedMachines.value.some((m) =>
+    getMachineTypeLabel(m).includes("agilidad")
+  );
+});
+
+async function loadAssignedMachines() {
+  if (canViewReportsList.value) return;
+  const ids = new Set((props.assignedMachineIds || []).map(String));
+  if (ids.size === 0) {
+    assignedMachines.value = [];
+    return;
+  }
+
+  try {
+    const rows = (await getMachines()) as MachineRow[];
+    assignedMachines.value = (Array.isArray(rows) ? rows : []).filter((m) =>
+      ids.has(String(m.id))
+    );
+  } catch {
+    assignedMachines.value = [];
+  }
 }
 
 async function loadWeeklyCoins() {
@@ -348,9 +419,11 @@ async function saveWeekly() {
       boxeoCoins: toNonNegInt(boxeoCoins.value),
       boxeoLost: toNonNegInt(boxeoLost.value),
       boxeoReturned: toNonNegInt(boxeoReturned.value),
-      agilidadCoins: toNonNegInt(agilidadCoins.value),
-      agilidadLost: toNonNegInt(agilidadLost.value),
-      agilidadReturned: toNonNegInt(agilidadReturned.value),
+      agilidadCoins: showAgilidad.value ? toNonNegInt(agilidadCoins.value) : 0,
+      agilidadLost: showAgilidad.value ? toNonNegInt(agilidadLost.value) : 0,
+      agilidadReturned: showAgilidad.value
+        ? toNonNegInt(agilidadReturned.value)
+        : 0,
       remainingCoins: 0,
       pagoMovil: 0,
       dolares: 0,
@@ -371,6 +444,15 @@ async function saveWeekly() {
     await upsertWeeklyReport(payload);
 
     window.alert(`Reporte ${reportKindLabel.value} guardado`);
+
+    if (isDailyReport.value) {
+      boxeoCoins.value = 0;
+      boxeoLost.value = 0;
+      boxeoReturned.value = 0;
+      agilidadCoins.value = 0;
+      agilidadLost.value = 0;
+      agilidadReturned.value = 0;
+    }
   } catch (e: unknown) {
     window.alert(apiErrorMessage(e));
   } finally {
@@ -381,11 +463,20 @@ async function saveWeekly() {
 onMounted(() => {
   void loadWeeklyReportsList();
   void loadWeeklyCoins();
+  void loadAssignedMachines();
 });
 
 watch(weekEndDate, () => {
   void loadWeeklyCoins();
 });
+
+watch(
+  () => props.assignedMachineIds,
+  () => {
+    void loadAssignedMachines();
+  },
+  { deep: true }
+);
 </script>
 
 <template>
@@ -723,6 +814,7 @@ watch(weekEndDate, () => {
         </div>
 
         <div
+          v-if="showAgilidad"
           class="rounded-2xl border p-4"
           :class="
             isDark()

@@ -10,11 +10,9 @@ const props = defineProps<{
   mode?: "create" | "edit";
   employee?: {
     id: number;
-    documentId?: string;
     name: string;
     username: string;
     jobRole?: string;
-    shift?: string;
     assignedMachineIds?: string[];
   } | null;
 }>();
@@ -25,12 +23,10 @@ const emit = defineEmits<{
   (
     e: "create",
     payload: {
-      documentId: string;
       name: string;
       username: string;
       password: string;
       jobRole: string;
-      shift?: string;
       assignedMachineIds?: string[];
     }
   ): void;
@@ -38,23 +34,19 @@ const emit = defineEmits<{
     e: "update",
     payload: {
       id: number;
-      documentId: string;
       name: string;
       username: string;
       password?: string;
       jobRole: string;
-      shift?: string;
       assignedMachineIds?: string[];
     }
   ): void;
 }>();
 
-const documentId = ref("");
 const name = ref("");
 const username = ref("");
 const password = ref("");
 const jobRole = ref("");
-const shift = ref("");
 const assignedMachineIds = ref<string[]>([]);
 const showMachineModal = ref(false);
 
@@ -85,21 +77,17 @@ watch(
     if (open) {
       if (props.mode === "edit" && props.employee) {
         editingId.value = props.employee.id;
-        documentId.value = props.employee.documentId || "";
         name.value = props.employee.name || "";
         username.value = props.employee.username || "";
         password.value = ""; // No se muestra la contraseña actual
         jobRole.value = props.employee.jobRole || "";
-        shift.value = props.employee.shift || "";
         assignedMachineIds.value = props.employee.assignedMachineIds || [];
       } else {
         editingId.value = null;
-        documentId.value = "";
         name.value = "";
         username.value = "";
         password.value = "";
         jobRole.value = "";
-        shift.value = "";
         assignedMachineIds.value = [];
       }
       void 0;
@@ -121,7 +109,6 @@ function removeMachine(id: string) {
 
 function submit() {
   if (
-    !documentId.value ||
     !name.value ||
     !username.value ||
     (!password.value && props.mode !== "edit") ||
@@ -132,12 +119,10 @@ function submit() {
   if (props.mode === "edit" && editingId.value !== null) {
     emit("update", {
       id: editingId.value,
-      documentId: documentId.value,
       name: name.value,
       username: username.value,
       password: password.value || undefined,
       jobRole: jobRole.value,
-      shift: shift.value || undefined,
       assignedMachineIds:
         assignedMachineIds.value.length > 0
           ? assignedMachineIds.value
@@ -145,12 +130,10 @@ function submit() {
     });
   } else {
     emit("create", {
-      documentId: documentId.value,
       name: name.value,
       username: username.value,
       password: password.value,
       jobRole: jobRole.value,
-      shift: shift.value || undefined,
       assignedMachineIds:
         assignedMachineIds.value.length > 0
           ? assignedMachineIds.value
@@ -220,8 +203,8 @@ function submit() {
         <form @submit.prevent="submit" class="mt-2 space-y-4">
           <div class="grid gap-4">
             <!-- Fila 1: Identidad -->
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div class="md:col-span-2">
+            <div class="grid grid-cols-1 gap-4">
+              <div>
                 <label class="block text-sm font-semibold mb-1"
                   >Nombre completo<span
                     :class="isDark ? 'text-red-400' : 'text-sky-500'"
@@ -230,25 +213,6 @@ function submit() {
                 >
                 <input
                   v-model="name"
-                  type="text"
-                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                  :class="
-                    isDark
-                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
-                  "
-                  required
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-semibold mb-1"
-                  >Cédula / ID<span
-                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
-                    >*</span
-                  ></label
-                >
-                <input
-                  v-model="documentId"
                   type="text"
                   class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
                   :class="
@@ -311,8 +275,8 @@ function submit() {
               </div>
             </div>
 
-            <!-- Fila 3: Rol y turno -->
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <!-- Fila 3: Rol -->
+            <div class="grid grid-cols-1 gap-4">
               <div>
                 <label class="block text-sm font-semibold mb-1"
                   >Rol<span :class="isDark ? 'text-red-400' : 'text-sky-500'"
@@ -333,20 +297,6 @@ function submit() {
                   <option value="Supervisor">Supervisor</option>
                   <option value="Operador">Operador</option>
                 </select>
-              </div>
-              <div>
-                <label class="block text-sm font-semibold mb-1">Turno</label>
-                <input
-                  v-model="shift"
-                  type="text"
-                  placeholder="Ej: Nocturno"
-                  class="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                  :class="
-                    isDark
-                      ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
-                  "
-                />
               </div>
             </div>
 

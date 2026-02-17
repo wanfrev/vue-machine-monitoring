@@ -48,7 +48,10 @@ export function useDashboardBaseData(mode: DashboardMode) {
     setSelectedFilter,
     updateSearchQuery,
     applyFilters,
-  } = useDashboardFilters({ scopedMachines });
+  } = useDashboardFilters({
+    scopedMachines,
+    preferBoxeoFirst: isOperator,
+  });
 
   const toast = ref<{ title: string; body?: string; type: ToastType } | null>(
     null

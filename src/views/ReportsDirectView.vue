@@ -3,7 +3,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
-import { getEmployeeSalesSummary } from "@/api/client";
+import { getEmployeeSalesSummary, getUsers } from "@/api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 
 type EmployeeSummary = {
@@ -23,7 +23,7 @@ const error = ref("");
 const query = ref("");
 const rows = ref<EmployeeSummary[]>([]);
 const router = useRouter();
-const { canViewReportsList } = useCurrentUser();
+const { canViewReportsList, roleKind } = useCurrentUser();
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -47,6 +47,30 @@ function toNum(v: unknown): number {
 function toStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.map((item) => String(item)).filter(Boolean);
+}
+
+function isSupervisorJobRole(jobRole: unknown): boolean {
+  if (typeof jobRole !== "string") return false;
+  return jobRole.trim().toLowerCase().includes("supervisor");
+}
+
+type UserRow = {
+  id?: number;
+  jobRole?: string;
+  job_role?: string;
+};
+
+function getSupervisorIds(rows: unknown[]): Set<number> {
+  const ids = new Set<number>();
+  for (const row of rows) {
+    const rec = asRecord(row) as UserRow | null;
+    if (!rec) continue;
+    const id = Number(rec.id);
+    if (!Number.isFinite(id)) continue;
+    const jobRole = rec.jobRole ?? rec.job_role ?? "";
+    if (isSupervisorJobRole(jobRole)) ids.add(id);
+  }
+  return ids;
 }
 
 function normalizeSummary(row: unknown): EmployeeSummary | null {
@@ -76,10 +100,17 @@ async function loadSummary() {
   loading.value = true;
   error.value = "";
   try {
-    const data = await getEmployeeSalesSummary();
+    const [data, users] = await Promise.all([
+      getEmployeeSalesSummary(),
+      roleKind.value === "admin" ? getUsers() : Promise.resolve([]),
+    ]);
+    const supervisorIds = getSupervisorIds(users as unknown[]);
     const normalized = (Array.isArray(data) ? data : [])
       .map((row) => normalizeSummary(row))
-      .filter(Boolean) as EmployeeSummary[];
+      .filter(Boolean)
+      .filter((row) =>
+        roleKind.value === "admin" ? !supervisorIds.has(row.employeeId) : true
+      ) as EmployeeSummary[];
 
     const byEmployee = new Map<number, EmployeeSummary>();
     for (const row of normalized) {

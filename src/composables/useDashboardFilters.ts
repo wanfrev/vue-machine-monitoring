@@ -7,12 +7,17 @@ import type {
 
 type UseDashboardFiltersOptions = {
   scopedMachines: Ref<Machine[]>;
+  preferBoxeoFirst?: Ref<boolean> | boolean;
 };
 
 export function useDashboardFilters(options: UseDashboardFiltersOptions) {
   const searchQuery = ref("");
   const dashboardFilters = ref<DashboardFilters>({ locations: [] });
   const selectedFilter = ref<DashboardFilterKey>("todas");
+  const preferBoxeoFirst = computed(() => {
+    const value = options.preferBoxeoFirst;
+    return typeof value === "object" ? value.value : Boolean(value);
+  });
 
   const visibleStateFilters = computed<DashboardFilterKey[]>(() => [
     "todas",
@@ -30,12 +35,23 @@ export function useDashboardFilters(options: UseDashboardFiltersOptions) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   });
 
+  function machineKindRank(machine: Machine): number {
+    const hay = `${machine.type ?? ""} ${machine.name ?? ""}`.toLowerCase();
+    if (hay.includes("boxeo")) return 0;
+    if (hay.includes("agilidad")) return 1;
+    return 2;
+  }
+
   const filteredMachines = computed(() => {
-    let baseMachines = options.scopedMachines.value.slice().sort((a, b) =>
-      (a.name ?? "").localeCompare(b.name ?? "", "es", {
+    let baseMachines = options.scopedMachines.value.slice().sort((a, b) => {
+      if (preferBoxeoFirst.value) {
+        const rankDiff = machineKindRank(a) - machineKindRank(b);
+        if (rankDiff !== 0) return rankDiff;
+      }
+      return (a.name ?? "").localeCompare(b.name ?? "", "es", {
         sensitivity: "base",
-      })
-    );
+      });
+    });
 
     if (selectedFilter.value === "activas") {
       baseMachines = baseMachines.filter((m) => m.status === "active");

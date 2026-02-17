@@ -190,11 +190,11 @@ export async function getUsers() {
 }
 
 export async function createUser(payload: {
-  documentId: string;
   name: string;
   username: string;
   password: string;
   jobRole: string;
+  documentId?: string;
   shift?: string;
   assignedMachineIds?: string[];
   // Compatibilidad: un solo ID
