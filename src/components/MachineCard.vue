@@ -252,6 +252,10 @@ async function loadOperatorCoins() {
     return;
   }
 
+  if (props.isOperator) {
+    resetTurnForm();
+  }
+
   try {
     const rows = (await getDailySales({
       startDate: date.value,
@@ -261,8 +265,6 @@ async function loadOperatorCoins() {
     if (props.isOperator) {
       const mine = pickMySale(rows);
       operatorCoins.value = mine?.coins ?? 0;
-      lostCount.value = Number(mine?.lost ?? 0) || 0;
-      returnedCount.value = Number(mine?.returned ?? 0) || 0;
     } else {
       operatorCoins.value = rows.reduce(
         (sum, row) => sum + (Number(row?.coins) || 0),

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /* global defineProps */
 import AppSidebar from "@/components/AppSidebar.vue";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
+import { getTodayLocalStr } from "@/utils/date";
 import {
+  getDailySaleEntries,
   getDailySales,
   getMachines,
   getUsers,
@@ -30,6 +32,7 @@ type WeeklyReportRow = {
   bolivares: number;
   premio: number;
   total: number;
+  createdAt?: string;
   updatedAt?: string;
 };
 
@@ -79,8 +82,13 @@ const reports = ref<WeeklyReportRow[]>([]);
 const query = ref<string>("");
 const router = useRouter();
 
-const todayYmd = (date?: Date) =>
-  (date ?? new Date()).toISOString().slice(0, 10);
+const todayYmd = (date?: Date) => {
+  if (!date) return getTodayLocalStr();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const weekEndDate = ref<string>(todayYmd());
 
@@ -102,6 +110,30 @@ const bolivares = ref<number | null>(null);
 const premio = ref<number | null>(null);
 const total = ref<number | null>(null);
 const loadingCoins = ref(false);
+let refreshTimer: number | null = null;
+
+function handleWindowFocus() {
+  if (!canViewReportsList.value && isDailyReport.value) {
+    void loadWeeklyCoins();
+  }
+}
+
+function startAutoRefresh() {
+  if (canViewReportsList.value || !isDailyReport.value) return;
+  if (refreshTimer) return;
+  refreshTimer = window.setInterval(() => {
+    void loadWeeklyCoins();
+  }, 8000);
+  window.addEventListener("focus", handleWindowFocus);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  window.removeEventListener("focus", handleWindowFocus);
+}
 
 type DailySaleRow = {
   machineType?: string | null;
@@ -109,6 +141,16 @@ type DailySaleRow = {
   coins?: number | null;
   returned?: number | null;
   lost?: number | null;
+};
+
+type DailySaleEntryRow = {
+  machineType?: string | null;
+  machine_type?: string | null;
+  coins?: number | null;
+  returned?: number | null;
+  lost?: number | null;
+  createdAt?: string | null;
+  created_at?: string | null;
 };
 
 type MachineRow = {
@@ -174,6 +216,7 @@ function normalizeReport(row: unknown): WeeklyReportRow {
   const employeeName = pick(rec, ["employeeName", "employee_name"]);
   const employeeIdValue = pick(rec, ["employeeId", "employee_id"]);
   const updatedAt = pick(rec, ["updatedAt", "updated_at"]);
+  const createdAt = pick(rec, ["createdAt", "created_at"]);
 
   return {
     id: typeof rec.id === "number" ? rec.id : undefined,
@@ -197,8 +240,16 @@ function normalizeReport(row: unknown): WeeklyReportRow {
     bolivares: toNum(pick(rec, ["bolivares"])),
     premio: toNum(pick(rec, ["premio"])),
     total: toNum(pick(rec, ["total"])),
+    createdAt: typeof createdAt === "string" ? createdAt : undefined,
     updatedAt: typeof updatedAt === "string" ? updatedAt : undefined,
   };
+}
+
+function toDateMs(value?: string | null): number | null {
+  if (!value) return null;
+  const dt = new Date(value);
+  const ms = dt.getTime();
+  return Number.isNaN(ms) ? null : ms;
 }
 
 async function loadWeeklyReportsList() {
@@ -207,7 +258,9 @@ async function loadWeeklyReportsList() {
   listError.value = "";
   try {
     const [rows, users] = await Promise.all([
-      getWeeklyReports(),
+      getWeeklyReports(
+        isDailyReport.value ? { reportKind: "diario" } : undefined
+      ),
       isAdmin.value ? getUsers() : Promise.resolve([]),
     ]);
     const supervisorIds = getSupervisorIds(users as unknown[]);
@@ -328,6 +381,76 @@ async function loadWeeklyCoins() {
   if (canViewReportsList.value) return;
   if (!weekEndDate.value) return;
 
+  if (isDailyReport.value) {
+    loadingCoins.value = true;
+    try {
+      const [entries, reports] = await Promise.all([
+        getDailySaleEntries({
+          startDate: weekEndDate.value,
+          endDate: weekEndDate.value,
+        }),
+        getWeeklyReports({
+          reportKind: "diario",
+          startDate: weekEndDate.value,
+          endDate: weekEndDate.value,
+        }),
+      ]);
+
+      const normalizedReports = (Array.isArray(reports) ? reports : []).map(
+        (r) => normalizeReport(r)
+      );
+      const lastReportAt = normalizedReports.reduce((latest, r) => {
+        const ms = toDateMs(r.createdAt);
+        return ms && ms > latest ? ms : latest;
+      }, 0);
+
+      const filteredEntries = (Array.isArray(entries) ? entries : []).filter(
+        (row) => {
+          const rec = row as DailySaleEntryRow;
+          if (!lastReportAt) return true;
+          const entryMs = toDateMs(rec.createdAt ?? rec.created_at ?? null);
+          if (!entryMs) return true;
+          return entryMs > lastReportAt;
+        }
+      ) as DailySaleEntryRow[];
+
+      let boxeo = 0;
+      let agilidad = 0;
+      let boxeoDevueltas = 0;
+      let agilidadPerdidas = 0;
+      let agilidadDevueltas = 0;
+
+      for (const row of filteredEntries) {
+        const coins = Number(row.coins ?? 0);
+        if (!Number.isFinite(coins)) continue;
+        const type = getMachineType(row as DailySaleRow);
+        if (type.includes("boxeo")) {
+          boxeo += coins;
+          boxeoDevueltas += Number(row.returned ?? 0) || 0;
+        } else if (type.includes("agilidad")) {
+          agilidad += coins;
+          agilidadPerdidas += Number(row.lost ?? 0) || 0;
+          agilidadDevueltas += Number(row.returned ?? 0) || 0;
+        }
+      }
+
+      boxeoCoins.value = boxeo;
+      agilidadCoins.value = agilidad;
+      boxeoReturned.value = boxeoDevueltas;
+      agilidadLost.value = agilidadPerdidas;
+      agilidadReturned.value = agilidadDevueltas;
+    } catch {
+      boxeoCoins.value = 0;
+      agilidadCoins.value = 0;
+      boxeoReturned.value = 0;
+      agilidadLost.value = 0;
+      agilidadReturned.value = 0;
+    } finally {
+      loadingCoins.value = false;
+    }
+    return;
+  }
+
   const startDate = addDaysYmd(weekEndDate.value, -6);
   loadingCoins.value = true;
   try {
@@ -434,14 +557,18 @@ async function saveWeekly() {
 
     if (!isDailyReport.value) {
       payload.remainingCoins = toNonNegInt(remainingCoins.value);
-      payload.pagoMovil = toNonNegMoney(pagoMovil.value);
-      payload.dolares = toNonNegMoney(dolares.value);
-      payload.bolivares = toNonNegMoney(bolivares.value);
-      payload.premio = toNonNegMoney(premio.value);
-      payload.total = toNonNegMoney(total.value);
     }
 
-    await upsertWeeklyReport(payload);
+    payload.pagoMovil = toNonNegMoney(pagoMovil.value);
+    payload.dolares = toNonNegMoney(dolares.value);
+    payload.bolivares = toNonNegMoney(bolivares.value);
+    payload.premio = toNonNegMoney(premio.value);
+    payload.total = toNonNegMoney(total.value);
+
+    await upsertWeeklyReport({
+      ...payload,
+      reportKind: isDailyReport.value ? "diario" : undefined,
+    });
 
     window.alert(`Reporte ${reportKindLabel.value} guardado`);
 
@@ -452,6 +579,11 @@ async function saveWeekly() {
       agilidadCoins.value = 0;
       agilidadLost.value = 0;
       agilidadReturned.value = 0;
+      pagoMovil.value = 0;
+      dolares.value = 0;
+      bolivares.value = 0;
+      premio.value = 0;
+      total.value = 0;
     }
   } catch (e: unknown) {
     window.alert(apiErrorMessage(e));
@@ -464,6 +596,11 @@ onMounted(() => {
   void loadWeeklyReportsList();
   void loadWeeklyCoins();
   void loadAssignedMachines();
+  startAutoRefresh();
+});
+
+onUnmounted(() => {
+  stopAutoRefresh();
 });
 
 watch(weekEndDate, () => {
@@ -782,6 +919,7 @@ watch(
                 type="number"
                 min="0"
                 step="1"
+                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
@@ -802,6 +940,7 @@ watch(
                 type="number"
                 min="0"
                 step="1"
+                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
@@ -835,6 +974,7 @@ watch(
                 type="number"
                 min="0"
                 step="1"
+                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
@@ -855,6 +995,7 @@ watch(
                 type="number"
                 min="0"
                 step="1"
+                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
@@ -875,6 +1016,7 @@ watch(
                 type="number"
                 min="0"
                 step="1"
+                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
@@ -884,6 +1026,120 @@ watch(
               />
             </label>
           </div>
+        </div>
+      </div>
+
+      <div
+        v-if="!canViewReportsList && isDailyReport"
+        class="mt-4 rounded-2xl border p-4"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-950/20'
+            : 'border-slate-200 bg-white/50'
+        "
+      >
+        <h3 class="text-base font-semibold">Totales</h3>
+
+        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Pago movil:</span
+            >
+            <input
+              v-model.number="pagoMovil"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Dolares:</span
+            >
+            <input
+              v-model.number="dolares"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Bolívares efectivo:</span
+            >
+            <input
+              v-model.number="bolivares"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Premio:</span
+            >
+            <input
+              v-model.number="premio"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
+
+          <label class="grid gap-1">
+            <span
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >Total:</span
+            >
+            <input
+              v-model.number="total"
+              type="number"
+              min="0"
+              step="0.01"
+              class="h-10 rounded-xl border px-3 text-sm outline-none"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  : 'bg-white border-slate-200 text-slate-900'
+              "
+            />
+          </label>
         </div>
       </div>
 

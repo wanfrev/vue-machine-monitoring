@@ -255,6 +255,7 @@ export async function getWeeklyReports(
     startDate?: string;
     endDate?: string;
     employeeId?: number;
+    reportKind?: "diario" | "semanal";
   } = {}
 ) {
   const res = await api.get(`/api/reports/weekly`, { params });
@@ -275,6 +276,7 @@ export async function upsertWeeklyReport(payload: {
   bolivares: number;
   premio: number;
   total: number;
+  reportKind?: "diario" | "semanal";
   // admin-only optional
   employeeId?: number | null;
 }) {
@@ -293,6 +295,9 @@ export async function upsertWeeklyReport(payload: {
     premio: payload.premio,
     total: payload.total,
   };
+  if (payload.reportKind) {
+    body.reportKind = payload.reportKind;
+  }
   if (typeof payload.employeeId === "number") {
     body.employeeId = payload.employeeId;
   }

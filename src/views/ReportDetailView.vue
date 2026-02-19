@@ -3,7 +3,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
-import { getUsers, getWeeklyReports } from "@/api/client";
+import { getDailySaleEntries, getUsers, getWeeklyReports } from "@/api/client";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { resolveRoleKind } from "@/utils/access";
 
@@ -28,6 +28,14 @@ type WeeklyReportRow = {
   updatedAt?: string;
 };
 
+type DailySaleEntryRow = {
+  recordMessage?: string | null;
+  prizeBs?: number | null;
+  lost?: number | null;
+  returned?: number | null;
+  createdAt?: string | null;
+};
+
 const route = useRoute();
 const router = useRouter();
 
@@ -38,6 +46,9 @@ const sidebarOpen = ref(false);
 const loading = ref(false);
 const error = ref<string>("");
 const report = ref<WeeklyReportRow | null>(null);
+const entriesLoading = ref(false);
+const entriesError = ref<string>("");
+const dailyEntries = ref<DailySaleEntryRow[]>([]);
 
 const { canViewReportsList, roleKind, assignedMachineIds } = useCurrentUser();
 const canViewReports = computed(() => canViewReportsList.value);
@@ -52,6 +63,42 @@ function toNum(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
+
+function getDailyEmployeeId(): number | null {
+  if (report.value?.employeeId) return report.value.employeeId;
+  const raw = String(route.query.employeeId || "").trim();
+  if (!raw) return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
+const dailySummary = computed(() => {
+  const entries = dailyEntries.value || [];
+  const totalLost = entries.reduce(
+    (acc, e) => acc + Math.max(0, toNum(e.lost)),
+    0
+  );
+  const totalReturned = entries.reduce(
+    (acc, e) => acc + Math.max(0, toNum(e.returned)),
+    0
+  );
+  const recordEntry = entries.find((e) => {
+    const hasMsg = Boolean(String(e.recordMessage || "").trim());
+    const hasPrize = toNum(e.prizeBs) > 0;
+    return hasMsg || hasPrize;
+  });
+  const recordLabel = recordEntry
+    ? String(recordEntry.recordMessage || "Record")
+    : "Sin record";
+  const recordPrize = recordEntry ? toNum(recordEntry.prizeBs) : 0;
+
+  return {
+    totalLost,
+    totalReturned,
+    recordLabel,
+    recordPrize,
+  };
+});
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -157,7 +204,9 @@ async function loadReport() {
   error.value = "";
   try {
     const needsSupervisorFilter = roleKind.value === "supervisor";
-    const rows = (await getWeeklyReports()) as unknown;
+    const rows = (await getWeeklyReports(
+      isDailyReport.value ? { reportKind: "diario" } : undefined
+    )) as unknown;
 
     let users: UserRow[] | null = null;
     if (needsSupervisorFilter) {
@@ -229,10 +278,33 @@ async function loadReport() {
     report.value = found || null;
     if (!report.value) {
       error.value = "No se encontro el reporte solicitado.";
+      dailyEntries.value = [];
+      return;
+    }
+
+    if (isDailyReport.value) {
+      const employeeId = getDailyEmployeeId();
+      if (!employeeId) return;
+      entriesLoading.value = true;
+      entriesError.value = "";
+      try {
+        const entries = await getDailySaleEntries({
+          startDate: report.value.weekEndDate,
+          endDate: report.value.weekEndDate,
+          employeeId,
+        });
+        dailyEntries.value = Array.isArray(entries) ? entries : [];
+      } catch (e) {
+        entriesError.value = "No se pudieron cargar los eventos.";
+        dailyEntries.value = [];
+      } finally {
+        entriesLoading.value = false;
+      }
     }
   } catch (e) {
     error.value = "No se pudo cargar el reporte.";
     report.value = null;
+    dailyEntries.value = [];
   } finally {
     loading.value = false;
   }
@@ -454,7 +526,118 @@ onMounted(() => {
         </div>
 
         <div
-          v-if="!isDailyReport"
+          v-if="isDailyReport"
+          class="rounded-2xl border p-4"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-950/20'
+              : 'border-slate-200 bg-white/50'
+          "
+        >
+          <h3 class="text-sm font-semibold">Eventos</h3>
+
+          <p
+            v-if="entriesLoading"
+            class="mt-2 text-xs"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            Cargando eventos...
+          </p>
+          <p
+            v-else-if="entriesError"
+            class="mt-2 text-xs"
+            :class="isDark() ? 'text-red-300' : 'text-red-600'"
+          >
+            {{ entriesError }}
+          </p>
+          <div v-else class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Record</span
+              >
+              <span class="font-semibold">{{ dailySummary.recordLabel }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Premio</span
+              >
+              <span class="font-semibold">
+                {{ dailySummary.recordPrize.toFixed(2) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Perdidas</span
+              >
+              <span class="font-semibold">{{ dailySummary.totalLost }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Devueltas</span
+              >
+              <span class="font-semibold">{{
+                dailySummary.totalReturned
+              }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="isDailyReport"
+          class="rounded-2xl border p-4"
+          :class="
+            isDark()
+              ? 'border-zinc-800/70 bg-zinc-950/20'
+              : 'border-slate-200 bg-white/50'
+          "
+        >
+          <h3 class="text-sm font-semibold">Totales</h3>
+          <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Pago movil</span
+              >
+              <span class="font-semibold">
+                {{ toNum(report.pagoMovil).toFixed(2) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Dolares</span
+              >
+              <span class="font-semibold">
+                {{ toNum(report.dolares).toFixed(2) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Bolivares efectivo</span
+              >
+              <span class="font-semibold">
+                {{ toNum(report.bolivares).toFixed(2) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Premio</span
+              >
+              <span class="font-semibold">
+                {{ toNum(report.premio).toFixed(2) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Total</span
+              >
+              <span class="font-semibold">
+                {{ toNum(report.total).toFixed(2) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-else
           class="rounded-2xl border p-4"
           :class="
             isDark()

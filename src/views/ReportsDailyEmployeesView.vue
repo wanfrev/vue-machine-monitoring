@@ -1,0 +1,445 @@
+<script setup lang="ts">
+import AppSidebar from "@/components/AppSidebar.vue";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useTheme } from "@/composables/useTheme";
+import { getUsers, getWeeklyReports } from "@/api/client";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+
+type WeeklyReportRow = {
+  employeeId?: number;
+  employeeUsername?: string;
+  employeeName?: string;
+  weekEndDate: string;
+  createdAt?: string;
+  total: number;
+};
+
+type EmployeeSummary = {
+  employeeId: number;
+  employeeName?: string;
+  employeeUsername?: string;
+  reportCount: number;
+  lastDate?: string;
+  totalAmount: number;
+};
+
+const { isDark: isDarkRef } = useTheme();
+const isDark = () => isDarkRef.value;
+
+const sidebarOpen = ref(false);
+const loading = ref(false);
+const error = ref("");
+const query = ref("");
+const rows = ref<EmployeeSummary[]>([]);
+const router = useRouter();
+const { canViewReportsList, roleKind } = useCurrentUser();
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(v: unknown): UnknownRecord | null {
+  if (typeof v !== "object" || v === null) return null;
+  return v as UnknownRecord;
+}
+
+function pick(rec: UnknownRecord, keys: string[]): unknown {
+  for (const k of keys) {
+    if (k in rec) return rec[k];
+  }
+  return undefined;
+}
+
+function toNum(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseReportDate(value: string): Date | null {
+  if (!value) return null;
+  const ymd = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    const [, y, m, d] = ymd;
+    return new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12, 0, 0));
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function capitalize(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function weekdayEs(dateYmd: string): string {
+  const dt = parseReportDate(dateYmd);
+  if (!dt) return "";
+  return capitalize(
+    new Intl.DateTimeFormat("es-VE", { weekday: "long" }).format(dt)
+  );
+}
+
+function ddmmyyyy(dateYmd: string): string {
+  const dt = parseReportDate(dateYmd);
+  if (!dt) return "";
+  return new Intl.DateTimeFormat("es-VE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(dt);
+}
+
+function formatLastDate(value?: string): string {
+  if (!value) return "-";
+  const label = `${weekdayEs(value)} ${ddmmyyyy(value)}`.trim();
+  return label || "-";
+}
+
+function isSupervisorJobRole(jobRole: unknown): boolean {
+  if (typeof jobRole !== "string") return false;
+  return jobRole.trim().toLowerCase().includes("supervisor");
+}
+
+type UserRow = {
+  id?: number;
+  jobRole?: string;
+  job_role?: string;
+};
+
+function getSupervisorIds(rows: unknown[]): Set<number> {
+  const ids = new Set<number>();
+  for (const row of rows) {
+    const rec = asRecord(row) as UserRow | null;
+    if (!rec) continue;
+    const id = Number(rec.id);
+    if (!Number.isFinite(id)) continue;
+    const jobRole = rec.jobRole ?? rec.job_role ?? "";
+    if (isSupervisorJobRole(jobRole)) ids.add(id);
+  }
+  return ids;
+}
+
+function normalizeReport(row: unknown): WeeklyReportRow | null {
+  const rec = asRecord(row);
+  if (!rec) return null;
+  return {
+    employeeId: toNum(pick(rec, ["employeeId", "employee_id"])) || undefined,
+    employeeUsername: String(
+      pick(rec, ["employeeUsername", "employee_username"]) || ""
+    ),
+    employeeName: String(pick(rec, ["employeeName", "employee_name"]) || ""),
+    weekEndDate: String(pick(rec, ["weekEndDate", "week_end_date"]) || ""),
+    createdAt:
+      String(pick(rec, ["createdAt", "created_at"]) || "") || undefined,
+    total: toNum(pick(rec, ["total"])),
+  };
+}
+
+function apiErrorMessage(e: unknown): string {
+  const msg = (e as { response?: { data?: { message?: string } } })?.response
+    ?.data?.message;
+  return msg || "Ocurrio un error";
+}
+
+async function loadSummary() {
+  loading.value = true;
+  error.value = "";
+  try {
+    const [data, users] = await Promise.all([
+      getWeeklyReports({ reportKind: "diario" }),
+      roleKind.value === "admin" ? getUsers() : Promise.resolve([]),
+    ]);
+    const supervisorIds = getSupervisorIds(users as unknown[]);
+    const normalized = (Array.isArray(data) ? data : [])
+      .map((row) => normalizeReport(row))
+      .filter(Boolean)
+      .filter((row) =>
+        roleKind.value === "admin" && row?.employeeId
+          ? !supervisorIds.has(row.employeeId)
+          : true
+      ) as WeeklyReportRow[];
+
+    const byEmployee = new Map<number, EmployeeSummary>();
+    for (const row of normalized) {
+      if (!row.employeeId) continue;
+      const existing = byEmployee.get(row.employeeId);
+      if (!existing) {
+        byEmployee.set(row.employeeId, {
+          employeeId: row.employeeId,
+          employeeName: row.employeeName || "",
+          employeeUsername: row.employeeUsername || "",
+          reportCount: 1,
+          lastDate: row.createdAt || row.weekEndDate,
+          totalAmount: row.total || 0,
+        });
+        continue;
+      }
+      const rowDate = row.createdAt || row.weekEndDate;
+      const lastDate =
+        existing.lastDate && rowDate
+          ? existing.lastDate > rowDate
+            ? existing.lastDate
+            : rowDate
+          : existing.lastDate || rowDate;
+      byEmployee.set(row.employeeId, {
+        ...existing,
+        reportCount: (existing.reportCount || 0) + 1,
+        lastDate,
+        totalAmount: (existing.totalAmount || 0) + (row.total || 0),
+      });
+    }
+
+    rows.value = Array.from(byEmployee.values()).sort(
+      (a, b) => (b.totalAmount || 0) - (a.totalAmount || 0)
+    );
+  } catch (e) {
+    error.value = apiErrorMessage(e);
+    rows.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+const filteredRows = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return rows.value;
+  return rows.value.filter((row) => {
+    const name = `${row.employeeName || ""} ${row.employeeUsername || ""}`
+      .trim()
+      .toLowerCase();
+    return name.includes(q);
+  });
+});
+
+function initialsFor(row: EmployeeSummary): string {
+  const base = row.employeeName || row.employeeUsername || "";
+  const parts = base.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0]?.[0] || "";
+  const second = parts.length > 1 ? parts[1]?.[0] : "";
+  return `${first}${second}`.toUpperCase();
+}
+
+function openEmployee(row: EmployeeSummary) {
+  router.push({
+    name: "employee-daily-reports",
+    params: { employeeId: String(row.employeeId) },
+    query: {
+      employeeName: row.employeeName || "",
+      employeeUsername: row.employeeUsername || "",
+    },
+  });
+}
+
+onMounted(() => {
+  void loadSummary();
+});
+</script>
+
+<template>
+  <AppSidebar
+    :open="sidebarOpen"
+    :dark="isDark()"
+    @close="sidebarOpen = false"
+  />
+
+  <div
+    :class="[
+      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-5',
+      isDark() ? 'bg-zinc-950' : 'bg-slate-100',
+    ]"
+  >
+    <header
+      class="rounded-2xl border px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
+          :class="
+            isDark()
+              ? 'border-zinc-700/60 hover:bg-transparent hover:text-white'
+              : 'border-slate-200 hover:bg-white hover:text-slate-900'
+          "
+          aria-label="Abrir menu lateral"
+          @click="sidebarOpen = true"
+        >
+          <img
+            src="/img/icons/K11BOX.webp"
+            alt="MachineHub logo"
+            class="h-full w-full object-cover rounded-full"
+          />
+        </button>
+        <div>
+          <h1 class="text-xl font-semibold sm:text-2xl">Reportes</h1>
+          <p
+            class="text-xs"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Cierre diario
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <div v-if="canViewReportsList" class="w-full flex justify-center mb-4">
+      <div
+        class="inline-flex rounded-xl border p-1 text-xs font-semibold"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-900/60'
+            : 'border-slate-200 bg-white/70'
+        "
+      >
+        <router-link
+          :to="{ name: 'reports' }"
+          class="px-3 py-1.5 rounded-lg transition"
+          :class="
+            isDark()
+              ? 'text-zinc-400 hover:text-white'
+              : 'text-slate-500 hover:text-slate-900'
+          "
+        >
+          Ventas
+        </router-link>
+        <router-link
+          :to="{ name: 'reports-daily' }"
+          class="px-3 py-1.5 rounded-lg transition"
+          :class="
+            isDark()
+              ? 'bg-zinc-800 text-white'
+              : 'bg-white text-slate-900 shadow-sm'
+          "
+        >
+          Reportes diarios
+        </router-link>
+      </div>
+    </div>
+
+    <section
+      class="rounded-2xl border px-4 py-4 shadow-sm sm:px-6 sm:py-5"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <div
+        class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+      >
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold">Reportes diarios</h2>
+          <p
+            class="text-sm"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            Busca por nombre o usuario del empleado.
+          </p>
+        </div>
+
+        <label class="grid gap-1 w-full sm:w-80">
+          <span
+            class="text-xs"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >Buscar</span
+          >
+          <input
+            v-model="query"
+            type="text"
+            class="h-10 rounded-xl border px-3 text-sm outline-none"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                : 'bg-white border-slate-200 text-slate-900'
+            "
+            placeholder="Ej: maria / @maria"
+          />
+        </label>
+      </div>
+
+      <p
+        v-if="loading"
+        class="mt-4 text-sm"
+        :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+      >
+        Cargando...
+      </p>
+
+      <p
+        v-else-if="error"
+        class="mt-4 text-sm"
+        :class="isDark() ? 'text-red-300' : 'text-red-600'"
+      >
+        {{ error }}
+      </p>
+
+      <div
+        v-else
+        class="mt-4 divide-y"
+        :class="isDark() ? 'divide-zinc-800/70' : 'divide-slate-200'"
+      >
+        <button
+          v-for="row in filteredRows"
+          :key="row.employeeId"
+          type="button"
+          class="w-full py-4 text-left transition flex items-center gap-3"
+          :class="isDark() ? 'hover:bg-zinc-950/30' : 'hover:bg-slate-50'"
+          @click="openEmployee(row)"
+        >
+          <div
+            class="h-11 w-11 rounded-full flex items-center justify-center text-sm font-semibold"
+            :class="
+              isDark()
+                ? 'bg-zinc-800 text-white'
+                : 'bg-slate-200 text-slate-700'
+            "
+          >
+            {{ initialsFor(row) }}
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <div class="text-base font-semibold truncate">
+              {{ row.employeeName || row.employeeUsername || "Empleado" }}
+            </div>
+            <div
+              class="text-xs mt-0.5"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Ultimo cierre: {{ formatLastDate(row.lastDate) }}
+            </div>
+          </div>
+
+          <div class="text-right">
+            <div
+              class="text-xs"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Total reportes
+            </div>
+            <div class="text-base font-semibold">
+              {{ row.reportCount }}
+            </div>
+          </div>
+
+          <span
+            class="ml-2 text-lg"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-400'"
+            aria-hidden="true"
+            >›</span
+          >
+        </button>
+
+        <p
+          v-if="filteredRows.length === 0"
+          class="py-6 text-sm"
+          :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+        >
+          No hay reportes.
+        </p>
+      </div>
+    </section>
+  </div>
+</template>
