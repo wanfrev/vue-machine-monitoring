@@ -40,6 +40,7 @@ type Props = {
   canViewReportsList: boolean;
   roleKind: string;
   assignedMachineIds: string[];
+  showOwnHistory?: boolean;
   title?: string;
   subtitle?: string;
   reportKindLabel?: string;
@@ -57,6 +58,20 @@ const sidebarOpen = ref(false);
 const saving = ref(false);
 
 const canViewReportsList = computed(() => props.canViewReportsList);
+const canShowHistory = computed(
+  () => canViewReportsList.value || Boolean(props.showOwnHistory)
+);
+const operatorSection = ref<"reports" | "history">("reports");
+const showingHistorySection = computed(
+  () =>
+    canShowHistory.value &&
+    (canViewReportsList.value || operatorSection.value === "history")
+);
+const showingReportSection = computed(
+  () =>
+    !canViewReportsList.value &&
+    (!canShowHistory.value || operatorSection.value === "reports")
+);
 const isAdmin = computed(() => props.roleKind === "admin");
 const reportKindLabel = computed(() =>
   (props.reportKindLabel || "semanal").trim()
@@ -79,6 +94,7 @@ const isDailyReport = computed(() => reportKindLabel.value === "diario");
 const loadingList = ref(false);
 const listError = ref<string>("");
 const reports = ref<WeeklyReportRow[]>([]);
+const selectedHistoryReport = ref<WeeklyReportRow | null>(null);
 const query = ref<string>("");
 const router = useRouter();
 
@@ -210,6 +226,7 @@ function getSupervisorIds(rows: unknown[]): Set<number> {
 
 function normalizeReport(row: unknown): WeeklyReportRow {
   const rec = asRecord(row) ?? {};
+  const idValue = Number(rec.id);
 
   const weekEndDate = String(pick(rec, ["weekEndDate", "week_end_date"]) ?? "");
   const employeeUsername = pick(rec, ["employeeUsername", "employee_username"]);
@@ -219,7 +236,7 @@ function normalizeReport(row: unknown): WeeklyReportRow {
   const createdAt = pick(rec, ["createdAt", "created_at"]);
 
   return {
-    id: typeof rec.id === "number" ? rec.id : undefined,
+    id: Number.isFinite(idValue) ? idValue : undefined,
     employeeId:
       typeof employeeIdValue === "number" ? employeeIdValue : undefined,
     employeeUsername:
@@ -253,7 +270,7 @@ function toDateMs(value?: string | null): number | null {
 }
 
 async function loadWeeklyReportsList() {
-  if (!canViewReportsList.value) return;
+  if (!canShowHistory.value) return;
   loadingList.value = true;
   listError.value = "";
   try {
@@ -311,6 +328,11 @@ function ddmmyyyy(dateYmd: string): string {
 }
 
 function openReport(row: WeeklyReportRow) {
+  if (!canViewReportsList.value) {
+    selectedHistoryReport.value = row;
+    return;
+  }
+
   const reportKindQuery =
     reportKindLabel.value === "diario" ? { reportKind: "diario" } : {};
   if (typeof row.id === "number") {
@@ -497,6 +519,18 @@ const headerDateLabel = computed(() => {
   return [w, f].filter(Boolean).join(" ");
 });
 
+const reportsTitle = computed(() =>
+  canViewReportsList.value
+    ? `Reportes ${reportKindPlural.value}`
+    : `Mis reportes ${reportKindPlural.value}`
+);
+
+const reportsSubtitle = computed(() =>
+  canViewReportsList.value
+    ? "Busca por nombre o usuario del empleado."
+    : "Historial de tus reportes."
+);
+
 const filteredReports = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return reports.value;
@@ -614,6 +648,12 @@ watch(
   },
   { deep: true }
 );
+
+watch(operatorSection, (section) => {
+  if (section !== "history") {
+    selectedHistoryReport.value = null;
+  }
+});
 </script>
 
 <template>
@@ -723,19 +763,60 @@ watch(
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div v-if="canViewReportsList">
+      <div
+        v-if="canShowHistory && !canViewReportsList"
+        class="mb-4 inline-flex rounded-xl border p-1 text-xs font-semibold"
+        :class="
+          isDark()
+            ? 'border-zinc-800/70 bg-zinc-900/60'
+            : 'border-slate-200 bg-white/70'
+        "
+      >
+        <button
+          type="button"
+          class="px-3 py-1.5 rounded-lg transition cursor-pointer"
+          :class="
+            operatorSection === 'reports'
+              ? isDark()
+                ? 'bg-zinc-800 text-white'
+                : 'bg-white text-slate-900 shadow-sm'
+              : isDark()
+              ? 'text-zinc-400 hover:text-white'
+              : 'text-slate-500 hover:text-slate-900'
+          "
+          @click="operatorSection = 'reports'"
+        >
+          Reportes
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1.5 rounded-lg transition cursor-pointer"
+          :class="
+            operatorSection === 'history'
+              ? isDark()
+                ? 'bg-zinc-800 text-white'
+                : 'bg-white text-slate-900 shadow-sm'
+              : isDark()
+              ? 'text-zinc-400 hover:text-white'
+              : 'text-slate-500 hover:text-slate-900'
+          "
+          @click="operatorSection = 'history'"
+        >
+          Historial reportes
+        </button>
+      </div>
+
+      <div v-if="showingHistorySection">
         <div
           class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
         >
           <div class="space-y-1">
-            <h2 class="text-lg font-semibold">
-              Reportes {{ reportKindPlural }}
-            </h2>
+            <h2 class="text-lg font-semibold">{{ reportsTitle }}</h2>
             <p
               class="text-sm"
               :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
             >
-              Busca por nombre o usuario del empleado.
+              {{ reportsSubtitle }}
             </p>
           </div>
 
@@ -754,7 +835,9 @@ watch(
                   ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
                   : 'bg-white border-slate-200 text-slate-900'
               "
-              placeholder="Ej: maria / @maria"
+              :placeholder="
+                canViewReportsList ? 'Ej: maria / @maria' : 'Busca por fecha'
+              "
             />
           </label>
         </div>
@@ -784,7 +867,11 @@ watch(
             type="button"
             class="rounded-2xl border p-4 text-left transition cursor-pointer"
             :class="
-              isDark()
+              !canViewReportsList.value && selectedHistoryReport?.id === r.id
+                ? isDark()
+                  ? 'border-zinc-600/80 bg-zinc-900/40'
+                  : 'border-slate-400 bg-white/80'
+                : isDark()
                 ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
                 : 'border-slate-200 bg-white/50 hover:bg-white/70'
             "
@@ -839,6 +926,175 @@ watch(
           >
             No hay reportes.
           </p>
+        </div>
+
+        <div
+          v-if="!canViewReportsList && selectedHistoryReport"
+          class="mt-5 rounded-2xl border p-4"
+          :class="
+            isDark()
+              ? 'border-zinc-700/70 bg-zinc-950/20'
+              : 'border-slate-200 bg-white/60'
+          "
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold">Reporte completo</h3>
+              <p
+                class="text-xs mt-1"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
+                {{ weekdayEs(selectedHistoryReport.weekEndDate) }}
+                {{ ddmmyyyy(selectedHistoryReport.weekEndDate) }}
+              </p>
+            </div>
+            <span
+              class="text-xs font-semibold"
+              :class="isDark() ? 'text-zinc-200' : 'text-slate-700'"
+            >
+              Total: {{ toNum(selectedHistoryReport.total).toFixed(2) }}
+            </span>
+          </div>
+
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <div
+              class="rounded-xl border p-3"
+              :class="
+                isDark()
+                  ? 'border-zinc-800/70 bg-zinc-900/40'
+                  : 'border-slate-200 bg-white/70'
+              "
+            >
+              <p class="text-sm font-semibold">Boxeo</p>
+              <div class="mt-2 grid gap-1 text-sm">
+                <div class="flex items-center justify-between">
+                  <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >Monedas</span
+                  >
+                  <span class="font-semibold">{{
+                    toNum(selectedHistoryReport.boxeoCoins)
+                  }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >Perdidas</span
+                  >
+                  <span class="font-semibold">{{
+                    toNum(selectedHistoryReport.boxeoLost)
+                  }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >Devueltas</span
+                  >
+                  <span class="font-semibold">{{
+                    toNum(selectedHistoryReport.boxeoReturned)
+                  }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="rounded-xl border p-3"
+              :class="
+                isDark()
+                  ? 'border-zinc-800/70 bg-zinc-900/40'
+                  : 'border-slate-200 bg-white/70'
+              "
+            >
+              <p class="text-sm font-semibold">Agilidad</p>
+              <div class="mt-2 grid gap-1 text-sm">
+                <div class="flex items-center justify-between">
+                  <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >Monedas</span
+                  >
+                  <span class="font-semibold">{{
+                    toNum(selectedHistoryReport.agilidadCoins)
+                  }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >Perdidas</span
+                  >
+                  <span class="font-semibold">{{
+                    toNum(selectedHistoryReport.agilidadLost)
+                  }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                    >Devueltas</span
+                  >
+                  <span class="font-semibold">{{
+                    toNum(selectedHistoryReport.agilidadReturned)
+                  }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="mt-3 rounded-xl border p-3"
+            :class="
+              isDark()
+                ? 'border-zinc-800/70 bg-zinc-900/40'
+                : 'border-slate-200 bg-white/70'
+            "
+          >
+            <p class="text-sm font-semibold">Totales</p>
+            <div class="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+              <div class="flex items-center justify-between">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Pago movil</span
+                >
+                <span class="font-semibold">{{
+                  toNum(selectedHistoryReport.pagoMovil).toFixed(2)
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Dolares</span
+                >
+                <span class="font-semibold">{{
+                  toNum(selectedHistoryReport.dolares).toFixed(2)
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Bolivares</span
+                >
+                <span class="font-semibold">{{
+                  toNum(selectedHistoryReport.bolivares).toFixed(2)
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Premio</span
+                >
+                <span class="font-semibold">{{
+                  toNum(selectedHistoryReport.premio).toFixed(2)
+                }}</span>
+              </div>
+              <div
+                v-if="!isDailyReport"
+                class="flex items-center justify-between"
+              >
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Monedas restantes</span
+                >
+                <span class="font-semibold">{{
+                  toNum(selectedHistoryReport.remainingCoins)
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                  >Total</span
+                >
+                <span class="font-semibold">{{
+                  toNum(selectedHistoryReport.total).toFixed(2)
+                }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -897,7 +1153,7 @@ watch(
         </div>
       </div>
 
-      <div v-if="!canViewReportsList" class="mt-6 grid gap-4 sm:grid-cols-2">
+      <div v-if="showingReportSection" class="mt-6 grid gap-4 sm:grid-cols-2">
         <div
           class="rounded-2xl border p-4"
           :class="
@@ -1030,7 +1286,7 @@ watch(
       </div>
 
       <div
-        v-if="!canViewReportsList && isDailyReport"
+        v-if="showingReportSection && isDailyReport"
         class="mt-4 rounded-2xl border p-4"
         :class="
           isDark()
@@ -1144,7 +1400,7 @@ watch(
       </div>
 
       <div
-        v-if="!canViewReportsList && !isDailyReport"
+        v-if="showingReportSection && !isDailyReport"
         class="mt-4 rounded-2xl border p-4"
         :class="
           isDark()
@@ -1277,7 +1533,7 @@ watch(
         </div>
       </div>
 
-      <div v-if="!canViewReportsList" class="mt-5 flex justify-end">
+      <div v-if="showingReportSection" class="mt-5 flex justify-end">
         <button
           type="button"
           class="inline-flex h-11 items-center justify-center rounded-xl border px-5 text-sm font-medium transition cursor-pointer"

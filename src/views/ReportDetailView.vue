@@ -124,6 +124,7 @@ function pick(rec: UnknownRecord, keys: string[]): unknown {
 
 function normalizeReport(row: unknown): WeeklyReportRow {
   const rec = asRecord(row) ?? {};
+  const idValue = Number(rec.id);
 
   const weekEndDate = String(pick(rec, ["weekEndDate", "week_end_date"]) ?? "");
   const employeeUsername = pick(rec, ["employeeUsername", "employee_username"]);
@@ -132,7 +133,7 @@ function normalizeReport(row: unknown): WeeklyReportRow {
   const updatedAt = pick(rec, ["updatedAt", "updated_at"]);
 
   return {
-    id: typeof rec.id === "number" ? rec.id : undefined,
+    id: Number.isFinite(idValue) ? idValue : undefined,
     employeeId:
       typeof employeeIdValue === "number" ? employeeIdValue : undefined,
     employeeUsername:
@@ -166,6 +167,17 @@ function parseReportDate(value: string): Date | null {
   }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeYmd(value: string): string | null {
+  const ymd = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (ymd) return ymd[1];
+  const parsed = parseReportDate(value);
+  if (!parsed) return null;
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function capitalize(value: string): string {
@@ -285,12 +297,18 @@ async function loadReport() {
     if (isDailyReport.value) {
       const employeeId = getDailyEmployeeId();
       if (!employeeId) return;
+      const reportDate = normalizeYmd(report.value.weekEndDate);
+      if (!reportDate) {
+        entriesError.value = "No se pudo interpretar la fecha del reporte.";
+        dailyEntries.value = [];
+        return;
+      }
       entriesLoading.value = true;
       entriesError.value = "";
       try {
         const entries = await getDailySaleEntries({
-          startDate: report.value.weekEndDate,
-          endDate: report.value.weekEndDate,
+          startDate: reportDate,
+          endDate: reportDate,
           employeeId,
         });
         dailyEntries.value = Array.isArray(entries) ? entries : [];

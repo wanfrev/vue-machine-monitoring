@@ -66,8 +66,9 @@ function toNum(v: unknown): number {
 function normalizeReport(row: unknown): WeeklyReportRow | null {
   const rec = asRecord(row);
   if (!rec) return null;
+  const idValue = Number(rec.id);
   return {
-    id: typeof rec.id === "number" ? rec.id : undefined,
+    id: Number.isFinite(idValue) ? idValue : undefined,
     employeeId: toNum(pick(rec, ["employeeId", "employee_id"])) || undefined,
     employeeName: String(pick(rec, ["employeeName", "employee_name"]) || ""),
     employeeUsername: String(

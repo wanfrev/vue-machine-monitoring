@@ -11,6 +11,7 @@ const canViewReportsList = false;
     :can-view-reports-list="canViewReportsList"
     :role-kind="roleKind"
     :assigned-machine-ids="assignedMachineIds"
+    :show-own-history="true"
     report-kind-label="diario"
     report-kind-plural="diarios"
   />
