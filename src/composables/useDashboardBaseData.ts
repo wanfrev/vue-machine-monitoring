@@ -10,6 +10,8 @@ import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useTheme } from "@/composables/useTheme";
 import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 import { machineStatusLabel } from "@/utils/machine";
+import { getTodayLocalStr } from "@/utils/date";
+import { getDailySaleEntries } from "@/api/client";
 import type { DashboardFilterKey, Machine, ToastType } from "@/types/dashboard";
 
 type DashboardMode = "admin" | "supervisor" | "operator";
@@ -149,6 +151,30 @@ export function useDashboardBaseData(mode: DashboardMode) {
     }, 0)
   );
 
+  const totalOperatorEntriesCoins = ref(0);
+
+  async function loadOperatorEntriesTotal() {
+    if (!isOperator.value) {
+      totalOperatorEntriesCoins.value = 0;
+      return;
+    }
+
+    try {
+      const today = getTodayLocalStr();
+      const entries = await getDailySaleEntries({
+        startDate: today,
+        endDate: today,
+      });
+      const rows = Array.isArray(entries) ? entries : [];
+      totalOperatorEntriesCoins.value = rows.reduce((sum, row) => {
+        const coins = Number((row as { coins?: number | string })?.coins ?? 0);
+        return Number.isFinite(coins) ? sum + coins : sum;
+      }, 0);
+    } catch {
+      totalOperatorEntriesCoins.value = 0;
+    }
+  }
+
   const { isDark: isDarkRef } = useTheme();
   const isDark = () => isDarkRef.value;
 
@@ -202,6 +228,7 @@ export function useDashboardBaseData(mode: DashboardMode) {
   onMounted(async () => {
     window.addEventListener("click", handleGlobalClick, true);
     await loadDashboardData();
+    await loadOperatorEntriesTotal();
 
     await startRealtime();
 
@@ -211,6 +238,7 @@ export function useDashboardBaseData(mode: DashboardMode) {
 
     refreshTimer = window.setInterval(() => {
       loadDashboardData();
+      void loadOperatorEntriesTotal();
     }, 15000);
   });
 
@@ -254,6 +282,7 @@ export function useDashboardBaseData(mode: DashboardMode) {
     activeMachines,
     inactiveMachines,
     totalCoinsToday,
+    totalOperatorEntriesCoins,
     toast,
     isDark,
     closeNewMachine,

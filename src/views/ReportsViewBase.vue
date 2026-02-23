@@ -90,11 +90,10 @@ const saveButtonLabel = computed(
 const showTabs = computed(() => Boolean(props.showTabs));
 const activeTab = computed(() => props.activeTab || "daily");
 const isDailyReport = computed(() => reportKindLabel.value === "diario");
-
-const loadingList = ref(false);
-const listError = ref<string>("");
 const reports = ref<WeeklyReportRow[]>([]);
 const selectedHistoryReport = ref<WeeklyReportRow | null>(null);
+const loadingList = ref(false);
+const listError = ref<string>("");
 const query = ref<string>("");
 const router = useRouter();
 
@@ -120,11 +119,11 @@ const agilidadReturned = ref<number | null>(null);
 
 // Totales / pagos
 const remainingCoins = ref<number | null>(null);
-const pagoMovil = ref<number | null>(null);
-const dolares = ref<number | null>(null);
-const bolivares = ref<number | null>(null);
-const premio = ref<number | null>(null);
-const total = ref<number | null>(null);
+const pagoMovil = ref<string>("");
+const dolares = ref<string>("");
+const bolivares = ref<string>("");
+const premio = ref<string>("");
+const total = ref<string>("");
 const loadingCoins = ref(false);
 let refreshTimer: number | null = null;
 
@@ -184,6 +183,32 @@ function apiErrorMessage(e: unknown): string {
 function toNum(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+function parseLooseMoney(value: string | number | null): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value > 0 ? value : 0;
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const sanitized = trimmed.replace(/[^0-9.,-]/g, "");
+  const negative = sanitized.includes("-");
+  const cleaned = sanitized.replace(/-/g, "");
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  let numStr = "";
+  if (decimalIndex === -1) {
+    numStr = cleaned.replace(/[.,]/g, "");
+  } else {
+    const intPart = cleaned.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fracPart = cleaned.slice(decimalIndex + 1).replace(/[.,]/g, "");
+    numStr = `${intPart || "0"}.${fracPart}`;
+  }
+
+  const n = Number(numStr);
+  if (!Number.isFinite(n)) return 0;
+  return negative ? 0 : n;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -557,10 +582,9 @@ function toNonNegInt(value: number | null): number {
   return Math.trunc(n);
 }
 
-function toNonNegMoney(value: number | null): number {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return n;
+function toNonNegMoney(value: string | number | null): number {
+  const n = parseLooseMoney(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 async function saveWeekly() {
@@ -613,11 +637,11 @@ async function saveWeekly() {
       agilidadCoins.value = 0;
       agilidadLost.value = 0;
       agilidadReturned.value = 0;
-      pagoMovil.value = 0;
-      dolares.value = 0;
-      bolivares.value = 0;
-      premio.value = 0;
-      total.value = 0;
+      pagoMovil.value = "";
+      dolares.value = "";
+      bolivares.value = "";
+      premio.value = "";
+      total.value = "";
     }
   } catch (e: unknown) {
     window.alert(apiErrorMessage(e));
@@ -867,7 +891,7 @@ watch(operatorSection, (section) => {
             type="button"
             class="rounded-2xl border p-4 text-left transition cursor-pointer"
             :class="
-              !canViewReportsList.value && selectedHistoryReport?.id === r.id
+              !canViewReportsList && selectedHistoryReport?.id === r.id
                 ? isDark()
                   ? 'border-zinc-600/80 bg-zinc-900/40'
                   : 'border-slate-400 bg-white/80'
@@ -1304,10 +1328,9 @@ watch(operatorSection, (section) => {
               >Pago movil:</span
             >
             <input
-              v-model.number="pagoMovil"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="pagoMovil"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1324,10 +1347,9 @@ watch(operatorSection, (section) => {
               >Dolares:</span
             >
             <input
-              v-model.number="dolares"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="dolares"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1344,10 +1366,9 @@ watch(operatorSection, (section) => {
               >Bolívares efectivo:</span
             >
             <input
-              v-model.number="bolivares"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="bolivares"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1364,10 +1385,9 @@ watch(operatorSection, (section) => {
               >Premio:</span
             >
             <input
-              v-model.number="premio"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="premio"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1384,10 +1404,9 @@ watch(operatorSection, (section) => {
               >Total:</span
             >
             <input
-              v-model.number="total"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="total"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1438,10 +1457,9 @@ watch(operatorSection, (section) => {
               >Pago movil:</span
             >
             <input
-              v-model.number="pagoMovil"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="pagoMovil"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1458,10 +1476,9 @@ watch(operatorSection, (section) => {
               >Dolares:</span
             >
             <input
-              v-model.number="dolares"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="dolares"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1478,10 +1495,9 @@ watch(operatorSection, (section) => {
               >Bolívares:</span
             >
             <input
-              v-model.number="bolivares"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="bolivares"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1498,10 +1514,9 @@ watch(operatorSection, (section) => {
               >Premio:</span
             >
             <input
-              v-model.number="premio"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="premio"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()
@@ -1518,10 +1533,9 @@ watch(operatorSection, (section) => {
               >total:</span
             >
             <input
-              v-model.number="total"
-              type="number"
-              min="0"
-              step="0.01"
+              v-model="total"
+              type="text"
+              inputmode="decimal"
               class="h-10 rounded-xl border px-3 text-sm outline-none"
               :class="
                 isDark()

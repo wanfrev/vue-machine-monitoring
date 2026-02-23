@@ -3,7 +3,12 @@
 import { computed, onMounted, ref, watch } from "vue";
 import MachineStatusMenu from "@/components/MachineStatusMenu.vue";
 import { useCoinValues } from "@/composables/useCoinValues";
-import { getDailySales, upsertDailySale } from "@/api/client";
+import {
+  getDailySaleEntries,
+  getDailySales,
+  getWeeklyReports,
+  upsertDailySale,
+} from "@/api/client";
 import {
   getIncomeFromCoins,
   machineStatusDotClass,
@@ -92,6 +97,21 @@ type DailySaleRow = {
   updatedAt?: string;
 };
 
+type DailySaleEntryRow = {
+  machineId?: string | null;
+  machine_id?: string | null;
+  machineType?: string | null;
+  machine_type?: string | null;
+  coins?: number | null;
+  createdAt?: string | null;
+  created_at?: string | null;
+};
+
+type WeeklyReportRow = {
+  createdAt?: string | null;
+  created_at?: string | null;
+};
+
 const date = ref<string>(getTodayLocalStr());
 const coins = ref<number>(1);
 const recordDigits = ref<string>("");
@@ -99,6 +119,7 @@ const recordActive = ref(false);
 const recordMessage = ref<string>("");
 const saving = ref(false);
 const operatorCoins = ref<number>(0);
+const machineCoins = ref<number>(0);
 const lostCount = ref<number>(0);
 const returnedCount = ref<number>(0);
 const justSaved = ref(false);
@@ -121,7 +142,7 @@ function toRecordOrNull(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return null;
+  if (digits.length < 3 || digits.length > 4) return null;
   const n = Number(digits);
   if (!Number.isFinite(n) || n < 0 || n > 9999) return null;
   return n;
@@ -151,14 +172,14 @@ function toggleRecord() {
   }
 }
 
-function appendRecordDigit(value: number) {
-  if (!recordActive.value) recordActive.value = true;
-  if (recordDigits.value.length >= 4) return;
-  recordDigits.value += String(value);
+function sanitizeRecordInput(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 4);
 }
 
-function removeRecordDigit() {
-  recordDigits.value = recordDigits.value.slice(0, -1);
+function handleRecordInput(event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  if (!target) return;
+  recordDigits.value = sanitizeRecordInput(target.value);
 }
 
 function clearRecordDigits() {
@@ -231,19 +252,16 @@ function handleTopAction() {
   emit("toggle-menu", props.machine.id);
 }
 
-function pickMySale(rows: DailySaleRow[]): DailySaleRow | null {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
+function getEntryMachineType(row: DailySaleEntryRow): string {
+  const raw = row.machineType ?? row.machine_type ?? "";
+  return String(raw).toLowerCase();
+}
 
-  const username = localStorage.getItem("username") || "";
-  if (username) {
-    const mine = rows.find(
-      (r) => String(r?.employeeUsername || "") === username
-    );
-    if (mine) return mine as DailySaleRow;
-  }
-
-  if (rows.length === 1) return rows[0] as DailySaleRow;
-  return null;
+function toDateMs(value: string | null | undefined): number {
+  if (!value) return 0;
+  const date = new Date(value);
+  const ms = date.getTime();
+  return Number.isFinite(ms) ? ms : 0;
 }
 
 async function loadOperatorCoins() {
@@ -257,22 +275,76 @@ async function loadOperatorCoins() {
   }
 
   try {
+    if (props.isOperator) {
+      const [entries, reports] = await Promise.all([
+        getDailySaleEntries({
+          startDate: date.value,
+          endDate: date.value,
+        }),
+        getWeeklyReports({
+          reportKind: "diario",
+          startDate: date.value,
+          endDate: date.value,
+        }),
+      ]);
+
+      const normalizedEntries = Array.isArray(entries) ? entries : [];
+      const machineId = String(props.machine.id);
+
+      machineCoins.value = normalizedEntries.reduce((sum, row) => {
+        const rec = row as DailySaleEntryRow;
+        const entryMachineId = String(rec.machineId ?? rec.machine_id ?? "");
+        if (entryMachineId !== machineId) return sum;
+        const coins = Number(rec.coins ?? 0);
+        return Number.isFinite(coins) ? sum + coins : sum;
+      }, 0);
+
+      const lastReportAt = (Array.isArray(reports) ? reports : []).reduce(
+        (latest, row) => {
+          const rec = row as WeeklyReportRow;
+          const ms = toDateMs(rec.createdAt ?? rec.created_at ?? null);
+          return ms && ms > latest ? ms : latest;
+        },
+        0
+      );
+
+      const filteredEntries = normalizedEntries.filter((row) => {
+        if (!lastReportAt) return true;
+        const rec = row as DailySaleEntryRow;
+        const entryMs = toDateMs(rec.createdAt ?? rec.created_at ?? null);
+        if (!entryMs) return true;
+        return entryMs > lastReportAt;
+      }) as DailySaleEntryRow[];
+
+      let boxeo = 0;
+      let agilidad = 0;
+      for (const row of filteredEntries) {
+        const coins = Number(row.coins ?? 0);
+        if (!Number.isFinite(coins)) continue;
+        const type = getEntryMachineType(row);
+        if (type.includes("boxeo")) {
+          boxeo += coins;
+        } else if (type.includes("agilidad")) {
+          agilidad += coins;
+        }
+      }
+      operatorCoins.value = boxeo + agilidad;
+      return;
+    }
+
     const rows = (await getDailySales({
       startDate: date.value,
       endDate: date.value,
       machineId: String(props.machine.id),
     })) as DailySaleRow[];
-    if (props.isOperator) {
-      const mine = pickMySale(rows);
-      operatorCoins.value = mine?.coins ?? 0;
-    } else {
-      operatorCoins.value = rows.reduce(
-        (sum, row) => sum + (Number(row?.coins) || 0),
-        0
-      );
-    }
+    operatorCoins.value = rows.reduce(
+      (sum, row) => sum + (Number(row?.coins) || 0),
+      0
+    );
+    machineCoins.value = operatorCoins.value;
   } catch {
     operatorCoins.value = 0;
+    machineCoins.value = 0;
     if (props.isOperator) {
       lostCount.value = 0;
       returnedCount.value = 0;
@@ -290,7 +362,10 @@ async function saveDaily() {
   saving.value = true;
   try {
     const coinInput = clampCoins(coins.value);
-    const nextCoins = operatorCoins.value + coinInput;
+    const currentCoins = props.isOperator
+      ? machineCoins.value
+      : operatorCoins.value;
+    const nextCoins = currentCoins + coinInput;
     const recordValue = recordActive.value
       ? toRecordOrNull(recordDigits.value)
       : null;
@@ -314,7 +389,11 @@ async function saveDaily() {
       ),
       recordMessage: noteValue,
     })) as DailySaleRow;
-    operatorCoins.value = saved?.coins ?? operatorCoins.value;
+    if (props.isOperator) {
+      await loadOperatorCoins();
+    } else {
+      operatorCoins.value = saved?.coins ?? operatorCoins.value;
+    }
     const lostValue = toNonNegInt(
       isAgilidadMachine.value ? lostCount.value : 0
     );
@@ -462,93 +541,73 @@ watch([() => props.machine.id, date], () => {
     />
 
     <div
-      class="mt-3 grid items-end gap-x-4 gap-y-2"
-      :class="!isOperator ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'"
+      v-if="!isOperator"
+      class="mt-3 grid items-end gap-x-4 gap-y-2 grid-cols-2 sm:grid-cols-4"
     >
-      <template v-if="!isOperator">
-        <div
-          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+      <div
+        class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+      >
+        <span
+          class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+          :class="dark ? 'text-zinc-50' : 'text-slate-900'"
         >
-          <span
-            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
-          >
-            $ {{ incomeToday }}
-          </span>
-          <span
-            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
-            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
-          >
-            Total Hoy
-          </span>
-        </div>
-        <div
-          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+          $ {{ incomeToday }}
+        </span>
+        <span
+          class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+          :class="dark ? 'text-zinc-500' : 'text-slate-400'"
         >
-          <span
-            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
-          >
-            $ {{ incomeWeek }}
-          </span>
-          <span
-            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
-            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
-          >
-            Total Semanal
-          </span>
-        </div>
-        <div
-          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+          Total Hoy
+        </span>
+      </div>
+      <div
+        class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+      >
+        <span
+          class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+          :class="dark ? 'text-zinc-50' : 'text-slate-900'"
         >
-          <span
-            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
-          >
-            {{ dailyCoins }}
-          </span>
-          <span
-            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
-            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
-          >
-            Monedas hoy
-          </span>
-        </div>
-        <div
-          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+          $ {{ incomeWeek }}
+        </span>
+        <span
+          class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+          :class="dark ? 'text-zinc-500' : 'text-slate-400'"
         >
-          <span
-            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
-          >
-            {{ operatorCoins }}
-          </span>
-          <span
-            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
-            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
-          >
-            Monedas operador
-          </span>
-        </div>
-      </template>
-      <template v-else>
-        <div
-          class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+          Total Semanal
+        </span>
+      </div>
+      <div
+        class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+      >
+        <span
+          class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+          :class="dark ? 'text-zinc-50' : 'text-slate-900'"
         >
-          <span
-            class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-            :class="dark ? 'text-zinc-50' : 'text-slate-900'"
-          >
-            {{ operatorCoins }}
-          </span>
-          <span
-            class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
-            :class="dark ? 'text-zinc-500' : 'text-slate-400'"
-          >
-            Monedas operador
-          </span>
-        </div>
-      </template>
+          {{ dailyCoins }}
+        </span>
+        <span
+          class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+          :class="dark ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Monedas hoy
+        </span>
+      </div>
+      <div
+        class="grid min-h-[42px] min-w-0 grid-rows-[auto_24px] content-end justify-items-center text-center"
+      >
+        <span
+          class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
+          :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+        >
+          {{ operatorCoins }}
+        </span>
+        <span
+          class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
+          :class="dark ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Monedas operador
+        </span>
+      </div>
     </div>
 
     <section
@@ -784,49 +843,22 @@ watch([() => props.machine.id, date], () => {
               Borrar
             </button>
           </div>
-          <div class="mt-2 text-center text-2xl font-semibold tracking-[0.4em]">
-            {{ recordDigits || "----" }}
-          </div>
-          <div class="mt-3 grid grid-cols-4 gap-2">
-            <button
-              v-for="digit in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]"
-              :key="digit"
-              type="button"
-              class="h-9 rounded-lg border text-sm font-semibold transition"
+          <label class="mt-3 grid gap-1">
+            <input
+              :value="recordDigits"
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              class="h-11 w-full rounded-lg border px-3 text-center text-xl font-semibold tracking-[0.4em] outline-none"
               :class="
                 dark
-                  ? 'border-zinc-700/70 bg-zinc-950/30 text-zinc-200 hover:bg-zinc-950/50'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  ? 'border-zinc-700/70 bg-zinc-950/30 text-zinc-100 placeholder:text-zinc-600'
+                  : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400'
               "
-              @click="appendRecordDigit(digit)"
-            >
-              {{ digit }}
-            </button>
-            <button
-              type="button"
-              class="col-span-2 h-9 rounded-lg border text-sm font-semibold transition"
-              :class="
-                dark
-                  ? 'border-zinc-700/70 bg-zinc-950/30 text-zinc-200 hover:bg-zinc-950/50'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              "
-              @click="removeRecordDigit"
-            >
-              ⌫
-            </button>
-            <button
-              type="button"
-              class="col-span-2 h-9 rounded-lg border text-sm font-semibold transition"
-              :class="
-                dark
-                  ? 'border-zinc-700/70 bg-zinc-950/30 text-zinc-200 hover:bg-zinc-950/50'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              "
-              @click="clearRecordDigits"
-            >
-              Limpiar
-            </button>
-          </div>
+              placeholder="----"
+              @input="handleRecordInput"
+            />
+          </label>
         </div>
 
         <label class="grid gap-1">
