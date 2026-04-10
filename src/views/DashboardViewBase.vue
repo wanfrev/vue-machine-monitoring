@@ -57,6 +57,7 @@ const {
   inactiveMachines,
   totalCoinsToday,
   totalOperatorEntriesCoins,
+  operatorRemainingCoins,
   toast,
   isDark,
   closeNewMachine,
@@ -114,42 +115,75 @@ const {
       @refresh="refreshPage"
     />
 
-    <div
-      v-if="isOperator"
-      class="text-[11px] flex items-center gap-1 mt-1 mb-2 text-left"
-    >
-      <svg
-        class="h-3 w-3"
-        :class="isDark() ? 'text-slate-500' : 'text-slate-400'"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <path
-          d="M4 12h16"
-          stroke="currentColor"
-          stroke-width="1.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M8 8v8"
-          stroke="currentColor"
-          stroke-width="1.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <span :class="isDark() ? 'text-slate-400' : 'text-slate-500'">
-        Monedas registradas:
-      </span>
-      <span
-        class="font-semibold"
-        :class="isDark() ? 'text-slate-200' : 'text-slate-700'"
-      >
-        {{ totalOperatorEntriesCoins }}
-      </span>
+    <div v-if="isOperator" class="mt-1 mb-2 text-left space-y-1 text-[11px]">
+      <div class="flex items-center gap-1">
+        <svg
+          class="h-3 w-3"
+          :class="isDark() ? 'text-emerald-400' : 'text-emerald-500'"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 12h16"
+            stroke="currentColor"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M12 4v16"
+            stroke="currentColor"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span :class="isDark() ? 'text-slate-400' : 'text-slate-500'">
+          Monedas restantes:
+        </span>
+        <span
+          class="font-semibold"
+          :class="isDark() ? 'text-emerald-300' : 'text-emerald-700'"
+        >
+          {{ operatorRemainingCoins }}
+        </span>
+      </div>
+      <div class="flex items-center gap-1">
+        <svg
+          class="h-3 w-3"
+          :class="isDark() ? 'text-slate-500' : 'text-slate-400'"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 12h16"
+            stroke="currentColor"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M8 8v8"
+            stroke="currentColor"
+            stroke-width="1.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span :class="isDark() ? 'text-slate-400' : 'text-slate-500'">
+          Monedas registradas:
+        </span>
+        <span
+          class="font-semibold"
+          :class="isDark() ? 'text-slate-200' : 'text-slate-700'"
+        >
+          {{ totalOperatorEntriesCoins }}
+        </span>
+      </div>
     </div>
 
     <DashboardSearchFilters

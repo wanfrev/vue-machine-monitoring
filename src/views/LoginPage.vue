@@ -37,6 +37,14 @@ async function login() {
         localStorage.removeItem("jobRole");
       }
 
+      const operatorRemaining = Number(res.user.operatorCoinBalance);
+      if (Number.isFinite(operatorRemaining) && operatorRemaining >= 0) {
+        localStorage.setItem(
+          "operatorRemainingCoins",
+          String(Math.trunc(operatorRemaining))
+        );
+      }
+
       // Máquinas asignadas
       const assignedIds =
         res.user.assignedMachineIds ?? res.user.assigned_machine_ids;

@@ -421,6 +421,14 @@ async function saveDaily() {
         createdAt: new Date().toISOString(),
         employeeUsername: localStorage.getItem("username") || undefined,
       });
+
+      if (coinInput > 0) {
+        window.dispatchEvent(
+          new CustomEvent("operator-sale-logged", {
+            detail: { coins: coinInput },
+          })
+        );
+      }
     }
     resetTurnForm();
     justSaved.value = true;

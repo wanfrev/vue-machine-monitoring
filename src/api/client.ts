@@ -1,7 +1,7 @@
 export async function updateUser(
   id: number,
   payload: {
-    documentId: string;
+    documentId?: string;
     name: string;
     username: string;
     password?: string;
@@ -182,6 +182,9 @@ export async function getUsers() {
     ...u,
     documentId: u.documentId ?? u.document_id ?? "",
     jobRole: u.jobRole ?? u.job_role ?? "",
+    operatorCoinBalance: Number(
+      u.operatorCoinBalance ?? u.operator_coin_balance ?? 200
+    ),
     assignedMachineIds:
       u.assignedMachineIds ??
       u.assigned_machine_ids ??
@@ -336,6 +339,24 @@ export async function upsertDailySale(payload: {
   return res.data;
 }
 
+export async function getMyOperatorCoinBalance() {
+  const res = await api.get(`/api/sales/operator/coins/me`);
+  return {
+    remainingCoins: Number(res.data?.remainingCoins ?? 200),
+  };
+}
+
+export async function resetOperatorCoinBalance(employeeId: number) {
+  const res = await api.put(
+    `/api/sales/operator/coins/${employeeId}/reset`,
+    {}
+  );
+  return {
+    employeeId: Number(res.data?.employeeId ?? employeeId),
+    remainingCoins: Number(res.data?.remainingCoins ?? 200),
+  };
+}
+
 export async function getDailySaleEntries(
   params: {
     startDate?: string;
@@ -375,6 +396,7 @@ export async function getMe() {
     shift?: string;
     documentId?: string | null;
     jobRole?: string | null;
+    operatorCoinBalance?: number | null;
     assignedMachineIds?: string[];
   };
 }

@@ -11,10 +11,36 @@ import { useTheme } from "@/composables/useTheme";
 import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 import { machineStatusLabel } from "@/utils/machine";
 import { getTodayLocalStr } from "@/utils/date";
-import { getDailySaleEntries } from "@/api/client";
+import { getDailySaleEntries, getMyOperatorCoinBalance } from "@/api/client";
 import type { DashboardFilterKey, Machine, ToastType } from "@/types/dashboard";
 
 type DashboardMode = "admin" | "supervisor" | "operator";
+
+const OPERATOR_REMAINING_COINS_STORAGE_KEY = "operatorRemainingCoins";
+
+function getStoredOperatorRemainingCoins(): number {
+  try {
+    const raw = localStorage.getItem(OPERATOR_REMAINING_COINS_STORAGE_KEY);
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return Math.trunc(parsed);
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return 200;
+}
+
+function setStoredOperatorRemainingCoins(value: number): void {
+  try {
+    localStorage.setItem(
+      OPERATOR_REMAINING_COINS_STORAGE_KEY,
+      String(Math.max(0, Math.trunc(value)))
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
 
 export function useDashboardBaseData(mode: DashboardMode) {
   const { currentRole, assignedMachineIds } = useCurrentUser();
@@ -152,6 +178,7 @@ export function useDashboardBaseData(mode: DashboardMode) {
   );
 
   const totalOperatorEntriesCoins = ref(0);
+  const operatorRemainingCoins = ref(getStoredOperatorRemainingCoins());
 
   async function loadOperatorEntriesTotal() {
     if (!isOperator.value) {
@@ -173,6 +200,43 @@ export function useDashboardBaseData(mode: DashboardMode) {
     } catch {
       totalOperatorEntriesCoins.value = 0;
     }
+  }
+
+  async function loadOperatorRemainingCoins() {
+    if (!isOperator.value) {
+      operatorRemainingCoins.value = 200;
+      return;
+    }
+
+    try {
+      const result = await getMyOperatorCoinBalance();
+      const remaining = Number(
+        result?.remainingCoins ?? operatorRemainingCoins.value
+      );
+      operatorRemainingCoins.value = Number.isFinite(remaining)
+        ? Math.max(0, Math.trunc(remaining))
+        : operatorRemainingCoins.value;
+      setStoredOperatorRemainingCoins(operatorRemainingCoins.value);
+    } catch {
+      // Keep last known value to avoid fake resets in UI.
+    }
+  }
+
+  function handleOperatorSaleLogged(event: Event) {
+    if (!isOperator.value) return;
+    const custom = event as CustomEvent<{ coins?: number }>;
+    const rawCoins = Number(custom.detail?.coins ?? 0);
+    const coins = Number.isFinite(rawCoins)
+      ? Math.max(0, Math.trunc(rawCoins))
+      : 0;
+    if (!coins) return;
+
+    totalOperatorEntriesCoins.value += coins;
+    operatorRemainingCoins.value = Math.max(
+      0,
+      operatorRemainingCoins.value - coins
+    );
+    setStoredOperatorRemainingCoins(operatorRemainingCoins.value);
   }
 
   const { isDark: isDarkRef } = useTheme();
@@ -227,8 +291,10 @@ export function useDashboardBaseData(mode: DashboardMode) {
   let refreshTimer: number | undefined;
   onMounted(async () => {
     window.addEventListener("click", handleGlobalClick, true);
+    window.addEventListener("operator-sale-logged", handleOperatorSaleLogged);
     await loadDashboardData();
     await loadOperatorEntriesTotal();
+    await loadOperatorRemainingCoins();
 
     await startRealtime();
 
@@ -239,6 +305,7 @@ export function useDashboardBaseData(mode: DashboardMode) {
     refreshTimer = window.setInterval(() => {
       loadDashboardData();
       void loadOperatorEntriesTotal();
+      void loadOperatorRemainingCoins();
     }, 15000);
   });
 
@@ -247,6 +314,10 @@ export function useDashboardBaseData(mode: DashboardMode) {
       clearInterval(refreshTimer);
     }
     window.removeEventListener("click", handleGlobalClick, true);
+    window.removeEventListener(
+      "operator-sale-logged",
+      handleOperatorSaleLogged
+    );
     stopRealtime();
   });
 
@@ -283,6 +354,7 @@ export function useDashboardBaseData(mode: DashboardMode) {
     inactiveMachines,
     totalCoinsToday,
     totalOperatorEntriesCoins,
+    operatorRemainingCoins,
     toast,
     isDark,
     closeNewMachine,

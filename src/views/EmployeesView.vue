@@ -4,7 +4,13 @@ import { ref as vueRef } from "vue";
 const sidebarOpen = vueRef(false);
 import { computed, onMounted, ref } from "vue";
 import NewEmployee from "@/components/NewEmployee.vue";
-import { getUsers, createUser, deleteUser, getMachines } from "../api/client";
+import {
+  getUsers,
+  createUser,
+  deleteUser,
+  getMachines,
+  resetOperatorCoinBalance,
+} from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
 import { useRouter } from "vue-router";
@@ -20,6 +26,7 @@ type Employee = {
   role: string;
   name: string;
   jobRole?: string;
+  operatorCoinBalance?: number;
   assignedMachineIds?: string[];
 };
 
@@ -31,6 +38,7 @@ const loading = ref(false);
 const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const employeeToEdit = ref<Employee | null>(null);
+const resettingEmployeeIds = ref<Set<number>>(new Set());
 
 function getApiErrorMessage(e: unknown): string {
   const respMsg = (e as { response?: { data?: { message?: string } } })
@@ -223,6 +231,38 @@ function getEmployeeInitials(e: Employee): string {
     return parts[0].slice(0, 2).toUpperCase();
   }
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function canResetOperatorCoins(e: Employee): boolean {
+  return e.role === "employee" && !isSupervisorJobRole(e.jobRole);
+}
+
+function isResettingCoins(employeeId: number): boolean {
+  return resettingEmployeeIds.value.has(employeeId);
+}
+
+async function handleResetOperatorCoins(e: Employee) {
+  if (!canResetOperatorCoins(e)) return;
+
+  const ok = window.confirm(
+    `¿Resetear monedas de ${e.name} a 200 monedas restantes?`
+  );
+  if (!ok) return;
+
+  const next = new Set(resettingEmployeeIds.value);
+  next.add(e.id);
+  resettingEmployeeIds.value = next;
+
+  try {
+    await resetOperatorCoinBalance(e.id);
+    await loadEmployees();
+  } catch (error: unknown) {
+    window.alert(getApiErrorMessage(error));
+  } finally {
+    const done = new Set(resettingEmployeeIds.value);
+    done.delete(e.id);
+    resettingEmployeeIds.value = done;
+  }
 }
 
 async function handleDeleteEmployee(id: number) {
@@ -595,6 +635,26 @@ async function handleDeleteEmployee(id: number) {
                 class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
               >
                 <button
+                  v-if="canResetOperatorCoins(e)"
+                  class="inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2"
+                  :class="
+                    isDark()
+                      ? 'border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/10 focus-visible:ring-emerald-400/40 disabled:opacity-60'
+                      : 'border-emerald-500/60 text-emerald-700 hover:bg-emerald-50 focus-visible:ring-emerald-500/40 disabled:opacity-60'
+                  "
+                  type="button"
+                  :disabled="isResettingCoins(e.id)"
+                  :aria-label="`Resetear monedas de ${e.name}`"
+                  :title="`Resetear monedas de ${e.name}`"
+                  @click="handleResetOperatorCoins(e)"
+                >
+                  {{
+                    isResettingCoins(e.id)
+                      ? "Reseteando..."
+                      : "Resetear monedas"
+                  }}
+                </button>
+                <button
                   class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2"
                   :class="
                     isDark()
@@ -748,6 +808,26 @@ async function handleDeleteEmployee(id: number) {
               </div>
               <div class="flex flex-col items-end">
                 <div class="mt-2 flex flex-col items-end gap-2">
+                  <button
+                    v-if="canResetOperatorCoins(e)"
+                    class="inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2"
+                    :class="
+                      isDark()
+                        ? 'border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/10 focus-visible:ring-emerald-400/40 disabled:opacity-60'
+                        : 'border-emerald-500/60 text-emerald-700 hover:bg-emerald-50 focus-visible:ring-emerald-500/40 disabled:opacity-60'
+                    "
+                    type="button"
+                    :disabled="isResettingCoins(e.id)"
+                    :aria-label="`Resetear monedas de ${e.name}`"
+                    :title="`Resetear monedas de ${e.name}`"
+                    @click="handleResetOperatorCoins(e)"
+                  >
+                    {{
+                      isResettingCoins(e.id)
+                        ? "Reseteando..."
+                        : "Resetear monedas"
+                    }}
+                  </button>
                   <button
                     class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2"
                     :class="
