@@ -7,7 +7,9 @@ export type RoleCapabilities = {
   canEditMachines: boolean;
   canEditMachineStatus: boolean;
   canEditCoinValues: boolean;
+  canEditExchangeRate: boolean;
   canSeeFinance: boolean;
+  canSeeInventory: boolean;
 };
 
 const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
@@ -18,7 +20,9 @@ const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
     canEditMachines: true,
     canEditMachineStatus: true,
     canEditCoinValues: true,
+    canEditExchangeRate: true,
     canSeeFinance: true,
+    canSeeInventory: true,
   },
   supervisor: {
     canViewReports: true,
@@ -27,7 +31,9 @@ const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
     canEditMachines: false,
     canEditMachineStatus: false,
     canEditCoinValues: false,
+    canEditExchangeRate: true,
     canSeeFinance: true,
+    canSeeInventory: true,
   },
   operator: {
     canViewReports: false,
@@ -36,7 +42,9 @@ const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
     canEditMachines: false,
     canEditMachineStatus: false,
     canEditCoinValues: false,
+    canEditExchangeRate: false,
     canSeeFinance: false,
+    canSeeInventory: false,
   },
 };
 

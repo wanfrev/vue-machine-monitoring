@@ -53,6 +53,7 @@ function logout() {
   router.push({ name: "login" });
 }
 const { roleLabel, isAdmin, canManage } = useCurrentUser();
+const canSeeInventory = computed(() => isAdmin.value || canManage.value);
 
 const currentUserName = ref(
   localStorage.getItem("userName") ||
@@ -75,6 +76,7 @@ const canSeeManagement = computed(() => canManage.value);
 const isManagementActive = computed(
   () => isActiveRoute("machines") || isActiveRoute("employees")
 );
+const isInventoryActive = computed(() => isActiveRoute("inventory"));
 
 function isActiveRoute(name: string) {
   return String(route.name || "") === name;
@@ -254,7 +256,7 @@ function isActiveRoute(name: string) {
 
         <!-- Finanzas link -->
         <button
-          v-if="userRole === 'admin'"
+          v-if="isAdmin"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
             isActiveRoute('finance')
@@ -313,6 +315,77 @@ function isActiveRoute(name: string) {
                 />
               </svg>
               <span>Finanzas</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <button
+          v-if="canSeeInventory"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isInventoryActive
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'inventory' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isInventoryActive"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M4 12l8 4.5 8-4.5"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M4 16.5 12 21l8-4.5"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Inventario</span>
             </span>
           </div>
           <svg

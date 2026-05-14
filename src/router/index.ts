@@ -15,6 +15,7 @@ import EmployeeSalesDetailView from "../views/EmployeeSalesDetailView.vue";
 import EmployeeDailyReportsView from "../views/EmployeeDailyReportsView.vue";
 import DailySalesView from "../views/DailySalesView.vue";
 import FinanceView from "../views/FinanceView.vue";
+import InventoryView from "../views/InventoryView.vue";
 import { isSupervisorJobRole } from "../utils/access";
 
 const routes: Array<RouteRecordRaw> = [
@@ -70,6 +71,12 @@ const routes: Array<RouteRecordRaw> = [
     name: "finance",
     component: FinanceView,
     meta: { requiresAuth: true, requiresFinance: true },
+  },
+  {
+    path: "/inventory",
+    name: "inventory",
+    component: InventoryView,
+    meta: { requiresAuth: true, requiresInventory: true },
   },
   {
     path: "/daily-sales",
@@ -132,6 +139,14 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !isAuth) {
     next({ name: "login" });
   } else if (to.meta.requiresFinance) {
+    const role = localStorage.getItem("role") || "";
+    const jobRole = localStorage.getItem("jobRole") || "";
+    if (role !== "admin" && !isSupervisorJobRole(jobRole)) {
+      next({ name: "dashboard" });
+    } else {
+      next();
+    }
+  } else if (to.meta.requiresInventory) {
     const role = localStorage.getItem("role") || "";
     const jobRole = localStorage.getItem("jobRole") || "";
     if (role !== "admin" && !isSupervisorJobRole(jobRole)) {

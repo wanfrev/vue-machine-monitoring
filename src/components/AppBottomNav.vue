@@ -30,6 +30,10 @@ const items = computed(() => {
     base.push({ name: "finance", label: "Finanzas" });
   }
 
+  if (capabilities.value.canSeeInventory) {
+    base.push({ name: "inventory", label: "Inventario" });
+  }
+
   base.push({ name: "reports", label: "Reportes" });
 
   if (capabilities.value.canManageArea) {
@@ -134,6 +138,19 @@ const items = computed(() => {
           <path
             d="M3 18.5C3 20.43 7.03 22 12 22s9-1.57 9-3.5v-1.9c-1.9 1.44-5.52 2.4-9 2.4s-7.1-.96-9-2.4z"
           ></path>
+        </svg>
+
+        <svg
+          v-else-if="item.name === 'inventory'"
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-6 w-6"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="m12 2-9 5 9 5 9-5z"></path>
+          <path d="m3 12 9 5 9-5-2-1.1L12 15 5 10.9z"></path>
+          <path d="m3 17 9 5 9-5-2-1.1L12 20 5 15.9z"></path>
         </svg>
 
         <svg

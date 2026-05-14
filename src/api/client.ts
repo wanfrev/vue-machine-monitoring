@@ -421,3 +421,85 @@ export async function setCoinValue(type: string, value: number) {
   });
   return res.data as { type: string; value: number };
 }
+
+export async function getExchangeRate() {
+  const res = await api.get("/api/exchange-rate");
+  return {
+    rate: Number(res.data?.rate ?? 0),
+    updatedAt: String(res.data?.updatedAt ?? ""),
+  };
+}
+
+export async function updateExchangeRate(rate: number) {
+  const res = await api.put("/api/exchange-rate", { rate });
+  return {
+    rate: Number(res.data?.rate ?? 0),
+    updatedAt: String(res.data?.updatedAt ?? ""),
+  };
+}
+
+export async function getInventorySummary(params: {
+  period: "day" | "week" | "month" | "custom";
+  date?: string;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
+  machineId?: string;
+}) {
+  const res = await api.get("/api/inventory", { params });
+  return res.data as {
+    filters: {
+      period: string;
+      date?: string | null;
+      month?: string | null;
+      startDate?: string | null;
+      endDate?: string | null;
+      machineId?: string | null;
+    };
+    exchangeRate: number;
+    summary: {
+      availableCoins: number;
+      soldCoins: number;
+      returnedCoins: number;
+      lostCoins: number;
+      pagoMovil: number;
+      dolares: number;
+      bolivares: number;
+      premio: number;
+      totalReported: number;
+      coinLossBolivares: number;
+      total: number;
+      totalUsdEquivalent: number;
+      events: {
+        record: number;
+        premio: number;
+        perdidas: number;
+        devueltas: number;
+      };
+    };
+    machines: Array<{
+      machineId: string;
+      machineName: string;
+      machineLocation: string;
+      machineType: string;
+      availableCoins: number;
+      soldCoins: number;
+      returnedCoins: number;
+      lostCoins: number;
+      pagoMovil: number;
+      dolares: number;
+      bolivares: number;
+      premio: number;
+      totalReported: number;
+      coinLossBolivares: number;
+      total: number;
+      totalUsdEquivalent: number;
+      events: {
+        record: number;
+        premio: number;
+        perdidas: number;
+        devueltas: number;
+      };
+    }>;
+  };
+}

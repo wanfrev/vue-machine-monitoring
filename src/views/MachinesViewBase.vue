@@ -6,6 +6,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import MachinesHeader from "@/components/MachinesHeader.vue";
 import EditCoinValuesModal from "@/components/EditCoinValuesModal.vue";
+import EditExchangeRateModal from "@/components/EditExchangeRateModal.vue";
 import {
   getMachines,
   createMachine,
@@ -14,6 +15,7 @@ import {
 } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
+import { useCurrentUser } from "@/composables/useCurrentUser";
 import { filterMachinesForRole } from "@/utils/access";
 import { machineStatusDotClass, machineStatusLabel } from "@/utils/machine";
 
@@ -25,12 +27,14 @@ type Props = {
   canSeeEmployees: boolean;
   canEditMachines: boolean;
   canEditCoinValues: boolean;
+  canEditExchangeRate: boolean;
 };
 
 const props = defineProps<Props>();
 
 const router = useRouter();
 const sidebarOpen = ref(false);
+const { canManage } = useCurrentUser();
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
@@ -86,6 +90,7 @@ const modalMode = ref<"create" | "edit">("create");
 const machineToEdit = ref<Machine | null>(null);
 
 const isEditPricesOpen = ref(false);
+const isEditExchangeRateOpen = ref(false);
 
 async function loadMachines() {
   loading.value = true;
@@ -177,6 +182,12 @@ function goToEmployees() {
     :dark="isDark()"
     @close="isEditPricesOpen = false"
   />
+  <EditExchangeRateModal
+    v-if="canEditExchangeRate"
+    :open="isEditExchangeRateOpen"
+    :dark="isDark()"
+    @close="isEditExchangeRateOpen = false"
+  />
 
   <NewMachine
     v-if="canEditMachines"
@@ -243,8 +254,25 @@ function goToEmployees() {
       </button>
     </div>
 
-    <div v-if="canEditCoinValues" class="flex items-center justify-end">
+    <div
+      v-if="canManage && (canEditCoinValues || canEditExchangeRate)"
+      class="flex items-center justify-end gap-2"
+    >
       <button
+        v-if="canEditExchangeRate"
+        type="button"
+        class="h-10 rounded-xl px-4 text-sm font-semibold border transition"
+        :class="
+          isDark()
+            ? 'border-zinc-700/70 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-100/10'
+            : 'border-slate-200 bg-white/70 text-slate-800 hover:bg-slate-50'
+        "
+        @click="isEditExchangeRateOpen = true"
+      >
+        Editar tasa
+      </button>
+      <button
+        v-if="canEditCoinValues"
         type="button"
         class="h-10 rounded-xl px-4 text-sm font-semibold border transition"
         :class="
