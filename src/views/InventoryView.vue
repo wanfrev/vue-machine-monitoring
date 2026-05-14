@@ -192,34 +192,191 @@ onMounted(async () => {
       </p>
     </section>
 
-    <section
-      class="rounded-2xl border backdrop-blur-xl p-4 sm:p-6"
-      :class="
-        isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <p class="text-sm font-semibold">Resumen general</p>
-      <div class="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
-        <div>Disponibles: {{ summary.availableCoins }}</div>
-        <div>Vendidas: {{ summary.soldCoins }}</div>
-        <div>Devueltas: {{ summary.returnedCoins }}</div>
-        <div>Perdidas: {{ summary.lostCoins }}</div>
-        <div>Pago movil: {{ formatMoney(summary.pagoMovil) }}</div>
-        <div>Dolares: {{ formatMoney(summary.dolares) }}</div>
-        <div>Bolivares: {{ formatMoney(summary.bolivares) }}</div>
-        <div>Premio: {{ formatMoney(summary.premio) }}</div>
-        <div>Total informado: {{ formatMoney(summary.totalReported) }}</div>
-        <div class="font-semibold">
-          Total contable: {{ formatMoney(summary.total) }}
+    <section class="space-y-2">
+      <h2
+        class="text-base font-semibold px-1"
+        :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
+      >
+        Resumen general
+      </h2>
+
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <!-- Monedas -->
+        <div
+          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3"
+          :class="
+            isDark()
+              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+              : 'bg-white/60 border-slate-200/70 text-slate-900'
+          "
+        >
+          <h3
+            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            <span class="text-xs">🪙</span> Monedas
+          </h3>
+          <div class="space-y-1 text-[11px] sm:text-xs">
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Disp.</span
+              ><span class="font-medium">{{ summary.availableCoins }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Vendidas</span
+              ><span class="font-medium">{{ summary.soldCoins }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Devueltas</span
+              ><span class="font-medium">{{ summary.returnedCoins }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Perdidas</span
+              ><span
+                class="font-medium"
+                :class="isDark() ? 'text-rose-400' : 'text-rose-600'"
+                >{{ summary.lostCoins }}</span
+              >
+            </div>
+          </div>
         </div>
-        <div>Total USD: {{ formatMoney(summary.totalUsdEquivalent) }}</div>
-      </div>
-      <div class="mt-2 text-xs">
-        Eventos - Record: {{ summary.events.record }} | Premio:
-        {{ summary.events.premio }} | Perdidas: {{ summary.events.perdidas }} |
-        Devueltas: {{ summary.events.devueltas }}
+
+        <!-- Finanzas -->
+        <div
+          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3"
+          :class="
+            isDark()
+              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+              : 'bg-white/60 border-slate-200/70 text-slate-900'
+          "
+        >
+          <h3
+            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            <span class="text-xs">💵</span> Finanzas
+          </h3>
+          <div class="space-y-1 text-[11px] sm:text-xs">
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >P. Móvil</span
+              ><span class="font-medium">{{
+                formatMoney(summary.pagoMovil)
+              }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >USD</span
+              ><span class="font-medium">{{
+                formatMoney(summary.dolares)
+              }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >VES</span
+              ><span class="font-medium">{{
+                formatMoney(summary.bolivares)
+              }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Premios</span
+              ><span
+                class="font-medium"
+                :class="isDark() ? 'text-amber-400' : 'text-amber-600'"
+                >{{ formatMoney(summary.premio) }}</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Totales -->
+        <div
+          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3 flex flex-col"
+          :class="
+            isDark()
+              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+              : 'bg-white/60 border-slate-200/70 text-slate-900'
+          "
+        >
+          <h3
+            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            <span class="text-xs">📊</span> Totales
+          </h3>
+          <div class="space-y-1 text-[11px] sm:text-xs flex-1">
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Informado</span
+              ><span class="font-medium">{{
+                formatMoney(summary.totalReported)
+              }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Contable</span
+              ><span class="font-medium">{{ formatMoney(summary.total) }}</span>
+            </div>
+          </div>
+          <div
+            class="mt-1.5 pt-1.5 border-t flex justify-between items-center text-xs"
+            :class="isDark() ? 'border-zinc-800' : 'border-slate-200'"
+          >
+            <span class="font-semibold">Tot USD</span>
+            <span
+              class="font-bold"
+              :class="isDark() ? 'text-emerald-400' : 'text-emerald-600'"
+              >{{ formatMoney(summary.totalUsdEquivalent) }}</span
+            >
+          </div>
+        </div>
+
+        <!-- Eventos -->
+        <div
+          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3"
+          :class="
+            isDark()
+              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
+              : 'bg-white/60 border-slate-200/70 text-slate-900'
+          "
+        >
+          <h3
+            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
+            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          >
+            <span class="text-xs">🔔</span> Eventos
+          </h3>
+          <div class="space-y-1 text-[11px] sm:text-xs">
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Récords</span
+              ><span class="font-medium">{{ summary.events.record }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Premios</span
+              ><span class="font-medium">{{ summary.events.premio }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Pérdidas</span
+              ><span
+                class="font-medium"
+                :class="isDark() ? 'text-rose-400' : 'text-rose-600'"
+                >{{ summary.events.perdidas }}</span
+              >
+            </div>
+            <div class="flex justify-between">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Devueltas</span
+              ><span class="font-medium">{{ summary.events.devueltas }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
