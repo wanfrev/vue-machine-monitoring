@@ -193,8 +193,23 @@ function parseLooseMoney(value: string | number | null): number {
   const sanitized = trimmed.replace(/[^0-9.,-]/g, "");
   const negative = sanitized.includes("-");
   const cleaned = sanitized.replace(/-/g, "");
-  const lastComma = cleaned.lastIndexOf(",");
-  const lastDot = cleaned.lastIndexOf(".");
+  let lastComma = cleaned.lastIndexOf(",");
+  let lastDot = cleaned.lastIndexOf(".");
+
+  if (lastDot > -1 && lastComma === -1) {
+    const parts = cleaned.split(".");
+    if (parts.length > 1 && parts.slice(1).every((p) => p.length === 3)) {
+      lastDot = -1;
+    }
+  }
+
+  if (lastComma > -1 && lastDot === -1) {
+    const parts = cleaned.split(",");
+    if (parts.length > 1 && parts.slice(1).every((p) => p.length === 3)) {
+      lastComma = -1;
+    }
+  }
+
   const decimalIndex = Math.max(lastComma, lastDot);
 
   let numStr = "";
