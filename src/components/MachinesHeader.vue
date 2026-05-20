@@ -35,60 +35,58 @@ function createMachine() {
 
 <template>
   <header
-    class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+    class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
     :class="
       isDark()
         ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
         : 'bg-white/60 border-slate-200/70 text-slate-900'
     "
   >
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3 min-w-0">
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2 min-w-0">
         <button
           type="button"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
-          :class="
-            isDark()
-              ? 'border-zinc-700/70 hover:bg-transparent hover:text-white'
-              : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
-          "
+          class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition cursor-pointer group overflow-hidden shrink-0"
+          :class="isDark() ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'"
           aria-label="Abrir menú lateral"
           @click="openSidebar"
         >
           <img
             src="/img/icons/K11BOX.webp"
             alt="MachineHub logo"
-            class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+            class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
           />
         </button>
         <div class="min-w-0">
-          <div class="flex flex-wrap items-baseline gap-2">
-            <h1 class="text-xl font-semibold sm:text-2xl">Máquinas</h1>
-            <span
-              class="text-xs font-medium tracking-wide"
-              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-            >
-              Gestión de flota
-            </span>
-          </div>
+          <h1
+            class="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight truncate"
+          >
+            Máquinas
+          </h1>
+          <p
+            class="text-xs truncate"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Gestión de flota
+          </p>
         </div>
       </div>
 
       <div class="flex items-center gap-2 shrink-0">
         <button
           type="button"
-          class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
+          class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border transition cursor-pointer shrink-0"
           :class="
             isDark()
-              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
-              : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
+              ? 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           "
           aria-label="Refrescar"
           title="Refrescar"
           @click="refresh"
         >
           <svg
-            class="h-5 w-5"
+            class="h-4 w-4 sm:h-5 sm:w-5"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -114,7 +112,7 @@ function createMachine() {
         <button
           v-if="currentRole !== 'employee' && currentRole !== 'operator'"
           type="button"
-          class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+          class="inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
           :class="
             isDark()
               ? 'bg-zinc-200 text-zinc-900 hover:bg-zinc-100 focus-visible:ring-zinc-300/60'
@@ -123,13 +121,10 @@ function createMachine() {
           @click="createMachine"
         >
           <span class="mr-1">+</span>
-          <span>Nueva máquina</span>
+          <span class="hidden sm:inline">Nueva máquina</span>
+          <span class="sm:hidden">+</span>
         </button>
       </div>
-    </div>
-
-    <div v-if="$slots.summary" class="mt-4">
-      <slot name="summary" />
     </div>
   </header>
 </template>

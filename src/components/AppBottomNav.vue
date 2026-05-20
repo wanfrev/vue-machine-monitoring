@@ -65,11 +65,11 @@ const items = computed(() => {
         :class="
           isActive(item.name)
             ? isDark()
-              ? 'text-white'
-              : 'text-slate-900'
+              ? 'text-red-500'
+              : 'text-red-600'
             : isDark()
-            ? 'text-zinc-400'
-            : 'text-slate-500'
+            ? 'text-white'
+            : 'text-slate-900'
         "
         @click="router.push({ name: item.name })"
         :aria-label="item.label"

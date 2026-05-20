@@ -13,12 +13,10 @@ import {
 } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
-import { useRouter } from "vue-router";
 import { isSupervisorJobRole } from "@/utils/access";
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
-const router = useRouter();
 
 type Employee = {
   id: number;
@@ -143,10 +141,6 @@ function openEditModal(employee: Employee) {
   modalMode.value = "edit";
   employeeToEdit.value = { ...employee };
   showModal.value = true;
-}
-
-function goToMachines() {
-  router.push({ name: "machines" });
 }
 
 async function handleCreateEmployee(payload: {
@@ -296,65 +290,63 @@ async function handleDeleteEmployee(id: number) {
 
   <div
     :class="[
-      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
+      'min-h-screen px-3 py-4 sm:px-6 lg:px-8 space-y-5',
       isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
     <header
-      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
-            :class="
-              isDark()
-                ? 'border-zinc-700/70 hover:bg-transparent hover:text-white'
-                : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
-            "
+            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition cursor-pointer group overflow-hidden shrink-0"
+            :class="isDark() ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'"
             aria-label="Abrir menú lateral"
             @click="sidebarOpen = true"
           >
             <img
               src="/img/icons/K11BOX.webp"
               alt="MachineHub logo"
-              class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+              class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
             />
           </button>
           <div class="min-w-0">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h1 class="text-xl font-semibold sm:text-2xl">Equipo</h1>
-              <span
-                class="text-xs font-medium tracking-wide"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >
-                Gestión de accesos y asignaciones
-              </span>
-            </div>
+            <h1
+              class="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight truncate"
+            >
+              Personal
+            </h1>
+            <p
+              class="text-xs truncate"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Gestión de accesos y asignaciones
+            </p>
           </div>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
+            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border transition cursor-pointer shrink-0"
             :class="
               isDark()
-                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
-                : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
+                ? 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             "
             aria-label="Refrescar"
             title="Refrescar"
             @click="refreshPage"
           >
             <svg
-              class="h-5 w-5"
+              class="h-4 w-4 sm:h-5 sm:w-5"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -379,7 +371,7 @@ async function handleDeleteEmployee(id: number) {
 
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
+            class="inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
             :class="
               isDark()
                 ? 'bg-zinc-200 text-zinc-900 hover:bg-zinc-100 focus-visible:ring-zinc-300/60'
@@ -388,156 +380,130 @@ async function handleDeleteEmployee(id: number) {
             @click="openCreateModal"
           >
             <span class="mr-1">+</span>
-            <span>Nuevo usuario</span>
+            <span class="hidden sm:inline">Nuevo usuario</span>
+            <span class="sm:hidden">+</span>
           </button>
         </div>
       </div>
     </header>
 
-    <div
-      class="grid grid-cols-2 gap-2 rounded-2xl border backdrop-blur-xl p-2"
-      :class="
-        isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
-      "
-    >
-      <button
-        type="button"
-        class="w-full px-3 py-1.5 rounded-full border text-xs font-semibold transition"
-        :class="
-          isDark()
-            ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
-            : 'bg-transparent text-slate-600 border-slate-200 hover:border-slate-400'
-        "
-        @click="goToMachines"
-      >
-        Maquinas
-      </button>
-      <button
-        type="button"
-        class="w-full px-3 py-1.5 rounded-full border text-xs font-semibold transition"
-        :class="
-          isDark()
-            ? 'bg-zinc-100/10 text-white border-zinc-400/70'
-            : 'bg-slate-900 text-white border-slate-900'
-        "
-      >
-        Personal
-      </button>
-    </div>
-
     <section
-      class="rounded-2xl border backdrop-blur-xl p-3 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <!-- Toolbar: filtros de tipo + buscador -->
+      <!-- Filters bar -->
       <div
-        class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <div class="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            class="px-3 py-1.5 rounded-full border transition font-medium"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
             :class="
               peopleFilter === 'todos'
                 ? isDark()
-                  ? 'bg-zinc-100/10 text-white border-zinc-400/70'
+                  ? 'bg-zinc-100/10 text-white border-zinc-500/70'
                   : 'bg-slate-900 text-white border-slate-900'
                 : isDark()
-                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
-                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+                ? 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-500 hover:text-zinc-200'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
             "
             @click="peopleFilter = 'todos'"
           >
-            Todos ({{ totalPeople }})
+            Todos
+            <span class="ml-1 opacity-60">{{ totalPeople }}</span>
           </button>
           <button
             type="button"
-            class="px-3 py-1.5 rounded-full border transition font-medium"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
             :class="
               peopleFilter === 'supervisores'
                 ? isDark()
-                  ? 'bg-zinc-100/10 text-white border-violet-400'
-                  : 'bg-violet-600 text-white border-violet-600'
+                  ? 'bg-violet-500/15 text-violet-300 border-violet-500/50'
+                  : 'bg-violet-50 text-violet-700 border-violet-200'
                 : isDark()
-                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
-                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+                ? 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-500 hover:text-zinc-200'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
             "
             @click="peopleFilter = 'supervisores'"
           >
-            Supervisores ({{ totalEmployees }})
+            Supervisores
+            <span class="ml-1 opacity-60">{{ totalEmployees }}</span>
           </button>
           <button
             type="button"
-            class="px-3 py-1.5 rounded-full border transition font-medium"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
             :class="
               peopleFilter === 'operadores'
                 ? isDark()
-                  ? 'bg-zinc-100/10 text-white border-emerald-400'
-                  : 'bg-emerald-600 text-white border-emerald-600'
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/50'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : isDark()
-                ? 'bg-transparent text-zinc-300 border-zinc-700/60 hover:border-zinc-500/80'
-                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400'
+                ? 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-500 hover:text-zinc-200'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
             "
             @click="peopleFilter = 'operadores'"
           >
-            Operadores ({{ totalOperators }})
+            Operadores
+            <span class="ml-1 opacity-60">{{ totalOperators }}</span>
           </button>
         </div>
 
-        <div class="w-full sm:w-64 relative">
-          <span
-            class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-slate-400"
-          >
-            <svg
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
+        <div class="w-full sm:w-72">
+          <div class="relative">
+            <span
+              class="pointer-events-none absolute inset-y-0 left-3 flex items-center"
+              :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
             >
-              <path
-                d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="m20 20-3.5-3.5"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-          <input
-            v-model="searchQuery"
-            type="search"
-            placeholder="Buscar personal..."
-            class="w-full rounded-full border px-7 py-1.5 text-xs placeholder-slate-400 focus:outline-none focus:ring-2"
-            :class="
-              isDark()
-                ? 'bg-zinc-950/20 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                : 'bg-white/90 text-slate-800 border-slate-200'
-            "
-          />
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="m20 20-3.5-3.5"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <input
+              v-model="searchQuery"
+              type="search"
+              placeholder="Buscar personal..."
+              class="w-full rounded-lg border px-9 py-2 text-xs placeholder-slate-400 focus:outline-none focus:ring-2"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/30 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
+                  : 'bg-white/90 text-slate-800 border-slate-200'
+              "
+            />
+          </div>
         </div>
       </div>
 
       <!-- Desktop table (hidden on small screens) -->
       <div
-        class="hidden sm:block overflow-x-auto rounded-2xl border shadow-sm"
+        class="hidden sm:block overflow-x-auto rounded-xl border shadow-sm mt-4"
         :class="
           isDark()
-            ? 'border-zinc-800/70 bg-zinc-900/60 backdrop-blur-xl'
-            : 'border-slate-200/70 bg-white/50 backdrop-blur-xl'
+            ? 'border-zinc-800/70 bg-zinc-950/40'
+            : 'border-slate-200/70 bg-white/50'
         "
       >
         <table
@@ -547,22 +513,26 @@ async function handleDeleteEmployee(id: number) {
           <thead
             :class="
               isDark()
-                ? 'bg-red-900/20 backdrop-blur text-slate-200'
-                : 'bg-red-50/70 backdrop-blur text-slate-700'
+                ? 'bg-zinc-900/60 text-zinc-300'
+                : 'bg-slate-50/80 text-slate-600'
             "
           >
             <tr>
-              <th class="px-4 py-2 whitespace-nowrap">Nombre</th>
-              <th class="px-4 py-2 whitespace-nowrap">Máquinas (ubicación)</th>
-              <th class="px-4 py-2 text-right whitespace-nowrap">Acciones</th>
+              <th class="px-4 py-3 whitespace-nowrap font-semibold">Nombre</th>
+              <th class="px-4 py-3 whitespace-nowrap font-semibold">
+                Máquinas (ubicación)
+              </th>
+              <th class="px-4 py-3 text-right whitespace-nowrap font-semibold">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td class="px-4 py-3" colspan="4">Cargando...</td>
+              <td class="px-4 py-3" colspan="3">Cargando...</td>
             </tr>
             <tr v-else-if="!displayedEmployees.length">
-              <td class="px-4 py-10" colspan="4">
+              <td class="px-4 py-10" colspan="3">
                 <div
                   class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
                   :class="
@@ -582,8 +552,8 @@ async function handleDeleteEmployee(id: number) {
               class="border-t transition-colors"
               :class="
                 isDark()
-                  ? 'border-zinc-800/70 hover:bg-red-500/10'
-                  : 'border-slate-200/70 hover:bg-red-100/50'
+                  ? 'border-zinc-800/70 hover:bg-zinc-800/40'
+                  : 'border-slate-200/70 hover:bg-slate-50/80'
               "
             >
               <td class="px-4 py-2 whitespace-nowrap">
@@ -733,7 +703,7 @@ async function handleDeleteEmployee(id: number) {
       </div>
 
       <!-- Mobile stacked cards -->
-      <div class="sm:hidden space-y-3">
+      <div class="sm:hidden space-y-3 mt-4">
         <div v-if="loading" class="px-4 py-3">Cargando...</div>
         <div v-else-if="!displayedEmployees.length" class="px-4 py-10">
           <div
@@ -752,10 +722,10 @@ async function handleDeleteEmployee(id: number) {
           <div
             v-for="e in displayedEmployees"
             :key="e.id"
-            class="rounded-2xl border px-4 py-3 shadow-sm backdrop-blur-xl"
+            class="rounded-xl border px-4 py-3 shadow-sm backdrop-blur-xl"
             :class="
               isDark()
-                ? 'border-zinc-800/70 bg-zinc-900/30'
+                ? 'border-zinc-800/70 bg-zinc-950/40'
                 : 'border-slate-200/70 bg-white/60'
             "
           >

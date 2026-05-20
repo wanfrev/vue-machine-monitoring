@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
 import { useBodyScrollLock } from "@/composables/useBodyScrollLock";
@@ -22,22 +22,7 @@ const isDark = computed(() => {
   return injectedDark.value;
 });
 
-const isDesktop = ref(false);
-const showSidebar = computed(() => props.open && isDesktop.value);
-
-function updateViewport() {
-  if (typeof window === "undefined") return;
-  isDesktop.value = window.matchMedia("(min-width: 1024px)").matches;
-}
-
-onMounted(() => {
-  updateViewport();
-  window.addEventListener("resize", updateViewport);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("resize", updateViewport);
-});
+const showSidebar = computed(() => props.open);
 
 // Prevent background scroll when sidebar is open on desktop
 useBodyScrollLock(showSidebar);
@@ -52,7 +37,7 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
-const { roleLabel, isAdmin, canManage } = useCurrentUser();
+const { roleLabel, isAdmin, canManage, canManageEmployees, canViewReportsList, canViewDailyReportsList } = useCurrentUser();
 const canSeeInventory = computed(() => isAdmin.value || canManage.value);
 
 const currentUserName = ref(
@@ -406,8 +391,9 @@ function isActiveRoute(name: string) {
           </svg>
         </button>
 
-        <!-- Reports link -->
+        <!-- Ventas link -->
         <button
+          v-if="canViewReportsList"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
             isActiveRoute('reports')
@@ -430,7 +416,6 @@ function isActiveRoute(name: string) {
               :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
-              <!-- Icono Reportes: chart -->
               <svg
                 class="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -439,37 +424,37 @@ function isActiveRoute(name: string) {
                 aria-hidden="true"
               >
                 <path
-                  d="M4 19V5"
+                  d="M2 20h20"
                   stroke="currentColor"
                   stroke-width="1.6"
                   stroke-linecap="round"
                 />
                 <path
-                  d="M4 19h16"
+                  d="M5 16V10"
                   stroke="currentColor"
                   stroke-width="1.6"
                   stroke-linecap="round"
                 />
                 <path
-                  d="M7.5 16V12"
+                  d="M10 16V6"
                   stroke="currentColor"
                   stroke-width="1.6"
                   stroke-linecap="round"
                 />
                 <path
-                  d="M12 16V9"
+                  d="M15 16V12"
                   stroke="currentColor"
                   stroke-width="1.6"
                   stroke-linecap="round"
                 />
                 <path
-                  d="M16.5 16V11"
+                  d="M20 16V8"
                   stroke="currentColor"
                   stroke-width="1.6"
                   stroke-linecap="round"
                 />
               </svg>
-              <span>Reportes</span>
+              <span>Ventas</span>
             </span>
           </div>
           <svg
@@ -490,12 +475,105 @@ function isActiveRoute(name: string) {
           </svg>
         </button>
 
-        <!-- Gestion link -->
+        <!-- Reportes diarios link -->
+        <button
+          v-if="canViewDailyReportsList"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isActiveRoute('reports-daily')
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'reports-daily' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isActiveRoute('reports-daily')"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="4"
+                  width="18"
+                  height="16"
+                  rx="2"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <path
+                  d="M3 10h18"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M8 2v4"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M16 2v4"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M7 14h4"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M7 18h6"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span>Reportes diarios</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <!-- Maquinas link -->
         <button
           v-if="canSeeManagement"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
-            isManagementActive
+            isActiveRoute('machines')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
                 : 'border-sky-100 bg-sky-50/80 text-sky-800'
@@ -510,12 +588,11 @@ function isActiveRoute(name: string) {
         >
           <div class="flex items-center gap-3">
             <span
-              v-if="isManagementActive"
+              v-if="isActiveRoute('machines')"
               class="h-6 w-0.5 rounded-full"
               :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
-              <!-- Icono Gestion: grid/cubos -->
               <svg
                 class="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -524,43 +601,110 @@ function isActiveRoute(name: string) {
                 aria-hidden="true"
               >
                 <rect
-                  x="4"
-                  y="4"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                  x="2"
+                  y="6"
+                  width="20"
+                  height="12"
+                  rx="2"
                   stroke="currentColor"
                   stroke-width="1.6"
                 />
-                <rect
-                  x="14"
-                  y="4"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                <path
+                  d="M6 12h.01"
                   stroke="currentColor"
-                  stroke-width="1.6"
+                  stroke-width="2"
+                  stroke-linecap="round"
                 />
-                <rect
-                  x="4"
-                  y="14"
-                  width="6"
-                  height="6"
-                  rx="1.5"
+                <path
+                  d="M10 12h.01"
                   stroke="currentColor"
-                  stroke-width="1.6"
-                />
-                <rect
-                  x="14"
-                  y="14"
-                  width="6"
-                  height="6"
-                  rx="1.5"
-                  stroke="currentColor"
-                  stroke-width="1.6"
+                  stroke-width="2"
+                  stroke-linecap="round"
                 />
               </svg>
-              <span>Gestion</span>
+              <span>Maquinas</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <!-- Personal link -->
+        <button
+          v-if="canManageEmployees"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isActiveRoute('employees')
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'employees' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isActiveRoute('employees')"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <circle
+                  cx="9"
+                  cy="7"
+                  r="4"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <path
+                  d="M23 21v-2a4 4 0 0 0-3-3.87"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M16 3.13a4 4 0 0 1 0 7.75"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Personal</span>
             </span>
           </div>
           <svg

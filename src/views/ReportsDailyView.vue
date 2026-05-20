@@ -15,7 +15,5 @@ const { roleKind, assignedMachineIds, canViewReportsList } = useCurrentUser();
     :assigned-machine-ids="assignedMachineIds"
     report-kind-label="diario"
     report-kind-plural="diarios"
-    :show-tabs="canViewReportsList"
-    active-tab="daily"
   />
 </template>

@@ -23,47 +23,39 @@ const sidebarOpen = ref(false);
     ]"
   >
     <header
-      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
-            :class="
-              isDark()
-                ? 'border-zinc-700/70 hover:bg-transparent hover:text-white'
-                : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
-            "
+            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition cursor-pointer group overflow-hidden shrink-0"
+            :class="isDark() ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'"
             aria-label="Abrir menú lateral"
             @click="sidebarOpen = true"
           >
             <img
               src="/img/icons/K11BOX.webp"
               alt="MachineHub logo"
-              class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+              class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
             />
           </button>
           <div class="min-w-0">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h1 class="text-xl font-semibold sm:text-2xl">Finanzas</h1>
-              <span
-                class="text-xs font-medium tracking-wide"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >
-                Totales y analitica
-              </span>
-            </div>
-            <p
-              class="mt-1 text-sm"
-              :class="isDark() ? 'text-zinc-300' : 'text-slate-500'"
+            <h1
+              class="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight truncate"
             >
-              Solo administradores
+              Finanzas
+            </h1>
+            <p
+              class="text-xs truncate"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Totales y analitica
             </p>
           </div>
         </div>
