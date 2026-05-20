@@ -58,9 +58,6 @@ function onProfileUpdated(payload: { name: string; username: string }) {
 }
 
 const canSeeManagement = computed(() => canManage.value);
-const isManagementActive = computed(
-  () => isActiveRoute("machines") || isActiveRoute("employees")
-);
 const isInventoryActive = computed(() => isActiveRoute("inventory"));
 
 function isActiveRoute(name: string) {
@@ -92,66 +89,60 @@ function isActiveRoute(name: string) {
       role="dialog"
       aria-modal="true"
     >
-      <!-- Header -->
-      <div class="mb-4 flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex items-center gap-3">
-            <div
-              class="h-10 w-10 overflow-hidden rounded-full border"
-              :class="isDark ? 'border-zinc-700/60' : 'border-slate-200/70'"
-            >
-              <img
-                src="/img/icons/K11BOX.webp"
-                alt="MachineHub"
-                class="h-full w-full object-cover"
-              />
-            </div>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold leading-tight">MachineHub</p>
-              <p
-                class="mt-0.5 text-[11px] font-medium uppercase tracking-wide"
-                :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
-              >
-                {{ roleLabel }}
-              </p>
-              <p
-                class="mt-1 text-xs font-medium truncate"
-                :class="isDark ? 'text-zinc-200' : 'text-slate-700'"
-                :title="currentUserName"
-              >
-                {{ currentUserName }}
-              </p>
-              <button
-                v-if="isAdmin"
-                type="button"
-                class="mt-2 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition"
-                :class="
-                  isDark
-                    ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
-                    : 'border-slate-200/80 bg-white/70 text-slate-700 hover:bg-slate-50'
-                "
-                @click="openEditProfile"
-              >
-                Editar perfil
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="flex flex-col items-end gap-2">
-          <button
-            type="button"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition cursor-pointer"
-            :class="
-              isDark
-                ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-950/30'
-                : 'border-slate-200/70 bg-white/50 hover:bg-white/70'
-            "
-            aria-label="Cerrar menú lateral"
-            @click="close"
+      <!-- Close button -->
+      <div class="absolute top-4 right-4">
+        <button
+          type="button"
+          class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-xs font-medium transition cursor-pointer"
+          :class="
+            isDark
+              ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+          "
+          aria-label="Cerrar menú lateral"
+          @click="close"
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
           >
-            ✕
-          </button>
+            <path
+              d="M18 6L6 18M6 6l12 12"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Header: Logo centered -->
+      <div class="flex flex-col items-center mb-4">
+        <div
+          class="h-16 w-16 overflow-hidden rounded-2xl border"
+          :class="isDark ? 'border-zinc-700/60' : 'border-slate-200/70'"
+        >
+          <img
+            src="/img/icons/K11BOX.webp"
+            alt="MachineHub"
+            class="h-full w-full object-cover"
+          />
         </div>
+        <p
+          class="mt-2 text-[11px] font-semibold uppercase tracking-widest"
+          :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          {{ roleLabel }}
+        </p>
+        <p
+          class="mt-0.5 text-sm font-semibold truncate max-w-full"
+          :class="isDark ? 'text-zinc-200' : 'text-slate-700'"
+          :title="currentUserName"
+        >
+          {{ currentUserName }}
+        </p>
       </div>
 
       <div
@@ -161,16 +152,9 @@ function isActiveRoute(name: string) {
 
       <!-- Navigation -->
       <nav
-        class="flex-1 space-y-1 pt-4 text-sm"
+        class="flex-1 space-y-1 pt-4 text-sm overflow-y-auto"
         aria-label="Navegación principal"
       >
-        <p
-          class="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide"
-          :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
-        >
-          Navegación
-        </p>
-
         <!-- Dashboard link -->
         <button
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
@@ -195,7 +179,6 @@ function isActiveRoute(name: string) {
               :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
-              <!-- Icono Dashboard: grid/casa -->
               <svg
                 class="h-4 w-4"
                 viewBox="0 0 24 24"
@@ -219,242 +202,6 @@ function isActiveRoute(name: string) {
                 />
               </svg>
               <span>Dashboard</span>
-            </span>
-          </div>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M9 18l6-6-6-6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-
-        <!-- Finanzas link -->
-        <button
-          v-if="isAdmin"
-          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
-          :class="
-            isActiveRoute('finance')
-              ? isDark
-                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
-              : isDark
-              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
-          "
-          @click="
-            $emit('close');
-            router.push({ name: 'finance' });
-          "
-        >
-          <div class="flex items-center gap-3">
-            <span
-              v-if="isActiveRoute('finance')"
-              class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
-            ></span>
-            <span class="inline-flex items-center gap-2">
-              <!-- Icono Finanzas: monedas -->
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <ellipse
-                  cx="12"
-                  cy="6"
-                  rx="7"
-                  ry="3"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                />
-                <path
-                  d="M5 10c0 1.66 3.13 3 7 3s7-1.34 7-3"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M5 14c0 1.66 3.13 3 7 3s7-1.34 7-3"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M5 18c0 1.66 3.13 3 7 3s7-1.34 7-3"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-              </svg>
-              <span>Finanzas</span>
-            </span>
-          </div>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M9 18l6-6-6-6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-
-        <button
-          v-if="canSeeInventory"
-          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
-          :class="
-            isInventoryActive
-              ? isDark
-                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
-              : isDark
-              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
-          "
-          @click="
-            $emit('close');
-            router.push({ name: 'inventory' });
-          "
-        >
-          <div class="flex items-center gap-3">
-            <span
-              v-if="isInventoryActive"
-              class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
-            ></span>
-            <span class="inline-flex items-center gap-2">
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M4 12l8 4.5 8-4.5"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M4 16.5 12 21l8-4.5"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              <span>Inventario</span>
-            </span>
-          </div>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M9 18l6-6-6-6"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-
-        <!-- Ventas link -->
-        <button
-          v-if="canViewReportsList"
-          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
-          :class="
-            isActiveRoute('reports')
-              ? isDark
-                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
-              : isDark
-              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
-          "
-          @click="
-            $emit('close');
-            router.push({ name: 'reports' });
-          "
-        >
-          <div class="flex items-center gap-3">
-            <span
-              v-if="isActiveRoute('reports')"
-              class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
-            ></span>
-            <span class="inline-flex items-center gap-2">
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M2 20h20"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M5 16V10"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M10 16V6"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M15 16V12"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M20 16V8"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                />
-              </svg>
-              <span>Ventas</span>
             </span>
           </div>
           <svg
@@ -548,6 +295,170 @@ function isActiveRoute(name: string) {
                 />
               </svg>
               <span>Reportes diarios</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <!-- Finanzas link -->
+        <button
+          v-if="isAdmin"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isActiveRoute('finance')
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'finance' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isActiveRoute('finance')"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <ellipse
+                  cx="12"
+                  cy="6"
+                  rx="7"
+                  ry="3"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <path
+                  d="M5 10c0 1.66 3.13 3 7 3s7-1.34 7-3"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M5 14c0 1.66 3.13 3 7 3s7-1.34 7-3"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M5 18c0 1.66 3.13 3 7 3s7-1.34 7-3"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span>Finanzas</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <!-- Ventas link -->
+        <button
+          v-if="canViewReportsList"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isActiveRoute('reports')
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'reports' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isActiveRoute('reports')"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M2 20h20"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M5 16V10"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M10 16V6"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M15 16V12"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M20 16V8"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <span>Ventas</span>
             </span>
           </div>
           <svg
@@ -725,6 +636,77 @@ function isActiveRoute(name: string) {
           </svg>
         </button>
 
+        <!-- Inventario link -->
+        <button
+          v-if="canSeeInventory"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isInventoryActive
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'inventory' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isInventoryActive"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M4 12l8 4.5 8-4.5"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M4 16.5 12 21l8-4.5"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              <span>Inventario</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
       </nav>
 
       <!-- Footer actions -->
@@ -734,7 +716,37 @@ function isActiveRoute(name: string) {
           :class="isDark ? 'bg-zinc-800/70' : 'bg-slate-200/70'"
         ></div>
 
-        <div class="flex items-center justify-between mt-2">
+        <!-- Editar perfil (admin only) -->
+        <button
+          v-if="isAdmin"
+          type="button"
+          class="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition cursor-pointer"
+          :class="
+            isDark
+              ? 'border-zinc-700/70 bg-zinc-900/30 text-zinc-200 hover:bg-zinc-900/50'
+              : 'border-slate-200/80 bg-white/50 text-slate-700 hover:bg-slate-50'
+          "
+          @click="openEditProfile"
+        >
+          <svg
+            class="h-3.5 w-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Editar perfil
+        </button>
+
+        <div class="flex items-center justify-between mt-3">
           <button
             class="inline-flex items-center gap-2 px-2 py-1.5 text-xs font-medium cursor-pointer"
             :class="
@@ -775,7 +787,7 @@ function isActiveRoute(name: string) {
             <span>Salir</span>
           </button>
 
-          <!-- Toggle modo claro/oscuro al fondo derecha -->
+          <!-- Toggle modo claro/oscuro -->
           <button
             type="button"
             class="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium cursor-pointer shadow-sm transition"

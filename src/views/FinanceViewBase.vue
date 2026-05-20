@@ -604,19 +604,18 @@ watch([supervisorDate, selectedSupervisorId], () => {
         >
           Sin registros para esta fecha
         </div>
-        <div
-          v-else
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-        >
+        <div v-else class="space-y-0">
           <div
-            v-for="row in allRowsWithMachine"
+            v-for="(row, idx) in allRowsWithMachine"
             :key="`${row.machineId}-${allDate}`"
-            class="flex items-center justify-between rounded-xl border px-3 py-2.5 transition hover:shadow-sm"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-900/40'
-                : 'border-slate-200 bg-white/70 hover:bg-white'
-            "
+            class="flex items-center justify-between px-1 py-2.5"
+            :class="[
+              idx < allRowsWithMachine.length - 1
+                ? isDark()
+                  ? 'border-b border-zinc-800/40'
+                  : 'border-b border-slate-200/60'
+                : '',
+            ]"
           >
             <div class="min-w-0">
               <p class="text-sm font-semibold truncate">
@@ -865,19 +864,18 @@ watch([supervisorDate, selectedSupervisorId], () => {
         >
           Sin registros para esta fecha
         </div>
-        <div
-          v-else
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-        >
+        <div v-else class="space-y-0">
           <div
-            v-for="row in supervisorRowsWithMachine"
+            v-for="(row, idx) in supervisorRowsWithMachine"
             :key="`${row.machineId}-${supervisorDate}`"
-            class="flex items-center justify-between rounded-xl border px-3 py-2.5 transition hover:shadow-sm"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-950/20 hover:bg-zinc-900/40'
-                : 'border-slate-200 bg-white/70 hover:bg-white'
-            "
+            class="flex items-center justify-between px-1 py-2.5"
+            :class="[
+              idx < supervisorRowsWithMachine.length - 1
+                ? isDark()
+                  ? 'border-b border-zinc-800/40'
+                  : 'border-b border-slate-200/60'
+                : '',
+            ]"
           >
             <div class="min-w-0">
               <p class="text-sm font-semibold truncate">

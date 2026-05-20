@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /* global defineProps */
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
@@ -62,6 +62,17 @@ const maintenanceMachines = computed(
 const statusFilter = ref<"all" | "active" | "inactive" | "maintenance">("all");
 const { searchQuery, filterBySearch } = useSearchFilter<Machine>();
 
+const actionMenuOpenId = ref<string | null>(null);
+
+function toggleActionMenu(machineId: string) {
+  actionMenuOpenId.value =
+    actionMenuOpenId.value === machineId ? null : machineId;
+}
+
+function closeActionMenu() {
+  actionMenuOpenId.value = null;
+}
+
 const filteredMachines = computed(() => {
   let list = scopedMachines.value
     .slice()
@@ -102,7 +113,21 @@ async function loadMachines() {
 
 onMounted(async () => {
   await loadMachines();
+  window.addEventListener("click", handleGlobalClick);
 });
+
+onUnmounted(() => {
+  window.removeEventListener("click", handleGlobalClick);
+});
+
+function handleGlobalClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  if (!target) return;
+  const insideMenu = target.closest("[data-action-menu]");
+  if (!insideMenu) {
+    actionMenuOpenId.value = null;
+  }
+}
 
 function refreshPage() {
   window.location.reload();
@@ -425,11 +450,6 @@ function openMachineDetail(machine: Machine) {
               <th
                 class="px-5 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
               >
-                ID
-              </th>
-              <th
-                class="px-5 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
-              >
                 Nombre
               </th>
               <th
@@ -451,7 +471,7 @@ function openMachineDetail(machine: Machine) {
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td class="px-5 py-6 text-center" colspan="5">
+              <td class="px-5 py-6 text-center" colspan="4">
                 <div
                   class="flex items-center justify-center gap-2"
                   :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
@@ -480,7 +500,7 @@ function openMachineDetail(machine: Machine) {
               </td>
             </tr>
             <tr v-else-if="!filteredMachines.length">
-              <td class="px-5 py-12 text-center" colspan="5">
+              <td class="px-5 py-12 text-center" colspan="4">
                 <div
                   class="mx-auto max-w-sm rounded-2xl border px-6 py-8 text-center"
                   :class="
@@ -529,17 +549,6 @@ function openMachineDetail(machine: Machine) {
               "
             >
               <td class="px-5 py-3 whitespace-nowrap">
-                <span
-                  class="text-xs font-mono px-2 py-0.5 rounded-md"
-                  :class="
-                    isDark()
-                      ? 'bg-zinc-800/60 text-zinc-400'
-                      : 'bg-slate-100 text-slate-500'
-                  "
-                  >{{ m.id }}</span
-                >
-              </td>
-              <td class="px-5 py-3 whitespace-nowrap">
                 <span class="font-medium">{{ m.name }}</span>
               </td>
               <td class="px-5 py-3 whitespace-nowrap">
@@ -585,60 +594,97 @@ function openMachineDetail(machine: Machine) {
                   >{{ m.location || "—" }}</span
                 >
               </td>
-              <td
-                class="px-5 py-3 text-right text-sm space-x-2 whitespace-nowrap"
-              >
+              <td class="px-5 py-3 text-right whitespace-nowrap">
                 <template v-if="canEditMachines">
-                  <button
-                    class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
-                    :class="
-                      isDark()
-                        ? 'text-amber-400 hover:bg-amber-500/10'
-                        : 'text-amber-600 hover:bg-amber-50'
-                    "
-                    type="button"
-                    @click="openEditModal(m)"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  <div class="relative inline-block">
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40"
+                      :class="
+                        isDark()
+                          ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+                          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                      "
+                      type="button"
+                      @click="toggleActionMenu(m.id)"
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    Editar
-                  </button>
-                  <button
-                    class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                    :class="
-                      isDark()
-                        ? 'text-red-400 hover:bg-red-500/10'
-                        : 'text-red-600 hover:bg-red-50'
-                    "
-                    type="button"
-                    @click="handleDeleteMachine(m.id)"
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                      <svg
+                        class="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                    </button>
+                    <div
+                      v-if="actionMenuOpenId === m.id"
+                      class="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border py-1 shadow-lg"
+                      :class="
+                        isDark()
+                          ? 'border-zinc-700/70 bg-zinc-900'
+                          : 'border-slate-200 bg-white'
+                      "
+                      data-action-menu
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                    Eliminar
-                  </button>
+                      <button
+                        class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                        :class="
+                          isDark()
+                            ? 'text-zinc-200 hover:bg-zinc-800'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        "
+                        type="button"
+                        @click.stop="
+                          openEditModal(m);
+                          closeActionMenu();
+                        "
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                        Editar
+                      </button>
+                      <button
+                        class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                        :class="
+                          isDark()
+                            ? 'text-red-400 hover:bg-red-500/10'
+                            : 'text-red-600 hover:bg-red-50'
+                        "
+                        type="button"
+                        @click.stop="
+                          handleDeleteMachine(m.id);
+                          closeActionMenu();
+                        "
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
                 </template>
               </td>
             </tr>
@@ -646,8 +692,8 @@ function openMachineDetail(machine: Machine) {
         </table>
       </div>
 
-      <!-- Mobile Cards -->
-      <div class="sm:hidden mt-5 space-y-3">
+      <!-- Mobile list -->
+      <div class="sm:hidden mt-5">
         <div
           v-if="loading"
           class="px-4 py-6 text-center"
@@ -711,151 +757,181 @@ function openMachineDetail(machine: Machine) {
             </p>
           </div>
         </div>
-        <div v-else class="space-y-3">
+        <div v-else>
           <div
-            v-for="m in filteredMachines"
+            v-for="(m, idx) in filteredMachines"
             :key="m.id"
-            class="rounded-xl border p-4 shadow-sm backdrop-blur-xl transition active:scale-[0.98]"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-900/40'
-                : 'border-slate-200/70 bg-white/70'
-            "
+            class="flex items-center justify-between px-4 py-3"
+            :class="[
+              idx < filteredMachines.length - 1
+                ? isDark()
+                  ? 'border-b border-zinc-800/40'
+                  : 'border-b border-slate-200/60'
+                : '',
+            ]"
             role="link"
             tabindex="0"
             @click="openMachineDetail(m)"
             @keydown.enter.prevent="openMachineDetail(m)"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-start gap-3 flex-1 min-w-0">
-                <div class="mt-1 shrink-0">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <span
+                class="h-2.5 w-2.5 rounded-full shrink-0"
+                :class="
+                  m.status === 'active'
+                    ? 'bg-emerald-400'
+                    : m.status === 'maintenance'
+                    ? 'bg-amber-400'
+                    : 'bg-zinc-400'
+                "
+                aria-hidden="true"
+              ></span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="text-sm font-semibold truncate">{{
+                    m.name
+                  }}</span>
                   <span
-                    class="h-3 w-3 rounded-full block"
+                    class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md"
                     :class="
                       m.status === 'active'
-                        ? 'bg-emerald-400 ring-2 ring-emerald-400/20'
+                        ? isDark()
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-emerald-50 text-emerald-600'
                         : m.status === 'maintenance'
-                        ? 'bg-amber-400 ring-2 ring-amber-400/20'
-                        : 'bg-zinc-400 ring-2 ring-zinc-400/20'
+                        ? isDark()
+                          ? 'bg-amber-500/15 text-amber-400'
+                          : 'bg-amber-50 text-amber-600'
+                        : isDark()
+                        ? 'bg-zinc-800 text-zinc-400'
+                        : 'bg-slate-100 text-slate-500'
                     "
-                    aria-hidden="true"
-                  ></span>
+                  >
+                    {{
+                      m.status === "active"
+                        ? "Activa"
+                        : m.status === "maintenance"
+                        ? "Mant."
+                        : "Inactiva"
+                    }}
+                  </span>
                 </div>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-sm font-semibold truncate">{{
-                      m.name
-                    }}</span>
-                    <span
-                      class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md"
-                      :class="
-                        m.status === 'active'
-                          ? isDark()
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-emerald-50 text-emerald-600'
-                          : m.status === 'maintenance'
-                          ? isDark()
-                            ? 'bg-amber-500/15 text-amber-400'
-                            : 'bg-amber-50 text-amber-600'
-                          : isDark()
-                          ? 'bg-zinc-800 text-zinc-400'
-                          : 'bg-slate-100 text-slate-500'
-                      "
-                    >
-                      {{
-                        m.status === "active"
-                          ? "Activa"
-                          : m.status === "maintenance"
-                          ? "Mant."
-                          : "Inactiva"
-                      }}
-                    </span>
-                  </div>
-                  <div
-                    class="mt-1 text-xs flex items-center gap-1"
-                    :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                <div
+                  class="text-xs truncate"
+                  :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >
+                  {{ m.location || "Sin ubicacion" }}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0 ml-2">
+              <template v-if="canEditMachines">
+                <div class="relative">
+                  <button
+                    class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
+                    :class="
+                      isDark()
+                        ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                        : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                    "
+                    type="button"
+                    @click.stop.prevent="toggleActionMenu(m.id)"
                   >
                     <svg
-                      class="w-3 h-3 shrink-0"
-                      fill="none"
+                      class="w-4 h-4"
                       viewBox="0 0 24 24"
-                      stroke="currentColor"
+                      fill="currentColor"
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
                     </svg>
-                    {{ m.location || "Sin ubicacion" }}
-                  </div>
+                  </button>
                   <div
-                    class="mt-1 text-[10px] font-mono"
-                    :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                    v-if="actionMenuOpenId === m.id"
+                    class="absolute right-0 bottom-full z-20 mb-1 w-40 rounded-xl border py-1 shadow-lg"
+                    :class="
+                      isDark()
+                        ? 'border-zinc-700/70 bg-zinc-900'
+                        : 'border-slate-200 bg-white'
+                    "
+                    data-action-menu
                   >
-                    {{ m.id }}
+                    <button
+                      class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                      :class="
+                        isDark()
+                          ? 'text-zinc-200 hover:bg-zinc-800'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      "
+                      type="button"
+                      @click.stop="
+                        openEditModal(m);
+                        closeActionMenu();
+                      "
+                    >
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                      Editar
+                    </button>
+                    <button
+                      class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                      :class="
+                        isDark()
+                          ? 'text-red-400 hover:bg-red-500/10'
+                          : 'text-red-600 hover:bg-red-50'
+                      "
+                      type="button"
+                      @click.stop="
+                        handleDeleteMachine(m.id);
+                        closeActionMenu();
+                      "
+                    >
+                      <svg
+                        class="w-3.5 h-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                      Eliminar
+                    </button>
                   </div>
                 </div>
-              </div>
-              <div
-                class="flex flex-col items-end gap-1 shrink-0"
-                v-if="canEditMachines"
+              </template>
+              <svg
+                class="h-4 w-4 shrink-0"
+                :class="isDark() ? 'text-zinc-600' : 'text-slate-300'"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
-                <button
-                  class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition"
-                  :class="
-                    isDark()
-                      ? 'text-amber-400 hover:bg-amber-500/10'
-                      : 'text-amber-600 hover:bg-amber-50'
-                  "
-                  @click.stop.prevent="openEditModal(m)"
-                >
-                  <svg
-                    class="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition"
-                  :class="
-                    isDark()
-                      ? 'text-red-400 hover:bg-red-500/10'
-                      : 'text-red-600 hover:bg-red-50'
-                  "
-                  type="button"
-                  @click.stop.prevent="handleDeleteMachine(m.id)"
-                >
-                  <svg
-                    class="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
+                <path
+                  d="M9 18l6-6-6-6"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </div>
           </div>
         </div>

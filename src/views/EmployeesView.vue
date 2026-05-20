@@ -2,7 +2,7 @@
 import AppSidebar from "@/components/AppSidebar.vue";
 import { ref as vueRef } from "vue";
 const sidebarOpen = vueRef(false);
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import NewEmployee from "@/components/NewEmployee.vue";
 import {
   getUsers,
@@ -17,6 +17,26 @@ import { isSupervisorJobRole } from "@/utils/access";
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
+
+const actionMenuOpenId = ref<number | null>(null);
+
+function toggleActionMenu(employeeId: number) {
+  actionMenuOpenId.value =
+    actionMenuOpenId.value === employeeId ? null : employeeId;
+}
+
+function closeActionMenu() {
+  actionMenuOpenId.value = null;
+}
+
+function handleGlobalClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  if (!target) return;
+  const insideMenu = target.closest("[data-action-menu]");
+  if (!insideMenu) {
+    actionMenuOpenId.value = null;
+  }
+}
 
 type Employee = {
   id: number;
@@ -125,6 +145,11 @@ async function loadMachines() {
 
 onMounted(async () => {
   await Promise.all([loadEmployees(), loadMachines()]);
+  window.addEventListener("click", handleGlobalClick);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("click", handleGlobalClick);
 });
 
 function refreshPage() {
@@ -379,7 +404,7 @@ async function handleDeleteEmployee(id: number) {
             "
             @click="openCreateModal"
           >
-            <span class="mr-1">+</span>
+            <span class="mr-1 hidden sm:inline">+</span>
             <span class="hidden sm:inline">Nuevo usuario</span>
             <span class="sm:hidden">+</span>
           </button>
@@ -572,22 +597,20 @@ async function handleDeleteEmployee(id: number) {
                     <div class="text-sm font-semibold truncate">
                       {{ e.name }}
                     </div>
-                    <div
-                      class="mt-0.5 flex flex-wrap items-center gap-2 text-[11px]"
-                    >
+                    <div class="mt-0.5">
                       <span
-                        class="inline-flex items-center rounded-full px-2 py-0.5 font-medium"
+                        class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
                         :class="
-                          e.role === 'operator'
+                          isSupervisorJobRole(e.jobRole)
                             ? isDark()
-                              ? 'bg-emerald-900/60 text-emerald-100'
-                              : 'bg-emerald-50 text-emerald-700'
+                              ? 'bg-violet-500/15 text-violet-300'
+                              : 'bg-violet-50 text-violet-600'
                             : isDark()
-                            ? 'bg-violet-900/60 text-violet-100'
-                            : 'bg-violet-50 text-violet-700'
+                            ? 'bg-emerald-500/15 text-emerald-300'
+                            : 'bg-emerald-50 text-emerald-600'
                         "
                       >
-                        {{ getRoleLabel(e).toUpperCase() }}
+                        {{ isSupervisorJobRole(e.jobRole) ? "SUP" : "OP" }}
                       </span>
                     </div>
                   </div>
@@ -601,109 +624,167 @@ async function handleDeleteEmployee(id: number) {
                   </span>
                 </p>
               </td>
-              <td
-                class="px-4 py-2 text-right text-sm space-x-2 whitespace-nowrap"
-              >
-                <button
-                  v-if="canResetOperatorCoins(e)"
-                  class="inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2"
-                  :class="
-                    isDark()
-                      ? 'border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/10 focus-visible:ring-emerald-400/40 disabled:opacity-60'
-                      : 'border-emerald-500/60 text-emerald-700 hover:bg-emerald-50 focus-visible:ring-emerald-500/40 disabled:opacity-60'
-                  "
-                  type="button"
-                  :disabled="isResettingCoins(e.id)"
-                  :aria-label="`Resetear monedas de ${e.name}`"
-                  :title="`Resetear monedas de ${e.name}`"
-                  @click="handleResetOperatorCoins(e)"
-                >
-                  {{
-                    isResettingCoins(e.id)
-                      ? "Reseteando..."
-                      : "Resetear monedas"
-                  }}
-                </button>
-                <button
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10 focus-visible:ring-zinc-400/40'
-                      : 'border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:ring-sky-500/40'
-                  "
-                  type="button"
-                  aria-label="Editar usuario"
-                  title="Editar usuario"
-                  @click="openEditModal(e)"
-                >
-                  <svg
-                    class="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
+              <td class="px-4 py-2 text-right whitespace-nowrap">
+                <div class="flex items-center justify-end gap-1">
+                  <button
+                    v-if="canResetOperatorCoins(e)"
+                    class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
+                    :class="
+                      isDark()
+                        ? 'text-amber-400 hover:bg-amber-500/10 disabled:opacity-40'
+                        : 'text-amber-600 hover:bg-amber-50 disabled:opacity-40'
+                    "
+                    type="button"
+                    :disabled="isResettingCoins(e.id)"
+                    :aria-label="`Resetear monedas de ${e.name}`"
+                    :title="`Resetear monedas de ${e.name}`"
+                    @click="handleResetOperatorCoins(e)"
                   >
-                    <path
-                      d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-                <button
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-red-500 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                  type="button"
-                  aria-label="Eliminar usuario"
-                  title="Eliminar usuario"
-                  @click="handleDeleteEmployee(e.id)"
-                >
-                  <svg
-                    class="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M5 7h14"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M10 11v6M14 11v6"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      class="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      />
+                      <path
+                        d="M12 7v5l3 3"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M16 12a4 4 0 01-4 4"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                  <div class="relative">
+                    <button
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
+                      :class="
+                        isDark()
+                          ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                      "
+                      type="button"
+                      @click="toggleActionMenu(e.id)"
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                      </svg>
+                    </button>
+                    <div
+                      v-if="actionMenuOpenId === e.id"
+                      class="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border py-1 shadow-lg"
+                      :class="
+                        isDark()
+                          ? 'border-zinc-700/70 bg-zinc-900'
+                          : 'border-slate-200 bg-white'
+                      "
+                      data-action-menu
+                    >
+                      <button
+                        class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                        :class="
+                          isDark()
+                            ? 'text-zinc-200 hover:bg-zinc-800'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        "
+                        type="button"
+                        @click.stop="
+                          openEditModal(e);
+                          closeActionMenu();
+                        "
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
+                          />
+                        </svg>
+                        Editar
+                      </button>
+                      <button
+                        class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                        :class="
+                          isDark()
+                            ? 'text-red-400 hover:bg-red-500/10'
+                            : 'text-red-600 hover:bg-red-50'
+                        "
+                        type="button"
+                        @click.stop="
+                          handleDeleteEmployee(e.id);
+                          closeActionMenu();
+                        "
+                      >
+                        <svg
+                          class="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M5 7h14"
+                          />
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10 11v6M14 11v6"
+                          />
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                          />
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+                          />
+                        </svg>
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Mobile stacked cards -->
-      <div class="sm:hidden space-y-3 mt-4">
+      <!-- Mobile list -->
+      <div class="sm:hidden mt-4">
         <div v-if="loading" class="px-4 py-3">Cargando...</div>
         <div v-else-if="!displayedEmployees.length" class="px-4 py-10">
           <div
@@ -718,160 +799,199 @@ async function handleDeleteEmployee(id: number) {
             <p class="mt-1 text-xs text-slate-400">{{ emptySubtitle }}</p>
           </div>
         </div>
-        <div v-else class="space-y-3">
+        <div v-else>
           <div
-            v-for="e in displayedEmployees"
+            v-for="(e, idx) in displayedEmployees"
             :key="e.id"
-            class="rounded-xl border px-4 py-3 shadow-sm backdrop-blur-xl"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-950/40'
-                : 'border-slate-200/70 bg-white/60'
-            "
+            class="flex items-center gap-3 px-4 py-3"
+            :class="[
+              idx < displayedEmployees.length - 1
+                ? isDark()
+                  ? 'border-b border-zinc-800/40'
+                  : 'border-b border-slate-200/60'
+                : '',
+            ]"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1">
-                <div class="flex items-center gap-3">
-                  <div
-                    class="flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold"
-                    :class="
-                      isDark()
-                        ? 'bg-zinc-800/60 text-zinc-100'
-                        : 'bg-slate-100 text-slate-700'
-                    "
-                  >
-                    {{ getEmployeeInitials(e) }}
-                  </div>
-                  <div class="min-w-0">
-                    <div class="text-sm font-semibold truncate">
-                      {{ e.name }}
-                    </div>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-2">
-                      <span
-                        class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-                        :class="
-                          e.role === 'operator'
-                            ? isDark()
-                              ? 'bg-emerald-900/60 text-emerald-100'
-                              : 'bg-emerald-50 text-emerald-700'
-                            : isDark()
-                            ? 'bg-violet-900/60 text-violet-100'
-                            : 'bg-violet-50 text-violet-700'
-                        "
-                      >
-                        {{ getRoleLabel(e).toUpperCase() }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  class="mt-2 flex items-center justify-between text-xs text-slate-600"
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+              :class="
+                isDark()
+                  ? 'bg-zinc-800/60 text-zinc-100'
+                  : 'bg-slate-100 text-slate-700'
+              "
+            >
+              {{ getEmployeeInitials(e) }}
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-sm font-semibold truncate">{{ e.name }}</span>
+                <span
+                  class="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md"
+                  :class="
+                    isSupervisorJobRole(e.jobRole)
+                      ? isDark()
+                        ? 'bg-violet-500/15 text-violet-300'
+                        : 'bg-violet-50 text-violet-600'
+                      : isDark()
+                      ? 'bg-emerald-500/15 text-emerald-300'
+                      : 'bg-emerald-50 text-emerald-600'
+                  "
                 >
-                  <div class="flex items-center gap-1">
-                    <span aria-hidden="true">📍</span>
-                    <span>{{
-                      getEmployeeAssignmentSummary(e) || "Sin asignación"
-                    }}</span>
-                  </div>
-                </div>
+                  {{ isSupervisorJobRole(e.jobRole) ? "SUP" : "OP" }}
+                </span>
               </div>
-              <div class="flex flex-col items-end shrink-0 relative z-10">
-                <div class="mt-2 flex flex-col items-end gap-2">
+              <div
+                class="text-xs truncate"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
+                {{ getEmployeeAssignmentSummary(e) || "Sin asignaci\u00f3n" }}
+              </div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button
+                v-if="canResetOperatorCoins(e)"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
+                :class="
+                  isDark()
+                    ? 'text-amber-400 hover:bg-amber-500/10 disabled:opacity-40'
+                    : 'text-amber-600 hover:bg-amber-50 disabled:opacity-40'
+                "
+                type="button"
+                :disabled="isResettingCoins(e.id)"
+                :aria-label="`Resetear monedas de ${e.name}`"
+                :title="`Resetear monedas de ${e.name}`"
+                @click.stop="handleResetOperatorCoins(e)"
+              >
+                <svg
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M12 7v5l3 3"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M16 12a4 4 0 01-4 4"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+              <div class="relative">
+                <button
+                  class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
+                  :class="
+                    isDark()
+                      ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                  "
+                  type="button"
+                  @click.stop="toggleActionMenu(e.id)"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="5" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="12" cy="19" r="2" />
+                  </svg>
+                </button>
+                <div
+                  v-if="actionMenuOpenId === e.id"
+                  class="absolute right-0 bottom-full z-20 mb-1 w-40 rounded-xl border py-1 shadow-lg"
+                  :class="
+                    isDark()
+                      ? 'border-zinc-700/70 bg-zinc-900'
+                      : 'border-slate-200 bg-white'
+                  "
+                  data-action-menu
+                >
                   <button
-                    v-if="canResetOperatorCoins(e)"
-                    class="inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 pointer-events-auto"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
                     :class="
                       isDark()
-                        ? 'border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/10 focus-visible:ring-emerald-400/40 disabled:opacity-60'
-                        : 'border-emerald-500/60 text-emerald-700 hover:bg-emerald-50 focus-visible:ring-emerald-500/40 disabled:opacity-60'
+                        ? 'text-zinc-200 hover:bg-zinc-800'
+                        : 'text-slate-700 hover:bg-slate-50'
                     "
                     type="button"
-                    :disabled="isResettingCoins(e.id)"
-                    :aria-label="`Resetear monedas de ${e.name}`"
-                    :title="`Resetear monedas de ${e.name}`"
-                    @click.stop="handleResetOperatorCoins(e)"
+                    @click.stop="
+                      openEditModal(e);
+                      closeActionMenu();
+                    "
                   >
-                    {{
-                      isResettingCoins(e.id)
-                        ? "Reseteando..."
-                        : "Resetear monedas"
-                    }}
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
+                      />
+                    </svg>
+                    Editar
                   </button>
-                  <div class="flex items-center gap-2">
-                    <button
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2 pointer-events-auto"
-                      :class="
-                        isDark()
-                          ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10 focus-visible:ring-zinc-400/40'
-                          : 'border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:ring-sky-500/40'
-                      "
-                      type="button"
-                      aria-label="Editar usuario"
-                      title="Editar usuario"
-                      @click.stop="openEditModal(e)"
+                  <button
+                    class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
+                    :class="
+                      isDark()
+                        ? 'text-red-400 hover:bg-red-500/10'
+                        : 'text-red-600 hover:bg-red-50'
+                    "
+                    type="button"
+                    @click.stop="
+                      handleDeleteEmployee(e.id);
+                      closeActionMenu();
+                    "
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      <svg
-                        class="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-red-500 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 pointer-events-auto"
-                      type="button"
-                      aria-label="Eliminar usuario"
-                      title="Eliminar usuario"
-                      @click.stop="handleDeleteEmployee(e.id)"
-                    >
-                      <svg
-                        class="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M5 7h14"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                        <path
-                          d="M10 11v6M14 11v6"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                        <path
-                          d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                        <path
-                          d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 7h14"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10 11v6M14 11v6"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+                      />
+                    </svg>
+                    Eliminar
+                  </button>
                 </div>
               </div>
             </div>

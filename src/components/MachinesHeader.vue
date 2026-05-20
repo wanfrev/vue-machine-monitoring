@@ -120,7 +120,7 @@ function createMachine() {
           "
           @click="createMachine"
         >
-          <span class="mr-1">+</span>
+          <span class="mr-1 hidden sm:inline">+</span>
           <span class="hidden sm:inline">Nueva máquina</span>
           <span class="sm:hidden">+</span>
         </button>
