@@ -806,11 +806,11 @@ async function handleDeleteEmployee(id: number) {
                   </div>
                 </div>
               </div>
-              <div class="flex flex-col items-end">
+              <div class="flex flex-col items-end shrink-0 relative z-10">
                 <div class="mt-2 flex flex-col items-end gap-2">
                   <button
                     v-if="canResetOperatorCoins(e)"
-                    class="inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2"
+                    class="inline-flex h-8 items-center justify-center rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 pointer-events-auto"
                     :class="
                       isDark()
                         ? 'border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/10 focus-visible:ring-emerald-400/40 disabled:opacity-60'
@@ -820,7 +820,7 @@ async function handleDeleteEmployee(id: number) {
                     :disabled="isResettingCoins(e.id)"
                     :aria-label="`Resetear monedas de ${e.name}`"
                     :title="`Resetear monedas de ${e.name}`"
-                    @click="handleResetOperatorCoins(e)"
+                    @click.stop="handleResetOperatorCoins(e)"
                   >
                     {{
                       isResettingCoins(e.id)
@@ -828,76 +828,80 @@ async function handleDeleteEmployee(id: number) {
                         : "Resetear monedas"
                     }}
                   </button>
-                  <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2"
-                    :class="
-                      isDark()
-                        ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10 focus-visible:ring-zinc-400/40'
-                        : 'border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:ring-sky-500/40'
-                    "
-                    aria-label="Editar usuario"
-                    title="Editar usuario"
-                    @click="openEditModal(e)"
-                  >
-                    <svg
-                      class="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs transition focus-visible:outline-none focus-visible:ring-2 pointer-events-auto"
+                      :class="
+                        isDark()
+                          ? 'border-zinc-700/60 text-zinc-200 hover:bg-zinc-100/10 focus-visible:ring-zinc-400/40'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:ring-sky-500/40'
+                      "
+                      type="button"
+                      aria-label="Editar usuario"
+                      title="Editar usuario"
+                      @click.stop="openEditModal(e)"
                     >
-                      <path
-                        d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-red-500 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                    aria-label="Eliminar usuario"
-                    title="Eliminar usuario"
-                    @click="handleDeleteEmployee(e.id)"
-                  >
-                    <svg
-                      class="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
+                      <svg
+                        class="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs text-red-500 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 pointer-events-auto"
+                      type="button"
+                      aria-label="Eliminar usuario"
+                      title="Eliminar usuario"
+                      @click.stop="handleDeleteEmployee(e.id)"
                     >
-                      <path
-                        d="M5 7h14"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M10 11v6M14 11v6"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        class="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M5 7h14"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <path
+                          d="M10 11v6M14 11v6"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <path
+                          d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                        <path
+                          d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
