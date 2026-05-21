@@ -45,6 +45,7 @@ type Props = {
   subtitle?: string;
   reportKindLabel?: string;
   reportKindPlural?: string;
+  initialSection?: "reports" | "history";
 };
 
 const props = defineProps<Props>();
@@ -59,7 +60,9 @@ const canViewReportsList = computed(() => props.canViewReportsList);
 const canShowHistory = computed(
   () => canViewReportsList.value || Boolean(props.showOwnHistory)
 );
-const operatorSection = ref<"reports" | "history">("reports");
+const operatorSection = ref<"reports" | "history">(
+  props.initialSection || "reports"
+);
 const showingHistorySection = computed(
   () =>
     canShowHistory.value &&
@@ -753,7 +756,7 @@ watch(operatorSection, (section) => {
       "
     >
       <div
-        v-if="canShowHistory && !canViewReportsList"
+        v-if="canShowHistory && !canViewReportsList && !props.initialSection"
         class="mb-4 inline-flex rounded-xl border p-1 text-xs font-semibold"
         :class="
           isDark()

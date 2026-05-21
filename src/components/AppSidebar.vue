@@ -37,8 +37,9 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
-const { roleLabel, isAdmin, canManage, canManageEmployees, canViewReportsList, canViewDailyReportsList } = useCurrentUser();
+const { roleLabel, isAdmin, isSupervisor, isOperator, canManage, canManageEmployees, canViewReportsList, canViewDailyReportsList } = useCurrentUser();
 const canSeeInventory = computed(() => isAdmin.value || canManage.value);
+const canSeeFinance = computed(() => isAdmin.value || isSupervisor.value);
 
 const currentUserName = ref(
   localStorage.getItem("userName") ||
@@ -222,6 +223,127 @@ function isActiveRoute(name: string) {
           </svg>
         </button>
 
+        <!-- Reportes link (operadores) -->
+        <button
+          v-if="isOperator"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isActiveRoute('reports')
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'reports' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isActiveRoute('reports')"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="m19.94 7.68-.03-.09a.8.8 0 0 0-.2-.29l-5-5a1 1 0 0 0-.3-.2l-.09-.03a.9.9 0 0 0-.27-.05c-.02 0-.04-.01-.05-.01H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-12s-.01-.04-.01-.06c0-.09-.02-.17-.05-.26ZM6 20V4h7v4c0 .55.45 1 1 1h4v11z"
+                  fill="currentColor"
+                />
+                <path d="M8 12h2v6H8zm3-2h2v8h-2zm3 4h2v4h-2z" fill="currentColor" />
+              </svg>
+              <span>Reportes</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <!-- Historial link (operadores) -->
+        <button
+          v-if="isOperator"
+          class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
+          :class="
+            isActiveRoute('reports-historial')
+              ? isDark
+                ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
+                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+              : isDark
+              ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
+              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+          "
+          @click="
+            $emit('close');
+            router.push({ name: 'reports-historial' });
+          "
+        >
+          <div class="flex items-center gap-3">
+            <span
+              v-if="isActiveRoute('reports-historial')"
+              class="h-6 w-0.5 rounded-full"
+              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+            ></span>
+            <span class="inline-flex items-center gap-2">
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10 10-4.49 10-10S17.51 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span>Historial</span>
+            </span>
+          </div>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M9 18l6-6-6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
         <!-- Reportes diarios link -->
         <button
           v-if="canViewDailyReportsList"
@@ -317,7 +439,7 @@ function isActiveRoute(name: string) {
 
         <!-- Finanzas link -->
         <button
-          v-if="isAdmin"
+          v-if="canSeeFinance"
           class="flex w-full items-center justify-between rounded-xl px-3 py-2 font-medium transition cursor-pointer border"
           :class="
             isActiveRoute('finance')

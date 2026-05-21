@@ -16,6 +16,7 @@ import EmployeeDailyReportsView from "../views/EmployeeDailyReportsView.vue";
 import DailySalesView from "../views/DailySalesView.vue";
 import FinanceView from "../views/FinanceView.vue";
 import InventoryView from "../views/InventoryView.vue";
+import OperatorReportsHistoryView from "../views/OperatorReportsHistoryView.vue";
 import { isSupervisorJobRole } from "../utils/access";
 
 const routes: Array<RouteRecordRaw> = [
@@ -40,6 +41,12 @@ const routes: Array<RouteRecordRaw> = [
     path: "/reports",
     name: "reports",
     component: ReportsView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/reports-historial",
+    name: "reports-historial",
+    component: OperatorReportsHistoryView,
     meta: { requiresAuth: true },
   },
   {
