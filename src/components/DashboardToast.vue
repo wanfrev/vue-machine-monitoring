@@ -2,7 +2,7 @@
 /* global defineProps, defineEmits */
 import { computed } from "vue";
 
-type ToastType = "machine_on" | "machine_off" | "event";
+type ToastType = "machine_on" | "machine_off" | "daily_report" | "event";
 
 type ToastPayload = {
   title: string;
@@ -33,6 +33,11 @@ const toastClasses = computed(() => {
       ? "bg-rose-500/10 border-rose-500/30 text-rose-100"
       : "bg-rose-50 border-rose-200 text-rose-900";
   }
+  if (t === "daily_report") {
+    return isDark.value
+      ? "bg-sky-500/10 border-sky-500/30 text-sky-100"
+      : "bg-sky-50 border-sky-200 text-sky-900";
+  }
   return isDark.value
     ? "bg-zinc-900/80 border-zinc-700/60 text-white"
     : "bg-white/80 border-slate-200/70 text-slate-800";
@@ -42,6 +47,7 @@ const toastAccentClass = computed(() => {
   const t = props.toast?.type;
   if (t === "machine_on") return "bg-emerald-400";
   if (t === "machine_off") return "bg-rose-400";
+  if (t === "daily_report") return "bg-sky-400";
   return isDark.value ? "bg-zinc-500" : "bg-slate-400";
 });
 
@@ -56,6 +62,11 @@ const toastIconClass = computed(() => {
     return isDark.value
       ? "bg-rose-500/15 text-rose-200"
       : "bg-rose-100 text-rose-700";
+  }
+  if (t === "daily_report") {
+    return isDark.value
+      ? "bg-sky-500/15 text-sky-200"
+      : "bg-sky-100 text-sky-700";
   }
   return isDark.value
     ? "bg-zinc-800/80 text-zinc-200"
@@ -121,6 +132,50 @@ const toastIconClass = computed(() => {
               />
               <path
                 d="M7.05 6.05a7 7 0 1 0 9.9 0"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <svg
+              v-else-if="toast.type === 'daily_report'"
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M14 2v6h6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M16 13H8"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M16 17H8"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M10 9H9H8"
                 stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"

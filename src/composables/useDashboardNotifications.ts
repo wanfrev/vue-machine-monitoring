@@ -87,6 +87,7 @@ export function useDashboardNotifications(
   function getNotificationTitle(n: DashboardNotification) {
     if (n.type === "machine_on") return "Máquina encendida";
     if (n.type === "machine_off") return "Máquina apagada";
+    if (n.type === "daily_report") return "Reporte diario recibido";
     return "Nuevo evento";
   }
 
@@ -122,8 +123,10 @@ export function useDashboardNotifications(
 
   function addDashboardNotification(input: AddNotificationInput) {
     const machineId = String(input.machineId ?? "");
-    if (!machineId || !options.shouldShowNotificationForMachine(machineId)) {
-      return;
+    if (input.type !== "daily_report") {
+      if (!machineId || !options.shouldShowNotificationForMachine(machineId)) {
+        return;
+      }
     }
 
     const machineName = input.machineName || `Máquina ${machineId}`;
@@ -147,7 +150,11 @@ export function useDashboardNotifications(
     try {
       const title = getNotificationTitle(n);
       let body = "";
-      if (n.type === "machine_on" || n.type === "machine_off") {
+      if (n.type === "daily_report") {
+        body = `${n.machineName} • ${formatNotificationTime(
+          String(n.timestamp)
+        )}`;
+      } else if (n.type === "machine_on" || n.type === "machine_off") {
         body = `${n.machineName} • ${formatNotificationTime(
           String(n.timestamp)
         )}`;

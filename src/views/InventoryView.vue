@@ -8,6 +8,7 @@ const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
 const sidebarOpen = ref(false);
 const searchQuery = ref("");
+const expandedMachines = ref<Set<string>>(new Set());
 const {
   period,
   machineId,
@@ -21,7 +22,6 @@ const {
   summary,
   loading,
   error,
-  appliedRangeLabel,
   loadMachineOptions,
   loadInventory,
 } = useInventory();
@@ -40,6 +40,35 @@ function formatMoney(n: number) {
   return Number(n || 0).toFixed(2);
 }
 
+function toggleExpand(machineId: string) {
+  const next = new Set(expandedMachines.value);
+  if (next.has(machineId)) {
+    next.delete(machineId);
+  } else {
+    next.add(machineId);
+  }
+  expandedMachines.value = next;
+}
+
+function isExpanded(machineId: string) {
+  return expandedMachines.value.has(machineId);
+}
+
+function expandAll() {
+  expandedMachines.value = new Set(rows.value.map((r) => r.machineId));
+}
+
+function collapseAll() {
+  expandedMachines.value = new Set();
+}
+
+const periodOptions: { value: string; label: string }[] = [
+  { value: "day", label: "Dia" },
+  { value: "week", label: "Semana" },
+  { value: "month", label: "Mes" },
+  { value: "custom", label: "Rango" },
+];
+
 onMounted(async () => {
   await loadMachineOptions();
   await loadInventory();
@@ -54,12 +83,13 @@ onMounted(async () => {
   />
   <div
     :class="[
-      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
+      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-4',
       isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
+    <!-- Header -->
     <section
-      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6"
+      class="rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
@@ -99,143 +129,178 @@ onMounted(async () => {
             class="text-xs"
             :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-            Tasa actual
+            Tasa
           </p>
           <p class="text-sm font-semibold">
-            {{ formatMoney(exchangeRate) }} VES/USD
+            {{ formatMoney(exchangeRate) }} VES
           </p>
         </div>
       </div>
     </section>
 
+    <!-- Compact Filters -->
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl px-3 py-2.5 shadow-sm"
       :class="
         isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
+          ? 'bg-zinc-900/70 border-zinc-800/70'
+          : 'bg-white/60 border-slate-200/70'
       "
     >
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <label class="text-xs">
-          Periodo
-          <select
-            v-model="period"
-            class="app-select mt-1 h-9 w-full rounded-lg border px-2"
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Period chips -->
+        <div
+          class="flex rounded-lg overflow-hidden border"
+          :class="isDark() ? 'border-zinc-700/60' : 'border-slate-300'"
+        >
+          <button
+            v-for="opt in periodOptions"
+            :key="opt.value"
+            type="button"
+            class="px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="
+              period === opt.value
+                ? isDark()
+                  ? 'bg-sky-500/20 text-sky-300'
+                  : 'bg-sky-100 text-sky-700'
+                : isDark()
+                ? 'text-zinc-400 hover:text-zinc-200'
+                : 'text-slate-500 hover:text-slate-700'
+            "
+            @click="period = opt.value as any"
           >
-            <option value="day">Dia</option>
-            <option value="week">Semana (lun-dom)</option>
-            <option value="month">Mes</option>
-            <option value="custom">Rango</option>
-          </select>
-          <span
-            v-if="period === 'week'"
-            class="mt-1 block opacity-75"
-            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-          >
-            La fecha elige la semana; se usa lunes a domingo.
-          </span>
-        </label>
+            {{ opt.label }}
+          </button>
+        </div>
 
-        <label class="text-xs">
-          Maquina
-          <select
-            v-model="machineId"
-            class="app-select mt-1 h-9 w-full rounded-lg border px-2"
-          >
-            <option value="">Todas</option>
-            <option v-for="m in machineOptions" :key="m.id" :value="m.id">
-              {{ m.name }}
-            </option>
-          </select>
-        </label>
+        <!-- Machine selector -->
+        <select
+          v-model="machineId"
+          class="h-8 rounded-lg border px-2 text-xs font-medium outline-none transition"
+          :class="
+            isDark()
+              ? 'bg-zinc-800/50 border-zinc-700/60 text-zinc-200 focus:border-zinc-500'
+              : 'bg-white border-slate-300 text-slate-700 focus:border-slate-400'
+          "
+        >
+          <option value="">Todas</option>
+          <option v-for="m in machineOptions" :key="m.id" :value="m.id">
+            {{ m.name }}
+          </option>
+        </select>
 
-        <label v-if="period === 'day' || period === 'week'" class="text-xs">
-          Fecha
-          <input
-            v-model="date"
-            type="date"
-            class="mt-1 h-9 w-full rounded-lg border px-2"
-          />
-        </label>
-        <label v-if="period === 'month'" class="text-xs">
-          Mes
-          <input
-            v-model="month"
-            type="month"
-            class="mt-1 h-9 w-full rounded-lg border px-2"
-          />
-        </label>
-        <label v-if="period === 'custom'" class="text-xs">
-          Desde
+        <!-- Date inputs -->
+        <input
+          v-if="period === 'day' || period === 'week'"
+          v-model="date"
+          type="date"
+          class="h-8 rounded-lg border px-2 text-xs font-medium outline-none transition"
+          :class="
+            isDark()
+              ? 'bg-zinc-800/50 border-zinc-700/60 text-zinc-200 focus:border-zinc-500'
+              : 'bg-white border-slate-300 text-slate-700 focus:border-slate-400'
+          "
+        />
+        <input
+          v-if="period === 'month'"
+          v-model="month"
+          type="month"
+          class="h-8 rounded-lg border px-2 text-xs font-medium outline-none transition"
+          :class="
+            isDark()
+              ? 'bg-zinc-800/50 border-zinc-700/60 text-zinc-200 focus:border-zinc-500'
+              : 'bg-white border-slate-300 text-slate-700 focus:border-slate-400'
+          "
+        />
+        <template v-if="period === 'custom'">
           <input
             v-model="startDate"
             type="date"
-            class="mt-1 h-9 w-full rounded-lg border px-2"
+            class="h-8 rounded-lg border px-2 text-xs font-medium outline-none transition"
+            :class="
+              isDark()
+                ? 'bg-zinc-800/50 border-zinc-700/60 text-zinc-200 focus:border-zinc-500'
+                : 'bg-white border-slate-300 text-slate-700 focus:border-slate-400'
+            "
           />
-        </label>
-        <label v-if="period === 'custom'" class="text-xs">
-          Hasta
+          <span
+            class="text-xs"
+            :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+            >a</span
+          >
           <input
             v-model="endDate"
             type="date"
-            class="mt-1 h-9 w-full rounded-lg border px-2"
+            class="h-8 rounded-lg border px-2 text-xs font-medium outline-none transition"
+            :class="
+              isDark()
+                ? 'bg-zinc-800/50 border-zinc-700/60 text-zinc-200 focus:border-zinc-500'
+                : 'bg-white border-slate-300 text-slate-700 focus:border-slate-400'
+            "
           />
-        </label>
+        </template>
       </div>
-      <p
-        v-if="appliedRangeLabel"
-        class="mt-3 text-[11px] font-medium"
-        :class="isDark() ? 'text-zinc-400' : 'text-slate-600'"
-      >
-        {{ appliedRangeLabel }}
-      </p>
     </section>
 
-    <section class="space-y-2">
-      <h2
-        class="text-base font-semibold px-1"
-        :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
-      >
-        Resumen general
-      </h2>
-
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <!-- Monedas -->
-        <div
-          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3"
-          :class="
-            isDark()
-              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-              : 'bg-white/60 border-slate-200/70 text-slate-900'
-          "
+    <!-- Clean Summary Block -->
+    <section
+      class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
+          : 'bg-white/60 border-slate-200/70 text-slate-900'
+      "
+    >
+      <!-- Total USD - Hero number -->
+      <div class="mb-3">
+        <p
+          class="text-xs font-medium"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
         >
-          <h3
-            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
-            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+          Total acumulado
+        </p>
+        <p
+          class="text-3xl font-bold tracking-tight"
+          :class="isDark() ? 'text-emerald-400' : 'text-emerald-600'"
+        >
+          ${{ formatMoney(summary.totalUsdEquivalent) }}
+        </p>
+      </div>
+
+      <!-- Sub-metrics in clean columns -->
+      <div class="grid grid-cols-3 gap-3">
+        <!-- Coins column -->
+        <div>
+          <p
+            class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+            :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
           >
-            <span class="text-xs">🪙</span> Monedas
-          </h3>
-          <div class="space-y-1 text-[11px] sm:text-xs">
+            Monedas
+          </p>
+          <div class="space-y-0.5 text-xs">
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Disp.</span
-              ><span class="font-medium">{{ summary.availableCoins }}</span>
+              >
+              <span class="font-medium">{{ summary.availableCoins }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Vendidas</span
-              ><span class="font-medium">{{ summary.soldCoins }}</span>
+              >
+              <span class="font-medium">{{ summary.soldCoins }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Devueltas</span
-              ><span class="font-medium">{{ summary.returnedCoins }}</span>
+              >
+              <span class="font-medium">{{ summary.returnedCoins }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Perdidas</span
-              ><span
+              >
+              <span
                 class="font-medium"
                 :class="isDark() ? 'text-rose-400' : 'text-rose-600'"
                 >{{ summary.lostCoins }}</span
@@ -244,47 +309,44 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Finanzas -->
-        <div
-          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3"
-          :class="
-            isDark()
-              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-              : 'bg-white/60 border-slate-200/70 text-slate-900'
-          "
-        >
-          <h3
-            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
-            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+        <!-- Payments column -->
+        <div>
+          <p
+            class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+            :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
           >
-            <span class="text-xs">💵</span> Finanzas
-          </h3>
-          <div class="space-y-1 text-[11px] sm:text-xs">
+            Pagos
+          </p>
+          <div class="space-y-0.5 text-xs">
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >P. Móvil</span
-              ><span class="font-medium">{{
+                >P. movil</span
+              >
+              <span class="font-medium">{{
                 formatMoney(summary.pagoMovil)
               }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >USD</span
-              ><span class="font-medium">{{
+              >
+              <span class="font-medium">{{
                 formatMoney(summary.dolares)
               }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >VES</span
-              ><span class="font-medium">{{
+              >
+              <span class="font-medium">{{
                 formatMoney(summary.bolivares)
               }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Premios</span
-              ><span
+              >
+              <span
                 class="font-medium"
                 :class="isDark() ? 'text-amber-400' : 'text-amber-600'"
                 >{{ formatMoney(summary.premio) }}</span
@@ -293,95 +355,37 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Totales -->
-        <div
-          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3 flex flex-col"
-          :class="
-            isDark()
-              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-              : 'bg-white/60 border-slate-200/70 text-slate-900'
-          "
-        >
-          <h3
-            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
-            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+        <!-- Totals column -->
+        <div>
+          <p
+            class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+            :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
           >
-            <span class="text-xs">📊</span> Totales
-          </h3>
-          <div class="space-y-1 text-[11px] sm:text-xs flex-1">
+            Totales
+          </p>
+          <div class="space-y-0.5 text-xs">
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Informado</span
-              ><span class="font-medium">{{
+              >
+              <span class="font-medium">{{
                 formatMoney(summary.totalReported)
               }}</span>
             </div>
             <div class="flex justify-between">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Contable</span
-              ><span class="font-medium">{{ formatMoney(summary.total) }}</span>
-            </div>
-          </div>
-          <div
-            class="mt-1.5 pt-1.5 border-t flex justify-between items-center text-xs"
-            :class="isDark() ? 'border-zinc-800' : 'border-slate-200'"
-          >
-            <span class="font-semibold">Tot USD</span>
-            <span
-              class="font-bold"
-              :class="isDark() ? 'text-emerald-400' : 'text-emerald-600'"
-              >{{ formatMoney(summary.totalUsdEquivalent) }}</span
-            >
-          </div>
-        </div>
-
-        <!-- Eventos -->
-        <div
-          class="rounded-xl border backdrop-blur-xl p-2.5 sm:p-3"
-          :class="
-            isDark()
-              ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-              : 'bg-white/60 border-slate-200/70 text-slate-900'
-          "
-        >
-          <h3
-            class="text-xs font-semibold mb-1.5 flex items-center gap-1.5"
-            :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
-          >
-            <span class="text-xs">🔔</span> Eventos
-          </h3>
-          <div class="space-y-1 text-[11px] sm:text-xs">
-            <div class="flex justify-between">
-              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Récords</span
-              ><span class="font-medium">{{ summary.events.record }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Premios</span
-              ><span class="font-medium">{{ summary.events.premio }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Pérdidas</span
-              ><span
-                class="font-medium"
-                :class="isDark() ? 'text-rose-400' : 'text-rose-600'"
-                >{{ summary.events.perdidas }}</span
               >
-            </div>
-            <div class="flex justify-between">
-              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Devueltas</span
-              ><span class="font-medium">{{ summary.events.devueltas }}</span>
+              <span class="font-medium">{{ formatMoney(summary.total) }}</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Machine List with Progressive Disclosure -->
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-4 sm:p-6 shadow-sm"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
@@ -396,146 +400,313 @@ onMounted(async () => {
       </div>
       <div v-if="loading" class="text-sm">Cargando inventario...</div>
       <template v-else>
-        <div class="mb-5">
-          <label class="grid gap-1">
-            <span
-              class="text-xs font-medium"
-              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Buscar máquina o ubicación</span
-            >
+        <!-- Search + expand/collapse controls -->
+        <div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
+          <div class="flex-1">
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Ej: Agilidad 01, Maracaibo..."
-              class="h-10 w-full sm:w-80 rounded-xl border px-3 text-sm outline-none transition"
+              placeholder="Buscar maquina o ubicacion..."
+              class="h-10 w-full rounded-xl border px-3 text-sm outline-none transition"
               :class="
                 isDark()
                   ? 'bg-zinc-950/30 border-zinc-700/60 text-white focus:border-zinc-500'
                   : 'bg-white border-slate-200 text-slate-900 focus:border-slate-400'
               "
             />
-          </label>
+          </div>
+          <div class="flex gap-1.5">
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium border transition"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 text-zinc-300 hover:bg-zinc-800/60'
+                  : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+              "
+              @click="expandAll"
+            >
+              Expandir todo
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium border transition"
+              :class="
+                isDark()
+                  ? 'border-zinc-700/60 text-zinc-300 hover:bg-zinc-800/60'
+                  : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+              "
+              @click="collapseAll"
+            >
+              Colapsar
+            </button>
+          </div>
         </div>
 
-        <div v-if="!filteredRows.length" class="text-sm">
-          No se encontraron máquinas para este filtro o búsqueda.
-        </div>
         <div
-          v-else
-          class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+          v-if="!filteredRows.length"
+          class="text-sm text-center py-6"
+          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
         >
+          No se encontraron maquinas para este filtro o busqueda.
+        </div>
+        <div v-else class="space-y-1.5">
           <div
             v-for="row in filteredRows"
             :key="row.machineId"
-            class="flex flex-col rounded-xl border p-4 shadow-sm transition-all hover:shadow-md"
+            class="rounded-xl border overflow-hidden transition-all"
             :class="
               isDark()
-                ? 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/60'
-                : 'border-slate-200 bg-white/80 hover:bg-white'
+                ? 'border-zinc-800/70 bg-zinc-900/40'
+                : 'border-slate-200/70 bg-white/80'
             "
           >
-            <div
-              class="mb-3 border-b pb-3"
-              :class="isDark() ? 'border-zinc-800/70' : 'border-slate-200/70'"
+            <!-- Compact row header -->
+            <button
+              type="button"
+              class="w-full flex items-center justify-between px-4 py-3 text-left transition-colors"
+              :class="
+                isExpanded(row.machineId)
+                  ? isDark()
+                    ? 'bg-zinc-800/40'
+                    : 'bg-slate-50'
+                  : isDark()
+                  ? 'hover:bg-zinc-800/20'
+                  : 'hover:bg-slate-50/50'
+              "
+              @click="toggleExpand(row.machineId)"
             >
-              <h3 class="text-base font-bold">{{ row.machineName }}</h3>
-              <p
-                class="text-xs mt-0.5"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              <div class="flex items-center gap-3 min-w-0">
+                <!-- Chevron -->
+                <svg
+                  class="h-4 w-4 shrink-0 transition-transform duration-200"
+                  :class="[
+                    isExpanded(row.machineId) ? 'rotate-90' : '',
+                    isDark() ? 'text-zinc-500' : 'text-slate-400',
+                  ]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+                <!-- Name + Location -->
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold truncate">
+                    {{ row.machineName }}
+                  </p>
+                  <p
+                    class="text-xs truncate"
+                    :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                  >
+                    {{ row.machineLocation || "Sin ubicacion" }}
+                  </p>
+                </div>
+              </div>
+              <!-- Total USD -->
+              <div class="text-right shrink-0 ml-3">
+                <p
+                  class="text-xs"
+                  :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                >
+                  Total
+                </p>
+                <p
+                  class="text-sm font-bold"
+                  :class="isDark() ? 'text-emerald-400' : 'text-emerald-600'"
+                >
+                  ${{ formatMoney(row.totalUsdEquivalent) }}
+                </p>
+              </div>
+            </button>
+
+            <!-- Expanded detail -->
+            <div
+              v-if="isExpanded(row.machineId)"
+              class="border-t px-4 py-3"
+              :class="isDark() ? 'border-zinc-800/50' : 'border-slate-200/50'"
+            >
+              <div
+                class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs"
               >
-                {{ row.machineLocation || "—" }}
-              </p>
-            </div>
+                <!-- Coins -->
+                <div class="col-span-2 sm:col-span-1">
+                  <p
+                    class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                    :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                  >
+                    Monedas
+                  </p>
+                  <div class="space-y-0.5">
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Disp. op.</span
+                      >
+                      <span class="font-medium">{{ row.availableCoins }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Vendidas</span
+                      >
+                      <span class="font-medium">{{ row.soldCoins }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Devueltas</span
+                      >
+                      <span class="font-medium">{{ row.returnedCoins }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Perdidas</span
+                      >
+                      <span
+                        class="font-medium"
+                        :class="isDark() ? 'text-rose-400' : 'text-rose-600'"
+                        >{{ row.lostCoins }}</span
+                      >
+                    </div>
+                  </div>
+                </div>
 
-            <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:text-sm">
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Disp. op.</span
-                >
-                <span class="font-medium">{{ row.availableCoins }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Vendidas</span
-                >
-                <span class="font-medium">{{ row.soldCoins }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Devueltas</span
-                >
-                <span class="font-medium">{{ row.returnedCoins }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Perdidas</span
-                >
-                <span class="font-medium">{{ row.lostCoins }}</span>
-              </div>
+                <!-- Payments -->
+                <div class="col-span-2 sm:col-span-1">
+                  <p
+                    class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                    :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                  >
+                    Pagos
+                  </p>
+                  <div class="space-y-0.5">
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Pago movil</span
+                      >
+                      <span class="font-medium">{{
+                        formatMoney(row.pagoMovil)
+                      }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >USD</span
+                      >
+                      <span class="font-medium">{{
+                        formatMoney(row.dolares)
+                      }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >VES</span
+                      >
+                      <span class="font-medium">{{
+                        formatMoney(row.bolivares)
+                      }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Premio</span
+                      >
+                      <span
+                        class="font-medium"
+                        :class="isDark() ? 'text-amber-400' : 'text-amber-600'"
+                        >{{ formatMoney(row.premio) }}</span
+                      >
+                    </div>
+                  </div>
+                </div>
 
-              <div
-                class="col-span-2 my-1 border-t"
-                :class="isDark() ? 'border-zinc-800/50' : 'border-slate-100'"
-              ></div>
-
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Pago móvil</span
-                >
-                <span class="font-medium">{{
-                  formatMoney(row.pagoMovil)
-                }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >USD</span
-                >
-                <span class="font-medium">{{ formatMoney(row.dolares) }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >VES</span
-                >
-                <span class="font-medium">{{
-                  formatMoney(row.bolivares)
-                }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Premio</span
-                >
-                <span class="font-medium">{{ formatMoney(row.premio) }}</span>
-              </div>
-
-              <div
-                class="col-span-2 my-1 border-t"
-                :class="isDark() ? 'border-zinc-800/50' : 'border-slate-100'"
-              ></div>
-
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Informado</span
-                >
-                <span class="font-medium">{{
-                  formatMoney(row.totalReported)
-                }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                  >Contable</span
-                >
-                <span class="font-medium">{{ formatMoney(row.total) }}</span>
-              </div>
-              <div
-                class="col-span-2 flex justify-between font-semibold mt-1 rounded-lg px-2 py-1.5"
-                :class="
-                  isDark()
-                    ? 'bg-zinc-800/60 text-zinc-100'
-                    : 'bg-slate-100 text-slate-900'
-                "
-              >
-                <span>Total USD</span>
-                <span>{{ formatMoney(row.totalUsdEquivalent) }}</span>
+                <!-- Totals -->
+                <div class="col-span-2 sm:col-span-1">
+                  <p
+                    class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                    :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                  >
+                    Totales
+                  </p>
+                  <div class="space-y-0.5">
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Informado</span
+                      >
+                      <span class="font-medium">{{
+                        formatMoney(row.totalReported)
+                      }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span
+                        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                        >Contable</span
+                      >
+                      <span class="font-medium">{{
+                        formatMoney(row.total)
+                      }}</span>
+                    </div>
+                  </div>
+                  <!-- Events mini section -->
+                  <div
+                    class="mt-2 pt-2"
+                    :class="
+                      isDark()
+                        ? 'border-t border-zinc-800/50'
+                        : 'border-t border-slate-200/50'
+                    "
+                  >
+                    <p
+                      class="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                      :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                    >
+                      Eventos
+                    </p>
+                    <div class="space-y-0.5">
+                      <div class="flex justify-between">
+                        <span
+                          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                          >Records</span
+                        >
+                        <span class="font-medium">{{ row.events.record }}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span
+                          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                          >Premios</span
+                        >
+                        <span class="font-medium">{{ row.events.premio }}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span
+                          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                          >Perdidas</span
+                        >
+                        <span
+                          class="font-medium"
+                          :class="isDark() ? 'text-rose-400' : 'text-rose-600'"
+                          >{{ row.events.perdidas }}</span
+                        >
+                      </div>
+                      <div class="flex justify-between">
+                        <span
+                          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                          >Devueltas</span
+                        >
+                        <span class="font-medium">{{
+                          row.events.devueltas
+                        }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

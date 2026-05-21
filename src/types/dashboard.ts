@@ -4,7 +4,11 @@ export type DashboardFilters = {
   locations: string[];
 };
 
-export type DashboardNotificationType = "machine_on" | "machine_off" | "event";
+export type DashboardNotificationType =
+  | "machine_on"
+  | "machine_off"
+  | "daily_report"
+  | "event";
 
 export type DashboardNotification = {
   id: number;

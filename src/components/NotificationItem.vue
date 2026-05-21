@@ -29,6 +29,11 @@ const iconToneClass = computed(() => {
       ? "bg-rose-500/15 text-rose-200"
       : "bg-rose-100 text-rose-700";
   }
+  if (props.notification.type === "daily_report") {
+    return isDark.value
+      ? "bg-sky-500/15 text-sky-200"
+      : "bg-sky-100 text-sky-700";
+  }
   return isDark.value
     ? "bg-zinc-800/70 text-zinc-200"
     : "bg-slate-100 text-slate-600";
@@ -85,6 +90,50 @@ const iconToneClass = computed(() => {
           />
           <path
             d="M7.05 6.05a7 7 0 1 0 9.9 0"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <svg
+          v-else-if="notification.type === 'daily_report'"
+          class="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M14 2v6h6"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M16 13H8"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M16 17H8"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10 9H9H8"
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"

@@ -267,6 +267,26 @@ export function useRealtimeEvents(options: RealtimeOptions) {
                 return;
               }
 
+              if (eventType === "daily_report") {
+                const shouldProcessFromSW =
+                  typeof document === "undefined" ||
+                  document.visibilityState !== "visible";
+                if (shouldProcessFromSW) {
+                  const employeeName = payload.employeeName || "Empleado";
+                  const reportDate = payload.reportDate || "";
+                  options.addDashboardNotification({
+                    type: "daily_report",
+                    machineId: "daily_report",
+                    machineName: employeeName,
+                    timestamp: String(ts),
+                    detail: reportDate
+                      ? `Reporte diario • ${reportDate}`
+                      : "Reporte diario",
+                  });
+                  playSound("machine_on");
+                }
+                return;
+              }
               if (eventType === "machine_on" || eventType === "machine_off") {
                 const shouldProcessFromSW =
                   typeof document === "undefined" ||
