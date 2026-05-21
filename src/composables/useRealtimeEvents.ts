@@ -1,6 +1,6 @@
 import { type Ref } from "vue";
 import { getSocket } from "@/api/realtime";
-import { formatNotificationTime, getTodayLocalStr } from "@/utils/date";
+import { getTodayLocalStr } from "@/utils/date";
 import { type DashboardNotificationType } from "@/types/dashboard";
 
 type MachineLike = {
@@ -66,10 +66,6 @@ export function useRealtimeEvents(options: RealtimeOptions) {
     }
   }
 
-  function playNotificationSound() {
-    playSound("coin_inserted");
-  }
-
   let coinSocket: ReturnType<typeof getSocket> | null = null;
   let coinHandler: ((payload: SocketPayload) => void) | null = null;
   let machineOnHandler: ((payload: SocketPayload) => void) | null = null;
@@ -109,18 +105,6 @@ export function useRealtimeEvents(options: RealtimeOptions) {
         const machine = options.machines.value.find(
           (m) => String(m.id) === machineId
         );
-        const machineName =
-          payload.machineName || machine?.name || `Máquina ${machineId}`;
-        const location = payload.location || machine?.location;
-
-        options.addDashboardNotification({
-          type: "coin_inserted",
-          machineId,
-          machineName,
-          location,
-          amount,
-          timestamp: String(ts),
-        });
 
         try {
           if (!machine?.test_mode) {
@@ -139,38 +123,6 @@ export function useRealtimeEvents(options: RealtimeOptions) {
           }
         } catch (e) {
           // ignore
-        }
-
-        try {
-          playNotificationSound();
-        } catch (e) {
-          /* ignore */
-        }
-
-        try {
-          if (
-            typeof document !== "undefined" &&
-            document.visibilityState !== "visible"
-          ) {
-            if ("Notification" in window) {
-              if (Notification.permission === "granted") {
-                const title = "Moneda ingresada";
-                const bodyParts = [machineName];
-                if (location) bodyParts.push(`• ${location}`);
-                bodyParts.push(`+${amount} moneda(s)`);
-                bodyParts.push(`• ${formatNotificationTime(String(ts))}`);
-                const body = bodyParts.join(" ");
-                new Notification(title, {
-                  body,
-                  icon: "/img/icons/K11BOX.webp",
-                });
-              } else if (Notification.permission === "default") {
-                Notification.requestPermission();
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("No se pudo mostrar la notificación del sistema:", e);
         }
       };
       coinSocket.on("coin_inserted", coinHandler);
@@ -297,12 +249,6 @@ export function useRealtimeEvents(options: RealtimeOptions) {
           try {
             const msg = ev.data;
             if (!msg) return;
-            if (msg.type === "coin_notification") {
-              if (options.currentRole.value === "admin") {
-                playNotificationSound();
-              }
-              return;
-            }
             if (msg.type === "event_notification") {
               const payload = msg.payload || {};
               const eventType = String(
@@ -321,23 +267,6 @@ export function useRealtimeEvents(options: RealtimeOptions) {
                 return;
               }
 
-              if (eventType === "coin_inserted") {
-                const amount =
-                  Number(payload.amount ?? payload.data?.cantidad ?? 1) || 1;
-                if (
-                  typeof document === "undefined" ||
-                  document.visibilityState !== "visible"
-                ) {
-                  options.addDashboardNotification({
-                    type: "coin_inserted",
-                    machineId,
-                    amount,
-                    timestamp: String(ts),
-                  });
-                  playNotificationSound();
-                }
-                return;
-              }
               if (eventType === "machine_on" || eventType === "machine_off") {
                 const shouldProcessFromSW =
                   typeof document === "undefined" ||

@@ -27,16 +27,6 @@ self.addEventListener("push", function (event) {
       const ev = Array.isArray(json.events) ? json.events[0] : json.event;
       if (ev) {
         // Normalize payload for different event types
-        if (ev.type === "coin_inserted") {
-          return {
-            title: "Moneda ingresada",
-            body:
-              ev.data && ev.data.cantidad
-                ? `Máquina ${ev.machine_id} recibió ${ev.data.cantidad} moneda(s)`
-                : `Máquina ${ev.machine_id} registró una moneda`,
-            data: ev,
-          };
-        }
         if (ev.type === "machine_on" || ev.type === "machine_off") {
           return {
             title:

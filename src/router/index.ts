@@ -125,7 +125,7 @@ const routes: Array<RouteRecordRaw> = [
     path: "/employees",
     name: "employees",
     component: EmployeesView,
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true, requiresManagement: true },
   },
   {
     path: "/profile",
@@ -154,6 +154,14 @@ router.beforeEach((to, from, next) => {
       next();
     }
   } else if (to.meta.requiresInventory) {
+    const role = localStorage.getItem("role") || "";
+    const jobRole = localStorage.getItem("jobRole") || "";
+    if (role !== "admin" && !isSupervisorJobRole(jobRole)) {
+      next({ name: "dashboard" });
+    } else {
+      next();
+    }
+  } else if (to.meta.requiresManagement) {
     const role = localStorage.getItem("role") || "";
     const jobRole = localStorage.getItem("jobRole") || "";
     if (role !== "admin" && !isSupervisorJobRole(jobRole)) {

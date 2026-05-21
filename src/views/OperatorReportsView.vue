@@ -12,6 +12,7 @@ const canViewReportsList = false;
     :role-kind="roleKind"
     :assigned-machine-ids="assignedMachineIds"
     :show-own-history="true"
+    :initial-section="'reports'"
     report-kind-label="diario"
     report-kind-plural="diarios"
   />

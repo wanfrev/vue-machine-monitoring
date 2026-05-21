@@ -2,7 +2,7 @@
 /* global defineProps, defineEmits */
 import { computed } from "vue";
 
-type ToastType = "machine_on" | "machine_off" | "coin_inserted" | "event";
+type ToastType = "machine_on" | "machine_off" | "event";
 
 type ToastPayload = {
   title: string;
@@ -23,11 +23,6 @@ const isDark = computed(() => !!props.dark);
 
 const toastClasses = computed(() => {
   const t = props.toast?.type;
-  if (t === "coin_inserted") {
-    return isDark.value
-      ? "bg-amber-500/10 border-amber-500/30 text-amber-100"
-      : "bg-amber-50 border-amber-200 text-amber-900";
-  }
   if (t === "machine_on") {
     return isDark.value
       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-100"
@@ -45,7 +40,6 @@ const toastClasses = computed(() => {
 
 const toastAccentClass = computed(() => {
   const t = props.toast?.type;
-  if (t === "coin_inserted") return "bg-amber-400";
   if (t === "machine_on") return "bg-emerald-400";
   if (t === "machine_off") return "bg-rose-400";
   return isDark.value ? "bg-zinc-500" : "bg-slate-400";
@@ -53,11 +47,6 @@ const toastAccentClass = computed(() => {
 
 const toastIconClass = computed(() => {
   const t = props.toast?.type;
-  if (t === "coin_inserted") {
-    return isDark.value
-      ? "bg-amber-500/15 text-amber-200"
-      : "bg-amber-100 text-amber-700";
-  }
   if (t === "machine_on") {
     return isDark.value
       ? "bg-emerald-500/15 text-emerald-200"
@@ -93,24 +82,7 @@ const toastIconClass = computed(() => {
             :class="toastIconClass"
           >
             <svg
-              v-if="toast.type === 'coin_inserted'"
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="8"
-                stroke="currentColor"
-                stroke-width="2"
-              />
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-            </svg>
-            <svg
-              v-else-if="toast.type === 'machine_on'"
+              v-if="toast.type === 'machine_on'"
               class="h-4 w-4"
               viewBox="0 0 24 24"
               fill="none"

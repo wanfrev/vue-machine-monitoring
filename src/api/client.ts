@@ -192,6 +192,23 @@ export async function getUsers() {
   }));
 }
 
+export async function getMyTeamUsers() {
+  const res = await api.get("/api/users/my-team");
+  const data = res.data as any[];
+  return data.map((u) => ({
+    ...u,
+    documentId: u.documentId ?? u.document_id ?? "",
+    jobRole: u.jobRole ?? u.job_role ?? "",
+    operatorCoinBalance: Number(
+      u.operatorCoinBalance ?? u.operator_coin_balance ?? 200
+    ),
+    assignedMachineIds:
+      u.assignedMachineIds ??
+      u.assigned_machine_ids ??
+      (u.assignedMachineId ? [u.assignedMachineId] : []),
+  }));
+}
+
 export async function createUser(payload: {
   name: string;
   username: string;

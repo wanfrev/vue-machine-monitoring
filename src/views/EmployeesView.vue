@@ -6,6 +6,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import NewEmployee from "@/components/NewEmployee.vue";
 import {
   getUsers,
+  getMyTeamUsers,
   createUser,
   deleteUser,
   getMachines,
@@ -14,9 +15,11 @@ import {
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
 import { isSupervisorJobRole } from "@/utils/access";
+import { useCurrentUser } from "@/composables/useCurrentUser";
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
+const { roleKind, assignedMachineIds } = useCurrentUser();
 
 const actionMenuOpenId = ref<number | null>(null);
 
@@ -57,6 +60,7 @@ const showModal = ref(false);
 const modalMode = ref<"create" | "edit">("create");
 const employeeToEdit = ref<Employee | null>(null);
 const resettingEmployeeIds = ref<Set<number>>(new Set());
+const resetConfirmEmployee = ref<Employee | null>(null);
 
 function getApiErrorMessage(e: unknown): string {
   const respMsg = (e as { response?: { data?: { message?: string } } })
@@ -94,6 +98,19 @@ const displayedEmployees = computed(() => {
   // Solo mostramos supervisores y operadores (no admins)
   let list = employees.value.filter((e) => e.role === "employee");
 
+  // Supervisores solo ven personal de sus maquinas asignadas
+  if (roleKind.value === "supervisor") {
+    const supMachineIds = new Set(assignedMachineIds.value.map(String));
+    if (supMachineIds.size > 0) {
+      list = list.filter((e) => {
+        const empIds = (e.assignedMachineIds ?? []).map(String);
+        return empIds.some((id) => supMachineIds.has(id));
+      });
+    } else {
+      list = [];
+    }
+  }
+
   if (peopleFilter.value === "supervisores") {
     list = list.filter((e) => isSupervisorJobRole(e.jobRole));
   } else if (peopleFilter.value === "operadores") {
@@ -124,7 +141,11 @@ const emptySubtitle = computed(() => "Crea el primero para que aparezca aquí.")
 async function loadEmployees() {
   loading.value = true;
   try {
-    employees.value = await getUsers();
+    if (roleKind.value === "supervisor") {
+      employees.value = await getMyTeamUsers();
+    } else {
+      employees.value = await getUsers();
+    }
   } finally {
     loading.value = false;
   }
@@ -263,11 +284,6 @@ function isResettingCoins(employeeId: number): boolean {
 async function handleResetOperatorCoins(e: Employee) {
   if (!canResetOperatorCoins(e)) return;
 
-  const ok = window.confirm(
-    `¿Resetear monedas de ${e.name} a 200 monedas restantes?`
-  );
-  if (!ok) return;
-
   const next = new Set(resettingEmployeeIds.value);
   next.add(e.id);
   resettingEmployeeIds.value = next;
@@ -282,6 +298,18 @@ async function handleResetOperatorCoins(e: Employee) {
     done.delete(e.id);
     resettingEmployeeIds.value = done;
   }
+}
+
+function requestResetOperatorCoins(e: Employee) {
+  if (!canResetOperatorCoins(e)) return;
+  resetConfirmEmployee.value = e;
+}
+
+async function confirmResetOperatorCoins() {
+  const e = resetConfirmEmployee.value;
+  if (!e) return;
+  resetConfirmEmployee.value = null;
+  await handleResetOperatorCoins(e);
 }
 
 async function handleDeleteEmployee(id: number) {
@@ -312,6 +340,60 @@ async function handleDeleteEmployee(id: number) {
     @create="handleCreateEmployee"
     @update="handleUpdateEmployee"
   />
+
+  <transition name="fade">
+    <div
+      v-if="resetConfirmEmployee"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      @click="resetConfirmEmployee = null"
+    >
+      <div
+        class="w-full max-w-sm rounded-2xl border p-5 shadow-xl"
+        :class="
+          isDark()
+            ? 'border-zinc-700/70 bg-zinc-900 text-white'
+            : 'border-slate-200 bg-white text-slate-900'
+        "
+        @click.stop
+      >
+        <h3 class="text-base font-semibold mb-2">Resetear monedas</h3>
+        <p
+          class="text-sm"
+          :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
+        >
+          ¿Resetear monedas de
+          <strong>{{ resetConfirmEmployee.name }}</strong> a 200 monedas
+          restantes?
+        </p>
+        <div class="flex gap-2 mt-4">
+          <button
+            type="button"
+            class="flex-1 h-10 rounded-xl border text-sm font-medium transition cursor-pointer"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-800/50 text-zinc-200 hover:bg-zinc-800'
+                : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+            "
+            @click="resetConfirmEmployee = null"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="flex-1 h-10 rounded-xl border text-sm font-medium transition cursor-pointer"
+            :class="
+              isDark()
+                ? 'border-amber-700/60 bg-amber-900/30 text-amber-200 hover:bg-amber-900/50'
+                : 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            "
+            @click="confirmResetOperatorCoins()"
+          >
+            Resetear
+          </button>
+        </div>
+      </div>
+    </div>
+  </transition>
 
   <div
     :class="[
@@ -638,7 +720,7 @@ async function handleDeleteEmployee(id: number) {
                     :disabled="isResettingCoins(e.id)"
                     :aria-label="`Resetear monedas de ${e.name}`"
                     :title="`Resetear monedas de ${e.name}`"
-                    @click="handleResetOperatorCoins(e)"
+                    @click="requestResetOperatorCoins(e)"
                   >
                     <svg
                       class="h-4 w-4"
@@ -860,7 +942,7 @@ async function handleDeleteEmployee(id: number) {
                 :disabled="isResettingCoins(e.id)"
                 :aria-label="`Resetear monedas de ${e.name}`"
                 :title="`Resetear monedas de ${e.name}`"
-                @click.stop="handleResetOperatorCoins(e)"
+                @click.stop="requestResetOperatorCoins(e)"
               >
                 <svg
                   class="h-4 w-4"

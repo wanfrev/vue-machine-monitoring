@@ -24,7 +24,7 @@ type UpdateMachinePayload = {
   type?: string;
 };
 
-type ToastType = "event" | "machine_on" | "machine_off" | "coin_inserted";
+type ToastType = "event" | "machine_on" | "machine_off";
 
 type UseMachineActionsOptions = {
   machines: Ref<MachineLike[]>;

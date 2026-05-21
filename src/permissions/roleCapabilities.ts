@@ -30,7 +30,7 @@ const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
     canViewReports: true,
     canViewDailyReports: true,
     canManageArea: true,
-    canManageEmployees: false,
+    canManageEmployees: true,
     canEditMachines: false,
     canEditMachineStatus: false,
     canEditCoinValues: false,
