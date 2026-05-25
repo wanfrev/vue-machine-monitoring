@@ -9,6 +9,7 @@ import {
   getDailySaleEntries,
   getDailySales,
   getMachines,
+  getMyOperatorCoinBalance,
   getUsers,
   getWeeklyReports,
   upsertWeeklyReport,
@@ -501,12 +502,20 @@ async function loadWeeklyCoins() {
       boxeoReturned.value = boxeoDevueltas;
       agilidadLost.value = agilidadPerdidas;
       agilidadReturned.value = agilidadDevueltas;
+
+      try {
+        const balanceResult = await getMyOperatorCoinBalance();
+        remainingCoins.value = toNonNegInt(balanceResult?.remainingCoins ?? 0);
+      } catch {
+        remainingCoins.value = 0;
+      }
     } catch {
       boxeoCoins.value = 0;
       agilidadCoins.value = 0;
       boxeoReturned.value = 0;
       agilidadLost.value = 0;
       agilidadReturned.value = 0;
+      remainingCoins.value = 0;
     } finally {
       loadingCoins.value = false;
     }
@@ -667,7 +676,16 @@ async function saveWeekly() {
       total: 0,
     };
 
-    if (!isDailyReport.value) {
+    if (isDailyReport.value) {
+      try {
+        const balanceResult = await getMyOperatorCoinBalance();
+        payload.remainingCoins = toNonNegInt(
+          balanceResult?.remainingCoins ?? 0
+        );
+      } catch {
+        payload.remainingCoins = toNonNegInt(remainingCoins.value) || 0;
+      }
+    } else {
       payload.remainingCoins = toNonNegInt(remainingCoins.value);
     }
 
@@ -1475,12 +1493,33 @@ watch(operatorSection, (section) => {
               <span
                 class="text-xs"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Bolívares efectivo:</span
+                >Premio:</span
               >
               <input
-                v-model="bolivares"
+                v-model="premio"
                 type="text"
                 inputmode="decimal"
+                class="h-10 rounded-xl border px-3 text-sm outline-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              />
+            </label>
+
+            <label class="grid gap-1">
+              <span
+                class="text-xs"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Monedas restantes:</span
+              >
+              <input
+                v-model.number="remainingCoins"
+                type="number"
+                min="0"
+                step="1"
+                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
