@@ -7,7 +7,7 @@ export type DashboardFilters = {
 export type DashboardNotificationType =
   | "machine_on"
   | "machine_off"
-  | "coin_inserted"
+  | "daily_report"
   | "event";
 
 export type DashboardNotification = {

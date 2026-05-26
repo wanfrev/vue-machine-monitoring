@@ -1,16 +1,8 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted, watch, computed } from "vue";
-import { useRoute } from "vue-router";
-import AppBottomNav from "@/components/AppBottomNav.vue";
+import { ref, provide, onMounted, onUnmounted, watch } from "vue";
 
 const darkMode = ref(false);
 provide("darkMode", darkMode);
-
-const route = useRoute();
-const showBottomNav = computed(() => {
-  if (route.name === "login") return false;
-  return !!route.meta.requiresAuth;
-});
 
 function applyHtmlDarkClass(isDark: boolean) {
   try {
@@ -55,9 +47,6 @@ watch(darkMode, (value) => {
         : 'bg-slate-50 text-slate-900',
     ]"
   >
-    <div :class="showBottomNav ? 'pb-20' : ''">
-      <router-view />
-    </div>
-    <AppBottomNav v-if="showBottomNav" />
+    <router-view />
   </div>
 </template>

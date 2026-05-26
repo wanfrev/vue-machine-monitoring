@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /* global defineProps, defineEmits */
+import { ref } from "vue";
 import MachineCard from "@/components/MachineCard.vue";
 import type { Machine } from "@/types/machine";
 
@@ -22,6 +23,13 @@ const emit = defineEmits<{
   (e: "toggle-test-mode", machine: Machine): void;
 }>();
 
+const expandedMachineId = ref<string | null>(null);
+
+function toggleExpand(machineId: string) {
+  expandedMachineId.value =
+    expandedMachineId.value === machineId ? null : machineId;
+}
+
 function getDailyCoins(machineId: string): number {
   return props.dailyCoinsByMachine[machineId] || 0;
 }
@@ -33,29 +41,26 @@ function getWeeklyCoins(machineId: string): number {
 
 <template>
   <section
-    class="grid gap-3 pb-6 sm:gap-4"
-    :class="
-      isOperator
-        ? 'grid-cols-1'
-        : 'grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 auto-rows-fr'
-    "
+    class="pb-6 space-y-2 sm:space-y-0 sm:grid sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 sm:auto-rows-fr"
   >
-    <MachineCard
-      v-for="machine in machines"
-      :key="machine.name"
-      :machine="machine"
-      :is-dark="isDark"
-      :is-admin="isAdmin"
-      :is-operator="isOperator"
-      :is-menu-open="statusMenuOpenId === machine.id"
-      :daily-coins="getDailyCoins(machine.id)"
-      :weekly-coins="getWeeklyCoins(machine.id)"
-      :first-on-today="firstOnTodayByMachine[machine.id]"
-      @select="emit('select-machine', $event)"
-      @toggle-menu="emit('toggle-status-menu', $event)"
-      @toggle-maintenance="emit('toggle-maintenance', $event)"
-      @toggle-test-mode="emit('toggle-test-mode', $event)"
-      @close-menu="emit('toggle-status-menu', $event)"
-    />
+    <div v-for="machine in machines" :key="machine.name">
+      <MachineCard
+        :machine="machine"
+        :is-dark="isDark"
+        :is-admin="isAdmin"
+        :is-operator="isOperator"
+        :is-menu-open="statusMenuOpenId === machine.id"
+        :is-expanded="expandedMachineId === machine.id"
+        :daily-coins="getDailyCoins(machine.id)"
+        :weekly-coins="getWeeklyCoins(machine.id)"
+        :first-on-today="firstOnTodayByMachine[machine.id]"
+        @select="emit('select-machine', $event)"
+        @toggle-menu="emit('toggle-status-menu', $event)"
+        @toggle-maintenance="emit('toggle-maintenance', $event)"
+        @toggle-test-mode="emit('toggle-test-mode', $event)"
+        @close-menu="emit('toggle-status-menu', $event)"
+        @toggle-expand="toggleExpand(machine.id)"
+      />
+    </div>
   </section>
 </template>

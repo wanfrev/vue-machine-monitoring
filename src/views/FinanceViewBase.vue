@@ -454,52 +454,44 @@ watch([supervisorDate, selectedSupervisorId], () => {
 
   <div
     :class="[
-      'min-h-screen px-3 py-4 sm:px-8 sm:py-6 space-y-6',
+      'min-h-screen px-3 py-4 sm:px-6 lg:px-8 space-y-6',
       isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
     <header
-      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8 sm:py-5"
+      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full border text-slate-500 transition cursor-pointer group overflow-hidden shrink-0"
-            :class="
-              isDark()
-                ? 'border-zinc-700/70 hover:bg-transparent hover:text-white'
-                : 'border-sky-300/80 hover:bg-transparent hover:text-sky-700'
-            "
+            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition cursor-pointer group overflow-hidden shrink-0"
+            :class="isDark() ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'"
             aria-label="Abrir menú lateral"
             @click="sidebarOpen = true"
           >
             <img
               src="/img/icons/K11BOX.webp"
               alt="MachineHub logo"
-              class="h-full w-full object-cover rounded-full transition-transform duration-200 group-hover:scale-105 group-hover:shadow-lg"
+              class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
             />
           </button>
           <div class="min-w-0">
-            <div class="flex flex-wrap items-baseline gap-2">
-              <h1 class="text-xl font-semibold sm:text-2xl">Finanzas</h1>
-              <span
-                class="text-xs font-medium tracking-wide"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >
-                Totales y analitica
-              </span>
-            </div>
-            <p
-              class="mt-1 text-sm"
-              :class="isDark() ? 'text-zinc-300' : 'text-slate-500'"
+            <h1
+              class="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight truncate"
             >
-              Solo administradores
+              Finanzas
+            </h1>
+            <p
+              class="text-xs truncate"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+            >
+              Totales y analitica
             </p>
           </div>
         </div>
@@ -507,18 +499,18 @@ watch([supervisorDate, selectedSupervisorId], () => {
         <div class="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition cursor-pointer"
+            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border transition cursor-pointer shrink-0"
             :class="
               isDark()
-                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
-                : 'border-sky-300/80 bg-sky-50/70 text-sky-700 hover:bg-sky-50/90'
+                ? 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             "
             aria-label="Refrescar"
             title="Refrescar"
             @click="refreshPage"
           >
             <svg
-              class="h-5 w-5"
+              class="h-4 w-4 sm:h-5 sm:w-5"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -544,371 +536,528 @@ watch([supervisorDate, selectedSupervisorId], () => {
       </div>
     </header>
 
+    <!-- Filtros Globales -->
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold">Total de monedas del dia</h2>
-          <p
-            class="text-xs"
+      <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+        <div class="flex-1">
+          <label
+            class="block text-xs font-medium mb-1.5"
             :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-            Suma del total de monedas de cada maquina
-          </p>
+            Fecha de consulta
+          </label>
+          <div class="relative">
+            <input
+              v-model="allDate"
+              type="date"
+              class="w-full h-10 rounded-xl border pl-3 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+              :class="
+                isDark()
+                  ? 'bg-zinc-950/40 border-zinc-700/60 text-white placeholder-zinc-500'
+                  : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+              "
+            />
+          </div>
         </div>
-        <label class="text-xs">
-          <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-            >Fecha</span
+
+        <div class="sm:w-48">
+          <label
+            class="block text-xs font-medium mb-1.5"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-          <input
-            v-model="allDate"
-            type="date"
-            class="mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
+            Total Global
+          </label>
+          <div
+            class="h-10 flex items-center justify-center rounded-xl border text-lg font-semibold px-3"
             :class="
               isDark()
-                ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                : 'bg-white border-slate-200 text-slate-900'
+                ? 'bg-zinc-950/40 border-zinc-700/60 text-sky-400'
+                : 'bg-sky-50/50 border-sky-200 text-sky-700'
             "
-          />
-        </label>
+          >
+            {{ loadingAll ? "..." : allTotalCoins }}
+          </div>
+        </div>
       </div>
 
-      <div class="mt-3 text-2xl font-semibold">
-        {{ loadingAll ? "..." : allTotalCoins }}
-      </div>
-
-      <div class="mt-4 space-y-2">
+      <div
+        class="mt-4 pt-4 border-t"
+        :class="isDark() ? 'border-zinc-800/60' : 'border-slate-200'"
+      >
         <p
-          class="text-xs"
+          class="text-xs font-medium mb-3"
           :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
         >
           Detalle por maquina
         </p>
-        <div v-if="!allRowsWithMachine.length" class="text-xs">
-          Sin registros
+        <div
+          v-if="!allRowsWithMachine.length"
+          class="text-xs py-4 text-center"
+          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Sin registros para esta fecha
         </div>
-        <div v-else class="space-y-2">
+        <div v-else class="space-y-0">
           <div
-            v-for="row in allRowsWithMachine"
+            v-for="(row, idx) in allRowsWithMachine"
             :key="`${row.machineId}-${allDate}`"
-            class="flex items-center justify-between rounded-xl border px-3 py-2"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-950/20'
-                : 'border-slate-200 bg-white/70'
-            "
+            class="flex items-center justify-between px-1 py-2.5"
+            :class="[
+              idx < allRowsWithMachine.length - 1
+                ? isDark()
+                  ? 'border-b border-zinc-800/40'
+                  : 'border-b border-slate-200/60'
+                : '',
+            ]"
           >
             <div class="min-w-0">
-              <p class="text-xs font-semibold truncate">
+              <p class="text-sm font-semibold truncate">
                 {{ row.machineName }}
               </p>
               <p
-                class="text-[11px]"
+                class="text-xs"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >
-                {{ row.machineLocation || "—" }}
+                {{ row.machineLocation || "Sin ubicacion" }}
               </p>
             </div>
-            <div class="text-sm font-semibold">{{ row.coins }}</div>
+            <div class="text-sm font-bold ml-2">{{ row.coins }}</div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Filtro por Maquina -->
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold">
-            Total de monedas del dia por maquina
-          </h2>
-          <p
-            class="text-xs"
+      <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+        <div class="flex-1">
+          <label
+            class="block text-xs font-medium mb-1.5"
             :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-            Suma del total de monedas de la maquina seleccionada
-          </p>
-        </div>
-        <div class="flex flex-wrap items-end gap-3">
-          <label class="text-xs">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Maquina</span
-            >
+            Maquina
+          </label>
+          <div class="relative">
             <select
               v-model="selectedMachineId"
-              class="app-select mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
+              class="w-full h-10 rounded-xl border pl-3 pr-8 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 appearance-none"
               :class="
                 isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  ? 'bg-zinc-950/40 border-zinc-700/60 text-white'
                   : 'bg-white border-slate-200 text-slate-900'
               "
             >
-              <option :value="null" disabled>Selecciona...</option>
+              <option :value="null" disabled>Selecciona una maquina...</option>
               <option v-for="m in machineOptions" :key="m.id" :value="m.id">
-                {{ m.label }}
+                {{ m.label }} {{ m.location ? `(${m.location})` : "" }}
               </option>
             </select>
-          </label>
-          <label class="text-xs">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Fecha</span
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
-            <input
-              v-model="machineDate"
-              type="date"
-              class="mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
-              :class="
-                isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
-              "
-            />
-          </label>
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="mt-3 text-2xl font-semibold">
-        {{ loadingMachine ? "..." : machineTotalCoins }}
+        <div class="sm:w-40">
+          <label
+            class="block text-xs font-medium mb-1.5"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Fecha
+          </label>
+          <input
+            v-model="machineDate"
+            type="date"
+            class="w-full h-10 rounded-xl border pl-3 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/40 border-zinc-700/60 text-white placeholder-zinc-500'
+                : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+            "
+          />
+        </div>
+
+        <div class="sm:w-40">
+          <label
+            class="block text-xs font-medium mb-1.5"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Total Maquina
+          </label>
+          <div
+            class="h-10 flex items-center justify-center rounded-xl border text-lg font-semibold px-3"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/40 border-zinc-700/60 text-emerald-400'
+                : 'bg-emerald-50/50 border-emerald-200 text-emerald-700'
+            "
+          >
+            {{ loadingMachine ? "..." : machineTotalCoins }}
+          </div>
+        </div>
       </div>
 
       <div
-        class="mt-2 text-xs"
+        class="mt-3 text-xs flex items-center gap-1.5"
         :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
       >
-        {{ selectedMachine?.location || "—" }}
+        <svg
+          class="w-3.5 h-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+          />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+        </svg>
+        {{ selectedMachine?.location || "Ubicacion no disponible" }}
       </div>
     </section>
 
+    <!-- Filtro por Supervisor -->
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold">Monedas del dia por supervisor</h2>
-          <p
-            class="text-xs"
+      <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+        <div class="flex-1">
+          <label
+            class="block text-xs font-medium mb-1.5"
             :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-            Suma del total de monedas de sus maquinas
-          </p>
-        </div>
-        <div class="flex flex-wrap items-end gap-3">
-          <label class="text-xs">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Supervisor</span
-            >
+            Supervisor
+          </label>
+          <div class="relative">
             <select
               v-model.number="selectedSupervisorId"
-              class="app-select mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
+              class="w-full h-10 rounded-xl border pl-3 pr-8 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 appearance-none"
               :class="
                 isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
+                  ? 'bg-zinc-950/40 border-zinc-700/60 text-white'
                   : 'bg-white border-slate-200 text-slate-900'
               "
             >
-              <option :value="null" disabled>Selecciona...</option>
+              <option :value="null" disabled>
+                Selecciona un supervisor...
+              </option>
               <option v-for="s in supervisorOptions" :key="s.id" :value="s.id">
                 {{ s.label }}
               </option>
             </select>
-          </label>
-          <label class="text-xs">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Fecha</span
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
-            <input
-              v-model="supervisorDate"
-              type="date"
-              class="mt-1 h-9 rounded-lg border px-2 text-xs outline-none"
-              :class="
-                isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
-              "
-            />
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="sm:w-40">
+          <label
+            class="block text-xs font-medium mb-1.5"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Fecha
           </label>
+          <input
+            v-model="supervisorDate"
+            type="date"
+            class="w-full h-10 rounded-xl border pl-3 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/40 border-zinc-700/60 text-white placeholder-zinc-500'
+                : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+            "
+          />
+        </div>
+
+        <div class="sm:w-40">
+          <label
+            class="block text-xs font-medium mb-1.5"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          >
+            Total Supervisor
+          </label>
+          <div
+            class="h-10 flex items-center justify-center rounded-xl border text-lg font-semibold px-3"
+            :class="
+              isDark()
+                ? 'bg-zinc-950/40 border-zinc-700/60 text-violet-400'
+                : 'bg-violet-50/50 border-violet-200 text-violet-700'
+            "
+          >
+            {{ loadingSupervisor ? "..." : supervisorTotalCoins }}
+          </div>
         </div>
       </div>
 
-      <div class="mt-3 text-2xl font-semibold">
-        {{ loadingSupervisor ? "..." : supervisorTotalCoins }}
-      </div>
-
-      <div class="mt-4 space-y-2">
+      <div
+        class="mt-4 pt-4 border-t"
+        :class="isDark() ? 'border-zinc-800/60' : 'border-slate-200'"
+      >
         <p
-          class="text-xs"
+          class="text-xs font-medium mb-3"
           :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
         >
           Maquinas del supervisor
         </p>
-        <div v-if="!supervisorRowsWithMachine.length" class="text-xs">
-          Sin registros
+        <div
+          v-if="!supervisorRowsWithMachine.length"
+          class="text-xs py-4 text-center"
+          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Sin registros para esta fecha
         </div>
-        <div v-else class="space-y-2">
+        <div v-else class="space-y-0">
           <div
-            v-for="row in supervisorRowsWithMachine"
+            v-for="(row, idx) in supervisorRowsWithMachine"
             :key="`${row.machineId}-${supervisorDate}`"
-            class="flex items-center justify-between rounded-xl border px-3 py-2"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-950/20'
-                : 'border-slate-200 bg-white/70'
-            "
+            class="flex items-center justify-between px-1 py-2.5"
+            :class="[
+              idx < supervisorRowsWithMachine.length - 1
+                ? isDark()
+                  ? 'border-b border-zinc-800/40'
+                  : 'border-b border-slate-200/60'
+                : '',
+            ]"
           >
             <div class="min-w-0">
-              <p class="text-xs font-semibold truncate">
+              <p class="text-sm font-semibold truncate">
                 {{ row.machineName }}
               </p>
               <p
-                class="text-[11px]"
+                class="text-xs"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >
-                {{ row.machineLocation || "—" }}
+                {{ row.machineLocation || "Sin ubicacion" }}
               </p>
             </div>
-            <div class="text-sm font-semibold">{{ row.coins }}</div>
+            <div class="text-sm font-bold ml-2">{{ row.coins }}</div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- Grafico -->
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-5"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
           : 'bg-white/60 border-slate-200/70 text-slate-900'
       "
     >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold">Grafico de monedas por maquina</h2>
-          <p
-            class="text-xs"
-            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-          >
-            Ver monedas por dia, semana o rango personalizado
-          </p>
-        </div>
-        <div class="flex flex-col gap-3 w-full sm:w-auto">
-          <label class="text-xs w-full sm:w-auto">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Maquina</span
+      <div class="flex flex-col lg:flex-row lg:items-end gap-4 mb-4">
+        <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label
+              class="block text-xs font-medium mb-1.5"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
-            <select
-              v-model="chartMachineId"
-              class="app-select mt-1 h-9 w-full rounded-lg border px-2 text-xs outline-none"
-              :class="
-                isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
-              "
+              Maquina / Grupo
+            </label>
+            <div class="relative">
+              <select
+                v-model="chartMachineId"
+                class="w-full h-10 rounded-xl border pl-3 pr-8 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 appearance-none"
+                :class="
+                  isDark()
+                    ? 'bg-zinc-950/40 border-zinc-700/60 text-white'
+                    : 'bg-white border-slate-200 text-slate-900'
+                "
+              >
+                <option :value="null" disabled>Selecciona...</option>
+                <option :value="ALL_MACHINES_ID">Todas las maquinas</option>
+                <option v-for="m in machineOptions" :key="m.id" :value="m.id">
+                  {{ m.label }}
+                </option>
+              </select>
+              <div
+                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label
+              class="block text-xs font-medium mb-1.5"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
-              <option :value="null" disabled>Selecciona...</option>
-              <option :value="ALL_MACHINES_ID">Todas las maquinas</option>
-              <option v-for="m in machineOptions" :key="m.id" :value="m.id">
-                {{ m.label }}
-              </option>
-            </select>
-          </label>
-          <label class="text-xs w-full sm:w-auto">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Desde</span
-            >
+              Desde
+            </label>
             <input
               v-model="chartStartDate"
               type="date"
-              class="mt-1 h-9 w-full rounded-lg border px-2 text-xs outline-none"
+              class="w-full h-10 rounded-xl border pl-3 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
               :class="
                 isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
+                  ? 'bg-zinc-950/40 border-zinc-700/60 text-white placeholder-zinc-500'
+                  : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
               "
             />
-          </label>
-          <label class="text-xs w-full sm:w-auto">
-            <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-              >Hasta</span
+          </div>
+          <div>
+            <label
+              class="block text-xs font-medium mb-1.5"
+              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
             >
+              Hasta
+            </label>
             <input
               v-model="chartEndDate"
               type="date"
-              class="mt-1 h-9 w-full rounded-lg border px-2 text-xs outline-none"
+              class="w-full h-10 rounded-xl border pl-3 pr-3 text-sm outline-none transition focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
               :class="
                 isDark()
-                  ? 'bg-zinc-950/30 border-zinc-700/60 text-white'
-                  : 'bg-white border-slate-200 text-slate-900'
+                  ? 'bg-zinc-950/40 border-zinc-700/60 text-white placeholder-zinc-500'
+                  : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
               "
             />
-          </label>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            class="h-9 rounded-xl border px-3 text-xs font-semibold transition"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-950/30'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            "
+            @click="setChartRange(1)"
+          >
+            Hoy
+          </button>
+          <button
+            type="button"
+            class="h-9 rounded-xl border px-3 text-xs font-semibold transition"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-950/30'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            "
+            @click="setChartRange(7)"
+          >
+            7 dias
+          </button>
+          <button
+            type="button"
+            class="h-9 rounded-xl border px-3 text-xs font-semibold transition"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-950/30'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            "
+            @click="setChartRange(30)"
+          >
+            30 dias
+          </button>
         </div>
       </div>
 
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          class="h-8 rounded-full border px-3 text-[11px] font-semibold transition"
-          :class="
-            isDark()
-              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-950/30'
-              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-          "
-          @click="setChartRange(1)"
-        >
-          Hoy
-        </button>
-        <button
-          type="button"
-          class="h-8 rounded-full border px-3 text-[11px] font-semibold transition"
-          :class="
-            isDark()
-              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-950/30'
-              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-          "
-          @click="setChartRange(7)"
-        >
-          7 dias
-        </button>
-        <button
-          type="button"
-          class="h-8 rounded-full border px-3 text-[11px] font-semibold transition"
-          :class="
-            isDark()
-              ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-950/30'
-              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-          "
-          @click="setChartRange(30)"
-        >
-          30 dias
-        </button>
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-semibold">Historico de monedas</h3>
         <span
-          class="text-[11px]"
-          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+          class="text-xs font-medium px-2 py-1 rounded-md"
+          :class="
+            isDark()
+              ? 'bg-zinc-800/50 text-zinc-300'
+              : 'bg-slate-100 text-slate-600'
+          "
         >
           Total rango: {{ loadingChart ? "..." : chartTotalCoins }}
         </span>
       </div>
 
-      <div class="mt-4 h-48">
-        <div v-if="loadingChart" class="text-xs">Cargando...</div>
-        <div v-else-if="!chartRows.length" class="text-xs">Sin registros</div>
+      <div
+        class="h-64 sm:h-80 rounded-xl overflow-hidden border"
+        :class="isDark() ? 'border-zinc-800/50' : 'border-slate-200'"
+      >
+        <div
+          v-if="loadingChart"
+          class="flex items-center justify-center h-full text-xs"
+          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Cargando grafico...
+        </div>
+        <div
+          v-else-if="!chartRows.length"
+          class="flex items-center justify-center h-full text-xs"
+          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Sin registros en este rango
+        </div>
         <BarChart
           v-else
           :chart-data="chartData"

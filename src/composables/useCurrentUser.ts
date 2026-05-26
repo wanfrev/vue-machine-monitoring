@@ -26,6 +26,12 @@ export function useCurrentUser() {
   const capabilities = computed(() => getRoleCapabilities(roleKind.value));
   const canManage = computed(() => canSeeManagement(roleKind.value));
   const canViewReportsList = computed(() => canViewReports(roleKind.value));
+  const canViewDailyReportsList = computed(
+    () => capabilities.value.canViewDailyReports
+  );
+  const canManageEmployees = computed(
+    () => capabilities.value.canManageEmployees
+  );
 
   return {
     currentRole,
@@ -39,5 +45,7 @@ export function useCurrentUser() {
     isSupervisor,
     canManage,
     canViewReportsList,
+    canViewDailyReportsList,
+    canManageEmployees,
   };
 }

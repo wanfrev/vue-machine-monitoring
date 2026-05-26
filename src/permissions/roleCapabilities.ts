@@ -2,6 +2,7 @@ import type { RoleKind } from "@/utils/access";
 
 export type RoleCapabilities = {
   canViewReports: boolean;
+  canViewDailyReports: boolean;
   canManageArea: boolean;
   canManageEmployees: boolean;
   canEditMachines: boolean;
@@ -15,6 +16,7 @@ export type RoleCapabilities = {
 const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
   admin: {
     canViewReports: true,
+    canViewDailyReports: true,
     canManageArea: true,
     canManageEmployees: true,
     canEditMachines: true,
@@ -26,8 +28,9 @@ const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
   },
   supervisor: {
     canViewReports: true,
+    canViewDailyReports: true,
     canManageArea: true,
-    canManageEmployees: false,
+    canManageEmployees: true,
     canEditMachines: false,
     canEditMachineStatus: false,
     canEditCoinValues: false,
@@ -37,6 +40,7 @@ const ROLE_CAPABILITIES: Record<RoleKind, RoleCapabilities> = {
   },
   operator: {
     canViewReports: false,
+    canViewDailyReports: false,
     canManageArea: false,
     canManageEmployees: false,
     canEditMachines: false,
