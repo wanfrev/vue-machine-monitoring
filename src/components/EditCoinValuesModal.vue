@@ -20,9 +20,9 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const ok = ref<string | null>(null);
 
-const coinBoxeo = ref<number>(1);
-const coinAgilidad = ref<number>(1);
-const coinDefault = ref<number>(2);
+const coinBoxeo = ref<number | string>(1);
+const coinAgilidad = ref<number | string>(1);
+const coinDefault = ref<number | string>(2);
 
 const { refresh } = useCoinValues();
 
@@ -68,10 +68,17 @@ function close() {
   emit("close");
 }
 
+function parseCoinValue(val: string | number): number {
+  if (typeof val === "string") {
+    return Number(val.replace(",", "."));
+  }
+  return Number(val);
+}
+
 function validate(): string | null {
-  const b = Number(coinBoxeo.value);
-  const a = Number(coinAgilidad.value);
-  const d = Number(coinDefault.value);
+  const b = parseCoinValue(coinBoxeo.value);
+  const a = parseCoinValue(coinAgilidad.value);
+  const d = parseCoinValue(coinDefault.value);
   if (!Number.isFinite(b) || b <= 0) {
     return "Boxeo debe ser un número positivo.";
   }
@@ -94,9 +101,9 @@ async function save() {
 
   saving.value = true;
   try {
-    await apiSetCoinValue("boxeo", Number(coinBoxeo.value));
-    await apiSetCoinValue("agilidad", Number(coinAgilidad.value));
-    await apiSetCoinValue("default", Number(coinDefault.value));
+    await apiSetCoinValue("boxeo", parseCoinValue(coinBoxeo.value));
+    await apiSetCoinValue("agilidad", parseCoinValue(coinAgilidad.value));
+    await apiSetCoinValue("default", parseCoinValue(coinDefault.value));
 
     await refresh();
 
@@ -189,10 +196,8 @@ async function save() {
                   >Boxeo</label
                 >
                 <input
-                  v-model.number="coinBoxeo"
-                  type="number"
-                  min="0"
-                  step="0.1"
+                  v-model="coinBoxeo"
+                  type="text"
                   inputmode="decimal"
                   class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none"
                   :class="
@@ -210,10 +215,8 @@ async function save() {
                   >Agilidad</label
                 >
                 <input
-                  v-model.number="coinAgilidad"
-                  type="number"
-                  min="0"
-                  step="0.1"
+                  v-model="coinAgilidad"
+                  type="text"
                   inputmode="decimal"
                   class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none"
                   :class="
@@ -231,10 +234,8 @@ async function save() {
                   >Otras</label
                 >
                 <input
-                  v-model.number="coinDefault"
-                  type="number"
-                  min="0"
-                  step="0.1"
+                  v-model="coinDefault"
+                  type="text"
                   inputmode="decimal"
                   class="mt-1 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none"
                   :class="
