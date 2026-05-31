@@ -1171,9 +1171,7 @@ watch(operatorSection, (section) => {
                   toNum(selectedHistoryReport.premio).toFixed(2)
                 }}</span>
               </div>
-              <div
-                class="flex items-center justify-between"
-              >
+              <div class="flex items-center justify-between">
                 <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                   >Monedas restantes</span
                 >
