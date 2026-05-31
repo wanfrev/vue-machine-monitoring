@@ -1493,10 +1493,10 @@ watch(operatorSection, (section) => {
               <span
                 class="text-xs"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >Premio:</span
+                >Bolívares efectivo:</span
               >
               <input
-                v-model="premio"
+                v-model="bolivares"
                 type="text"
                 inputmode="decimal"
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
