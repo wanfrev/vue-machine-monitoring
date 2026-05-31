@@ -609,6 +609,14 @@ onMounted(() => {
           <div class="mt-2 grid gap-2 text-sm sm:grid-cols-2">
             <div class="flex items-center justify-between gap-3">
               <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >Monedas restantes</span
+              >
+              <span class="font-semibold">
+                {{ toNum(report.remainingCoins) }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >Pago movil</span
               >
               <span class="font-semibold">

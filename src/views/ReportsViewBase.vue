@@ -676,18 +676,7 @@ async function saveWeekly() {
       total: 0,
     };
 
-    if (isDailyReport.value) {
-      try {
-        const balanceResult = await getMyOperatorCoinBalance();
-        payload.remainingCoins = toNonNegInt(
-          balanceResult?.remainingCoins ?? 0
-        );
-      } catch {
-        payload.remainingCoins = toNonNegInt(remainingCoins.value) || 0;
-      }
-    } else {
-      payload.remainingCoins = toNonNegInt(remainingCoins.value);
-    }
+    payload.remainingCoins = toNonNegInt(remainingCoins.value);
 
     payload.pagoMovil = toNonNegMoney(pagoMovil.value);
     payload.dolares = toNonNegMoney(dolares.value);
@@ -1183,7 +1172,6 @@ watch(operatorSection, (section) => {
                 }}</span>
               </div>
               <div
-                v-if="!isDailyReport"
                 class="flex items-center justify-between"
               >
                 <span :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
@@ -1519,7 +1507,6 @@ watch(operatorSection, (section) => {
                 type="number"
                 min="0"
                 step="1"
-                readonly
                 class="h-10 rounded-xl border px-3 text-sm outline-none"
                 :class="
                   isDark()
