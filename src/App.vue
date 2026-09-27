@@ -1,5 +1,19 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, onUnmounted, watch } from "vue";
+import { ref, provide, onMounted, onUnmounted, watch, computed } from "vue";
+import { useRoute } from "vue-router";
+import AppBottomNav from "@/components/AppBottomNav.vue";
+import { resolveRoleKind } from "@/utils/access";
+
+const route = useRoute();
+const showFloatingNav = computed(() => {
+  void route.fullPath;
+  if (!route.meta?.requiresAuth) return false;
+  const kind = resolveRoleKind(
+    localStorage.getItem("role") || "",
+    localStorage.getItem("jobRole") || ""
+  );
+  return kind !== "operator";
+});
 
 const darkMode = ref(false);
 provide("darkMode", darkMode);
@@ -42,11 +56,13 @@ watch(darkMode, (value) => {
   <div
     :class="[
       'min-h-screen font-sans',
+      showFloatingNav ? 'pb-28' : '',
       darkMode
         ? 'dark bg-zinc-950 text-zinc-100'
         : 'bg-slate-50 text-slate-900',
     ]"
   >
     <router-view />
+    <AppBottomNav v-if="showFloatingNav" />
   </div>
 </template>

@@ -71,6 +71,7 @@ export function useRealtimeEvents(options: RealtimeOptions) {
   let machineOnHandler: ((payload: SocketPayload) => void) | null = null;
   let machineOffHandler: ((payload: SocketPayload) => void) | null = null;
   let swMessageHandler: ((ev: MessageEvent) => void) | null = null;
+  let connectHandler: (() => void) | null = null;
 
   async function startRealtime() {
     try {
@@ -227,6 +228,15 @@ export function useRealtimeEvents(options: RealtimeOptions) {
       };
       coinSocket.on("machine_on", machineOnHandler);
       coinSocket.on("machine_off", machineOffHandler);
+
+      // Si el socket se cae y reconecta se pudieron perder eventos: recargar una vez.
+      // La primera conexión no recarga (la carga inicial ya se está haciendo).
+      let hadConnection = coinSocket.connected;
+      connectHandler = () => {
+        if (hadConnection) void options.loadDashboardData();
+        hadConnection = true;
+      };
+      coinSocket.on("connect", connectHandler);
     } catch (e) {
       console.error("No se pudo conectar al socket de tiempo real:", e);
     }
@@ -330,6 +340,9 @@ export function useRealtimeEvents(options: RealtimeOptions) {
     }
     if (coinSocket && machineOffHandler) {
       coinSocket.off("machine_off", machineOffHandler);
+    }
+    if (coinSocket && connectHandler) {
+      coinSocket.off("connect", connectHandler);
     }
     if (
       swMessageHandler &&

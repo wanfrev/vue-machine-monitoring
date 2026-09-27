@@ -152,12 +152,12 @@ watch(
 <template>
   <div
     :class="[
-      'min-h-screen px-3 py-4 sm:px-8 sm:py-6',
+      'min-h-screen px-3 py-3 sm:px-8 sm:py-6',
       isDark() ? 'bg-zinc-950 text-zinc-100' : 'bg-slate-50 text-slate-900',
     ]"
   >
     <div
-      class="relative z-50 mb-4 flex items-center justify-between rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm sm:px-6"
+      class="relative z-50 mb-2 flex items-center justify-between rounded-2xl border backdrop-blur-xl px-3 py-2 shadow-sm sm:mb-4 sm:px-6 sm:py-3"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70'
@@ -334,18 +334,18 @@ watch(
     </div>
 
     <header
-      class="mb-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-8"
+      class="mb-3 rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm sm:mb-4 sm:px-8 sm:py-4"
       :class="
         isDark()
           ? 'bg-zinc-900/70 border-zinc-800/70'
           : 'bg-white/60 border-slate-200/70'
       "
     >
-      <h1 class="text-2xl font-semibold">{{ id }}</h1>
+      <h1 class="text-xl font-semibold sm:text-2xl">{{ id }}</h1>
       <p class="text-sm text-slate-400">{{ locationText }}</p>
 
       <nav
-        class="mt-4 flex items-center gap-6 border-b text-sm font-medium"
+        class="mt-4 flex items-center gap-5 overflow-x-auto whitespace-nowrap border-b text-sm font-medium [scrollbar-width:none]"
         :class="
           isDark()
             ? 'border-zinc-800/70 text-zinc-300'
@@ -370,46 +370,6 @@ watch(
           "
         >
           General
-        </RouterLink>
-        <RouterLink
-          v-if="canViewDetailsTabs"
-          :to="{
-            name: 'machine-historial',
-            params: { id: route.params.id },
-            query: route.query,
-          }"
-          class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
-          :class="
-            isActive('machine-historial')
-              ? isDark()
-                ? 'text-zinc-100 border-b-2 border-zinc-200'
-                : 'text-sky-600 border-b-2 border-sky-500'
-              : isDark()
-              ? 'border-b-2 border-transparent hover:text-zinc-100 hover:border-zinc-600'
-              : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
-          "
-        >
-          Monedas
-        </RouterLink>
-        <RouterLink
-          v-if="canViewDetailsTabs"
-          :to="{
-            name: 'machine-estadisticas',
-            params: { id: route.params.id },
-            query: route.query,
-          }"
-          class="relative -mb-px inline-flex cursor-pointer items-center pb-2"
-          :class="
-            isActive('machine-estadisticas')
-              ? isDark()
-                ? 'text-zinc-100 border-b-2 border-zinc-200'
-                : 'text-sky-600 border-b-2 border-sky-500'
-              : isDark()
-              ? 'border-b-2 border-transparent hover:text-zinc-100 hover:border-zinc-600'
-              : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
-          "
-        >
-          Tiempos de uso
         </RouterLink>
       </nav>
     </header>

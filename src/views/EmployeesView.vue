@@ -15,6 +15,10 @@ import {
 import { useTheme } from "@/composables/useTheme";
 import { useSearchFilter } from "@/composables/useSearchFilter";
 import { isSupervisorJobRole } from "@/utils/access";
+import { useRouter } from "vue-router";
+import SearchBar from "@/components/SearchBar.vue";
+import { getEmployeeSalesSummary, getWeeklyReports } from "../api/client";
+import { getTodayLocalStr, formatTimeShort } from "@/utils/date";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 
 const { isDark: isDarkRef } = useTheme();
@@ -165,7 +169,7 @@ async function loadMachines() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadEmployees(), loadMachines()]);
+  await Promise.all([loadEmployees(), loadMachines(), loadToday()]);
   window.addEventListener("click", handleGlobalClick);
 });
 
@@ -322,6 +326,83 @@ async function handleDeleteEmployee(id: number) {
     window.alert(getApiErrorMessage(e));
   }
 }
+
+const router = useRouter();
+
+type TodayStatus = {
+  registeredCoins: number;
+  reportSent: boolean;
+  reportSentAt: string | null;
+};
+const todayById = ref<Record<number, TodayStatus>>({});
+
+async function loadToday() {
+  const today = getTodayLocalStr();
+  try {
+    const [summary, reports] = await Promise.all([
+      getEmployeeSalesSummary({ startDate: today, endDate: today }),
+      getWeeklyReports({
+        startDate: today,
+        endDate: today,
+        reportKind: "diario",
+      }),
+    ]);
+    const map: Record<number, TodayStatus> = {};
+    for (const s of Array.isArray(summary) ? summary : []) {
+      const id = Number(s?.employeeId);
+      if (!id) continue;
+      map[id] = {
+        registeredCoins: Number(s?.totalCoins) || 0,
+        reportSent: false,
+        reportSentAt: null,
+      };
+    }
+    for (const r of Array.isArray(reports) ? reports : []) {
+      const id = Number(r?.employeeId);
+      if (!id) continue;
+      const created = String(r?.createdAt || "");
+      const cur = map[id] || {
+        registeredCoins: 0,
+        reportSent: false,
+        reportSentAt: null,
+      };
+      cur.reportSent = true;
+      if (!cur.reportSentAt || created > cur.reportSentAt) {
+        cur.reportSentAt = created;
+      }
+      map[id] = cur;
+    }
+    todayById.value = map;
+  } catch {
+    todayById.value = {};
+  }
+}
+
+const pendingReports = computed(
+  () =>
+    displayedEmployees.value.filter(
+      (e) =>
+        !isSupervisorJobRole(e.jobRole) && !todayById.value[e.id]?.reportSent
+    ).length
+);
+
+function openPerson(e: Employee) {
+  if (isSupervisorJobRole(e.jobRole)) {
+    openEditModal(e);
+    return;
+  }
+  router.push({
+    name: "employee-report-detail",
+    params: { employeeId: String(e.id) },
+    query: { employeeName: e.name || e.username },
+  });
+}
+
+const peopleFilters: { k: PeopleFilter; l: string }[] = [
+  { k: "todos", l: "Todos" },
+  { k: "operadores", l: "Operadoras" },
+  { k: "supervisores", l: "Supervisores" },
+];
 </script>
 
 <template>
@@ -397,689 +478,263 @@ async function handleDeleteEmployee(id: number) {
 
   <div
     :class="[
-      'min-h-screen px-3 py-4 sm:px-6 lg:px-8 space-y-5',
-      isDark() ? 'bg-zinc-950' : 'bg-slate-100',
+      'min-h-screen px-3 py-4 sm:px-6 lg:px-8 space-y-4',
+      isDark() ? 'bg-zinc-950 text-white' : 'bg-slate-100 text-slate-900',
     ]"
   >
     <header
-      class="flex flex-col gap-4 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
+      class="flex items-center justify-between gap-3 rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm sm:px-6"
       :class="
         isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-white'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
+          ? 'bg-zinc-900/70 border-zinc-800/70'
+          : 'bg-white/60 border-slate-200/70'
       "
     >
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2 min-w-0">
-          <button
-            type="button"
-            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition cursor-pointer group overflow-hidden shrink-0"
-            :class="isDark() ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'"
-            aria-label="Abrir menú lateral"
-            @click="sidebarOpen = true"
+      <div class="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition cursor-pointer overflow-hidden shrink-0"
+          :class="isDark() ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'"
+          aria-label="Abrir menú lateral"
+          @click="sidebarOpen = true"
+        >
+          <img
+            src="/img/icons/K11BOX.webp"
+            alt="MachineHub logo"
+            class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg"
+          />
+        </button>
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-2xl font-semibold leading-tight truncate">
+            Equipo
+          </h1>
+          <p
+            class="text-xs truncate"
+            :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-            <img
-              src="/img/icons/K11BOX.webp"
-              alt="MachineHub logo"
-              class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
-            />
-          </button>
-          <div class="min-w-0">
-            <h1
-              class="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight truncate"
-            >
-              Personal
-            </h1>
-            <p
-              class="text-xs truncate"
-              :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-            >
-              Gestión de accesos y asignaciones
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            class="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border transition cursor-pointer shrink-0"
-            :class="
-              isDark()
-                ? 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            "
-            aria-label="Refrescar"
-            title="Refrescar"
-            @click="refreshPage"
-          >
-            <svg
-              class="h-4 w-4 sm:h-5 sm:w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M21 12a9 9 0 1 1-3.27-6.93"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M21 3v6h-6"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:text-sm cursor-pointer whitespace-nowrap"
-            :class="
-              isDark()
-                ? 'bg-zinc-200 text-zinc-900 hover:bg-zinc-100 focus-visible:ring-zinc-300/60'
-                : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
-            "
-            @click="openCreateModal"
-          >
-            <span class="mr-1 hidden sm:inline">+</span>
-            <span class="hidden sm:inline">Nuevo usuario</span>
-            <span class="sm:hidden">+</span>
-          </button>
+            {{ totalOperators }} operadoras · {{ totalEmployees }} supervisores
+          </p>
         </div>
       </div>
+      <button
+        type="button"
+        class="rounded-xl bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500"
+        @click="openCreateModal"
+      >
+        + Nuevo
+      </button>
     </header>
 
     <section
-      class="rounded-2xl border backdrop-blur-xl p-4 shadow-sm sm:p-6"
+      class="rounded-2xl border shadow-sm"
       :class="
         isDark()
-          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-          : 'bg-white/60 border-slate-200/70 text-slate-900'
+          ? 'bg-zinc-900/70 border-zinc-800/70'
+          : 'bg-white/60 border-slate-200/70'
       "
     >
-      <!-- Filters bar -->
-      <div
-        class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center">
+        <SearchBar
+          v-model="searchQuery"
+          :is-dark="isDark()"
+          placeholder="Buscar por nombre o usuario..."
+          class="sm:flex-1"
+        />
+        <div class="flex gap-2 text-xs">
           <button
+            v-for="f in peopleFilters"
+            :key="f.k"
             type="button"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
+            class="rounded-full border px-3 py-1.5 font-medium transition"
             :class="
-              peopleFilter === 'todos'
+              peopleFilter === f.k
                 ? isDark()
-                  ? 'bg-zinc-100/10 text-white border-zinc-500/70'
-                  : 'bg-slate-900 text-white border-slate-900'
+                  ? 'border-zinc-200 bg-zinc-100 text-zinc-900'
+                  : 'border-sky-500 bg-sky-500 text-white'
                 : isDark()
-                ? 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-500 hover:text-zinc-200'
-                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
+                ? 'border-zinc-700/60 text-zinc-300'
+                : 'border-slate-200 text-slate-600'
             "
-            @click="peopleFilter = 'todos'"
+            @click="peopleFilter = f.k"
           >
-            Todos
-            <span class="ml-1 opacity-60">{{ totalPeople }}</span>
+            {{ f.l }}
           </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
-            :class="
-              peopleFilter === 'supervisores'
-                ? isDark()
-                  ? 'bg-violet-500/15 text-violet-300 border-violet-500/50'
-                  : 'bg-violet-50 text-violet-700 border-violet-200'
-                : isDark()
-                ? 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-500 hover:text-zinc-200'
-                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
-            "
-            @click="peopleFilter = 'supervisores'"
-          >
-            Supervisores
-            <span class="ml-1 opacity-60">{{ totalEmployees }}</span>
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border"
-            :class="
-              peopleFilter === 'operadores'
-                ? isDark()
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/50'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : isDark()
-                ? 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-500 hover:text-zinc-200'
-                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-700'
-            "
-            @click="peopleFilter = 'operadores'"
-          >
-            Operadores
-            <span class="ml-1 opacity-60">{{ totalOperators }}</span>
-          </button>
-        </div>
-
-        <div class="w-full sm:w-72">
-          <div class="relative">
-            <span
-              class="pointer-events-none absolute inset-y-0 left-3 flex items-center"
-              :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
-            >
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  d="M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="m20 20-3.5-3.5"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-            <input
-              v-model="searchQuery"
-              type="search"
-              placeholder="Buscar personal..."
-              class="w-full rounded-lg border px-9 py-2 text-xs placeholder-slate-400 focus:outline-none focus:ring-2"
-              :class="
-                isDark()
-                  ? 'bg-zinc-950/30 text-zinc-100 border-zinc-700/60 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                  : 'bg-white/90 text-slate-800 border-slate-200'
-              "
-            />
-          </div>
         </div>
       </div>
 
-      <!-- Desktop table (hidden on small screens) -->
-      <div
-        class="hidden sm:block overflow-x-auto rounded-xl border shadow-sm mt-4"
+      <p
+        v-if="pendingReports > 0"
+        class="mx-4 mt-3 rounded-lg px-3 py-2 text-xs"
         :class="
           isDark()
-            ? 'border-zinc-800/70 bg-zinc-950/40'
-            : 'border-slate-200/70 bg-white/50'
+            ? 'bg-amber-500/10 text-amber-300'
+            : 'bg-amber-50 text-amber-700'
         "
       >
-        <table
-          class="min-w-full text-left text-sm"
-          :class="isDark() ? 'text-zinc-100' : 'text-slate-900'"
+        {{ pendingReports }} operadora(s) aún no envían su reporte de hoy.
+      </p>
+
+      <p
+        v-if="loading"
+        class="px-4 py-6 text-sm"
+        :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+      >
+        Cargando…
+      </p>
+      <div v-else-if="displayedEmployees.length === 0" class="px-4 py-8">
+        <p class="text-sm font-medium">{{ emptyTitle }}</p>
+        <p
+          class="text-xs"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
         >
-          <thead
-            :class="
-              isDark()
-                ? 'bg-zinc-900/60 text-zinc-300'
-                : 'bg-slate-50/80 text-slate-600'
-            "
-          >
-            <tr>
-              <th class="px-4 py-3 whitespace-nowrap font-semibold">Nombre</th>
-              <th class="px-4 py-3 whitespace-nowrap font-semibold">
-                Máquinas (ubicación)
-              </th>
-              <th class="px-4 py-3 text-right whitespace-nowrap font-semibold">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td class="px-4 py-3" colspan="3">Cargando...</td>
-            </tr>
-            <tr v-else-if="!displayedEmployees.length">
-              <td class="px-4 py-10" colspan="3">
-                <div
-                  class="mx-auto max-w-md rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-800/70 bg-zinc-900/50 text-zinc-200'
-                      : 'border-slate-200/70 bg-white/50 text-slate-600'
-                  "
-                >
-                  <p class="text-base font-semibold">{{ emptyTitle }}</p>
-                  <p class="mt-1 text-xs text-slate-400">{{ emptySubtitle }}</p>
-                </div>
-              </td>
-            </tr>
-            <tr
-              v-for="e in displayedEmployees"
-              :key="e.id"
-              class="border-t transition-colors"
-              :class="
-                isDark()
-                  ? 'border-zinc-800/70 hover:bg-zinc-800/40'
-                  : 'border-slate-200/70 hover:bg-slate-50/80'
-              "
-            >
-              <td class="px-4 py-2 whitespace-nowrap">
-                <div class="flex items-center gap-2 min-w-0">
-                  <div
-                    class="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold"
-                    :class="
-                      isDark()
-                        ? 'bg-zinc-800/60 text-zinc-100'
-                        : 'bg-slate-100 text-slate-700'
-                    "
-                  >
-                    {{ getEmployeeInitials(e) }}
-                  </div>
-                  <div class="min-w-0">
-                    <div class="text-sm font-semibold truncate">
-                      {{ e.name }}
-                    </div>
-                    <div class="mt-0.5">
-                      <span
-                        class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
-                        :class="
-                          isSupervisorJobRole(e.jobRole)
-                            ? isDark()
-                              ? 'bg-violet-500/15 text-violet-300'
-                              : 'bg-violet-50 text-violet-600'
-                            : isDark()
-                            ? 'bg-emerald-500/15 text-emerald-300'
-                            : 'bg-emerald-50 text-emerald-600'
-                        "
-                      >
-                        {{ isSupervisorJobRole(e.jobRole) ? "SUP" : "OP" }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td class="px-4 py-2 whitespace-nowrap">
-                <p class="text-xs text-slate-600 flex items-center gap-1">
-                  <span aria-hidden="true">📍</span>
-                  <span>
-                    {{ getEmployeeAssignmentSummary(e) || "Sin asignación" }}
-                  </span>
-                </p>
-              </td>
-              <td class="px-4 py-2 text-right whitespace-nowrap">
-                <div class="flex items-center justify-end gap-1">
-                  <button
-                    v-if="canResetOperatorCoins(e)"
-                    class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
-                    :class="
-                      isDark()
-                        ? 'text-amber-400 hover:bg-amber-500/10 disabled:opacity-40'
-                        : 'text-amber-600 hover:bg-amber-50 disabled:opacity-40'
-                    "
-                    type="button"
-                    :disabled="isResettingCoins(e.id)"
-                    :aria-label="`Resetear monedas de ${e.name}`"
-                    :title="`Resetear monedas de ${e.name}`"
-                    @click="requestResetOperatorCoins(e)"
-                  >
-                    <svg
-                      class="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
-                    >
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="9"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      />
-                      <path
-                        d="M12 7v5l3 3"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M16 12a4 4 0 01-4 4"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </button>
-                  <div class="relative">
-                    <button
-                      class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
-                      :class="
-                        isDark()
-                          ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
-                          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                      "
-                      type="button"
-                      @click="toggleActionMenu(e.id)"
-                    >
-                      <svg
-                        class="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <circle cx="12" cy="5" r="2" />
-                        <circle cx="12" cy="12" r="2" />
-                        <circle cx="12" cy="19" r="2" />
-                      </svg>
-                    </button>
-                    <div
-                      v-if="actionMenuOpenId === e.id"
-                      class="absolute right-0 top-full z-20 mt-1 w-40 rounded-xl border py-1 shadow-lg"
-                      :class="
-                        isDark()
-                          ? 'border-zinc-700/70 bg-zinc-900'
-                          : 'border-slate-200 bg-white'
-                      "
-                      data-action-menu
-                    >
-                      <button
-                        class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
-                        :class="
-                          isDark()
-                            ? 'text-zinc-200 hover:bg-zinc-800'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        "
-                        type="button"
-                        @click.stop="
-                          openEditModal(e);
-                          closeActionMenu();
-                        "
-                      >
-                        <svg
-                          class="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
-                          />
-                        </svg>
-                        Editar
-                      </button>
-                      <button
-                        class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
-                        :class="
-                          isDark()
-                            ? 'text-red-400 hover:bg-red-500/10'
-                            : 'text-red-600 hover:bg-red-50'
-                        "
-                        type="button"
-                        @click.stop="
-                          handleDeleteEmployee(e.id);
-                          closeActionMenu();
-                        "
-                      >
-                        <svg
-                          class="w-3.5 h-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M5 7h14"
-                          />
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M10 11v6M14 11v6"
-                          />
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
-                          />
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
-                          />
-                        </svg>
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+          {{ emptySubtitle }}
+        </p>
       </div>
 
-      <!-- Mobile list -->
-      <div class="sm:hidden mt-4">
-        <div v-if="loading" class="px-4 py-3">Cargando...</div>
-        <div v-else-if="!displayedEmployees.length" class="px-4 py-10">
-          <div
-            class="rounded-2xl border px-4 py-6 text-center text-sm shadow-sm backdrop-blur-xl"
-            :class="
-              isDark()
-                ? 'border-zinc-800/70 bg-zinc-900/20 text-zinc-200'
-                : 'border-slate-200/70 bg-white/50 text-slate-600'
-            "
-          >
-            <p class="text-base font-semibold">{{ emptyTitle }}</p>
-            <p class="mt-1 text-xs text-slate-400">{{ emptySubtitle }}</p>
-          </div>
-        </div>
-        <div v-else>
-          <div
-            v-for="(e, idx) in displayedEmployees"
-            :key="e.id"
-            class="flex items-center gap-3 px-4 py-3"
-            :class="[
-              idx < displayedEmployees.length - 1
-                ? isDark()
-                  ? 'border-b border-zinc-800/40'
-                  : 'border-b border-slate-200/60'
-                : '',
-            ]"
+      <ul
+        v-else
+        class="mt-3 divide-y"
+        :class="isDark() ? 'divide-zinc-800/70' : 'divide-slate-200/70'"
+      >
+        <li
+          v-for="e in displayedEmployees"
+          :key="e.id"
+          class="relative flex items-center gap-2 pr-2"
+        >
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
+            @click="openPerson(e)"
           >
             <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
               :class="
                 isDark()
-                  ? 'bg-zinc-800/60 text-zinc-100'
-                  : 'bg-slate-100 text-slate-700'
+                  ? 'bg-zinc-800 text-white'
+                  : 'bg-slate-200 text-slate-700'
               "
             >
               {{ getEmployeeInitials(e) }}
             </div>
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="text-sm font-semibold truncate">{{ e.name }}</span>
-                <span
-                  class="shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md"
-                  :class="
-                    isSupervisorJobRole(e.jobRole)
-                      ? isDark()
-                        ? 'bg-violet-500/15 text-violet-300'
-                        : 'bg-violet-50 text-violet-600'
-                      : isDark()
-                      ? 'bg-emerald-500/15 text-emerald-300'
-                      : 'bg-emerald-50 text-emerald-600'
-                  "
-                >
-                  {{ isSupervisorJobRole(e.jobRole) ? "SUP" : "OP" }}
-                </span>
-              </div>
-              <div
-                class="text-xs truncate"
+              <p class="truncate text-sm font-semibold sm:text-base">
+                {{ e.name || e.username }}
+              </p>
+              <p
+                class="mt-0.5 flex items-center gap-1.5 text-xs"
                 :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
               >
-                {{ getEmployeeAssignmentSummary(e) || "Sin asignaci\u00f3n" }}
-              </div>
+                <span
+                  class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
+                  :class="
+                    isSupervisorJobRole(e.jobRole)
+                      ? 'bg-violet-500/15 text-violet-500'
+                      : 'bg-sky-500/15 text-sky-500'
+                  "
+                  >{{ getRoleLabel(e) }}</span
+                >
+                <span class="truncate">{{
+                  getEmployeeAssignmentSummary(e) || "Sin máquinas"
+                }}</span>
+              </p>
+              <p
+                v-if="!isSupervisorJobRole(e.jobRole)"
+                class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+              >
+                <span
+                  class="inline-block rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  :class="
+                    todayById[e.id]?.reportSent
+                      ? isDark()
+                        ? 'bg-emerald-500/15 text-emerald-300'
+                        : 'bg-emerald-50 text-emerald-700'
+                      : isDark()
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-amber-50 text-amber-700'
+                  "
+                >
+                  {{
+                    todayById[e.id]?.reportSent
+                      ? `Reporte enviado ${formatTimeShort(
+                          todayById[e.id]?.reportSentAt
+                        )}`
+                      : "Reporte pendiente"
+                  }}
+                </span>
+                <span
+                  class="text-xs"
+                  :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                >
+                  {{ todayById[e.id]?.registeredCoins || 0 }} monedas hoy
+                </span>
+              </p>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
+            <span
+              aria-hidden="true"
+              :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+              >›</span
+            >
+          </button>
+
+          <div class="relative" data-action-menu>
+            <button
+              type="button"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-lg leading-none"
+              :class="
+                isDark()
+                  ? 'text-zinc-400 hover:bg-zinc-800'
+                  : 'text-slate-500 hover:bg-slate-100'
+              "
+              aria-label="Opciones"
+              @click.stop="toggleActionMenu(e.id)"
+            >
+              ⋯
+            </button>
+            <div
+              v-if="actionMenuOpenId === e.id"
+              class="absolute right-0 top-9 z-20 w-52 rounded-xl border py-1 text-sm shadow-lg"
+              :class="
+                isDark()
+                  ? 'border-zinc-800 bg-zinc-950 text-zinc-100'
+                  : 'border-slate-200 bg-white text-slate-700'
+              "
+            >
+              <button
+                type="button"
+                class="block w-full px-3 py-2 text-left hover:bg-slate-500/10"
+                @click="
+                  openEditModal(e);
+                  closeActionMenu();
+                "
+              >
+                Editar datos y máquinas
+              </button>
               <button
                 v-if="canResetOperatorCoins(e)"
-                class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
-                :class="
-                  isDark()
-                    ? 'text-amber-400 hover:bg-amber-500/10 disabled:opacity-40'
-                    : 'text-amber-600 hover:bg-amber-50 disabled:opacity-40'
-                "
                 type="button"
+                class="block w-full px-3 py-2 text-left hover:bg-slate-500/10"
                 :disabled="isResettingCoins(e.id)"
-                :aria-label="`Resetear monedas de ${e.name}`"
-                :title="`Resetear monedas de ${e.name}`"
-                @click.stop="requestResetOperatorCoins(e)"
+                @click="
+                  requestResetOperatorCoins(e);
+                  closeActionMenu();
+                "
               >
-                <svg
-                  class="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M12 7v5l3 3"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M16 12a4 4 0 01-4 4"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  />
-                </svg>
+                Resetear monedas a 200
               </button>
-              <div class="relative">
-                <button
-                  class="inline-flex h-7 w-7 items-center justify-center rounded-lg transition"
-                  :class="
-                    isDark()
-                      ? 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
-                      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                  "
-                  type="button"
-                  @click.stop="toggleActionMenu(e.id)"
-                >
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <circle cx="12" cy="5" r="2" />
-                    <circle cx="12" cy="12" r="2" />
-                    <circle cx="12" cy="19" r="2" />
-                  </svg>
-                </button>
-                <div
-                  v-if="actionMenuOpenId === e.id"
-                  class="absolute right-0 bottom-full z-20 mb-1 w-40 rounded-xl border py-1 shadow-lg"
-                  :class="
-                    isDark()
-                      ? 'border-zinc-700/70 bg-zinc-900'
-                      : 'border-slate-200 bg-white'
-                  "
-                  data-action-menu
-                >
-                  <button
-                    class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
-                    :class="
-                      isDark()
-                        ? 'text-zinc-200 hover:bg-zinc-800'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    "
-                    type="button"
-                    @click.stop="
-                      openEditModal(e);
-                      closeActionMenu();
-                    "
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0-4-4L4 16v4Z"
-                      />
-                    </svg>
-                    Editar
-                  </button>
-                  <button
-                    class="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition"
-                    :class="
-                      isDark()
-                        ? 'text-red-400 hover:bg-red-500/10'
-                        : 'text-red-600 hover:bg-red-50'
-                    "
-                    type="button"
-                    @click.stop="
-                      handleDeleteEmployee(e.id);
-                      closeActionMenu();
-                    "
-                  >
-                    <svg
-                      class="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M5 7h14"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M10 11v6M14 11v6"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
-                      />
-                    </svg>
-                    Eliminar
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                class="block w-full px-3 py-2 text-left text-rose-500 hover:bg-rose-500/10"
+                @click="
+                  handleDeleteEmployee(e.id);
+                  closeActionMenu();
+                "
+              >
+                Eliminar…
+              </button>
             </div>
           </div>
-        </div>
-      </div>
+        </li>
+      </ul>
     </section>
   </div>
 </template>

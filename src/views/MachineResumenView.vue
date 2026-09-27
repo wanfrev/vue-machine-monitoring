@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, onUnmounted } from "vue";
+import { startVisiblePolling } from "@/utils/visiblePolling";
 import { useRoute, useRouter } from "vue-router";
 import {
   getMachines,
@@ -15,6 +16,7 @@ import { useTheme } from "@/composables/useTheme";
 import { useCoinValues } from "@/composables/useCoinValues";
 import { filterMachinesForRole } from "@/utils/access";
 import { getCoinValueForMachine } from "@/utils/machine";
+import { formatLocalYmd, getMonthToDateRange } from "@/utils/date";
 import {
   getLocalSalesHistory,
   type LocalSaleEntry,
@@ -69,13 +71,7 @@ const { currentRole, isOperator, assignedMachineIds } = useCurrentUser();
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
 
-function formatDate(d: Date) {
-  // Fecha local YYYY-MM-DD (sin convertir a UTC)
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+const formatDate = formatLocalYmd;
 
 function formatShortDate(value?: string | null) {
   if (!value) return null;
@@ -113,13 +109,7 @@ const chartMode = ref<ChartMode>("day");
 const monthPrimary = ref<string>(formatDate(today).slice(0, 7)); // YYYY-MM
 const monthCompare = ref<string>("");
 
-function defaultDateRangeForNow() {
-  // Default: from first day of current month to today
-  const now = new Date();
-  const startObj = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endObj = now;
-  return { start: formatDate(startObj), end: formatDate(endObj) };
-}
+const defaultDateRangeForNow = getMonthToDateRange;
 
 function defaultMonthForNow() {
   return formatDate(new Date()).slice(0, 7);
@@ -205,6 +195,32 @@ const statusDotClass = computed(() => {
   if (status === "maintenance") return "bg-amber-400";
   return "bg-rose-500";
 });
+
+const assignedPeople = computed(() => {
+  const machineId = String(machine.value?.id || "");
+  if (!machineId) return [];
+  return employees.value
+    .filter((e) => (e.assignedMachineIds ?? []).map(String).includes(machineId))
+    .map((e) => ({
+      id: e.id,
+      label: e.name || e.username,
+      isSupervisor: (e.jobRole || "").toLowerCase().includes("supervisor"),
+    }))
+    .sort((a, b) => Number(a.isSupervisor) - Number(b.isSupervisor));
+});
+
+function openPerson(person: {
+  id: number;
+  label: string;
+  isSupervisor: boolean;
+}) {
+  if (person.isSupervisor) return;
+  router.push({
+    name: "employee-report-detail",
+    params: { employeeId: String(person.id) },
+    query: { employeeName: person.label },
+  });
+}
 
 const supervisorLabel = computed(() => {
   const machineId = String(machine.value?.id || "");
@@ -461,7 +477,7 @@ async function loadDailyIncome() {
   }
 }
 
-let refreshInterval: number | undefined;
+let stopPolling: (() => void) | undefined;
 
 async function loadEmployees() {
   try {
@@ -544,11 +560,11 @@ async function fetchAllData() {
 onMounted(() => {
   loadEmployees();
   fetchAllData();
-  refreshInterval = window.setInterval(fetchAllData, 10000); // 10 segundos
+  stopPolling = startVisiblePolling(fetchAllData, 10000); // 10 segundos
 });
 
 onUnmounted(() => {
-  if (refreshInterval) clearInterval(refreshInterval);
+  stopPolling?.();
 });
 
 watch(
@@ -885,6 +901,13 @@ function fmtAmount(n: number) {
         >
           Ubicación: {{ machine?.location || "Sin ubicación" }}
         </p>
+        <p
+          class="mt-1 text-xs"
+          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+        >
+          Creada {{ createdAtLabel || "—" }} · Actualizada
+          {{ updatedAtLabel || "—" }}
+        </p>
       </div>
 
       <div
@@ -898,47 +921,42 @@ function fmtAmount(n: number) {
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
           Personal
         </p>
-        <div class="mt-3 grid gap-2">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-400">Supervisor</span>
-            <span class="text-sm font-semibold">{{ supervisorLabel }}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-slate-400">Operador</span>
-            <span class="text-sm font-semibold">{{ operatorLabel }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        class="rounded-2xl border backdrop-blur-xl px-4 py-4 shadow-sm"
-        :class="
-          isDark()
-            ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-100'
-            : 'bg-white/60 border-slate-200/70 text-slate-900'
-        "
-      >
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-          Fechas
-        </p>
-        <div
-          class="mt-3 flex flex-wrap items-center gap-2 text-sm"
-          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        <p
+          v-if="assignedPeople.length === 0"
+          class="mt-3 text-sm text-slate-400"
         >
-          <span>
-            Creado:
-            <span class="font-semibold">
-              {{ createdAtLabel || "Sin datos" }}
-            </span>
-          </span>
-          <span class="text-slate-400">•</span>
-          <span>
-            Última act.:
-            <span class="font-semibold">
-              {{ updatedAtLabel || "Sin datos" }}
-            </span>
-          </span>
-        </div>
+          Sin personal asignado
+        </p>
+        <ul
+          v-else
+          class="mt-2 divide-y"
+          :class="isDark() ? 'divide-zinc-800/70' : 'divide-slate-200/70'"
+        >
+          <li v-for="person in assignedPeople" :key="person.id">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 py-2 text-left"
+              :disabled="person.isSupervisor"
+              @click="openPerson(person)"
+            >
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold">{{
+                  person.label
+                }}</span>
+                <span class="block text-xs text-slate-400">
+                  {{ person.isSupervisor ? "Supervisor" : "Operadora" }}
+                </span>
+              </span>
+              <span
+                v-if="!person.isSupervisor"
+                class="shrink-0 text-xs font-medium"
+                :class="isDark() ? 'text-sky-300' : 'text-sky-600'"
+              >
+                Ver reportes ›
+              </span>
+            </button>
+          </li>
+        </ul>
       </div>
     </template>
 

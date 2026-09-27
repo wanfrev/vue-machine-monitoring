@@ -62,3 +62,55 @@ export function getWeekStartLocalStr(): string {
   const dayStr = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${dayStr}`;
 }
+
+/** Fecha local YYYY-MM-DD a partir de un objeto Date (sin convertir a UTC). */
+export function formatLocalYmd(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Rango por defecto usado en la mayoría de vistas: del 1° del mes actual a hoy. */
+export function getMonthToDateRange(): { start: string; end: string } {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { start: formatLocalYmd(start), end: formatLocalYmd(now) };
+}
+
+/** "YYYY-MM-DD" -> "lun, 05 ene" */
+export function formatShortDateEs(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return new Intl.DateTimeFormat("es-VE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  }).format(d);
+}
+
+/** timestamp ISO -> "05/01 14:30" */
+export function formatDateTimeEs(value?: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-VE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
+/** timestamp ISO -> "10:32 p. m." (hora de Caracas) */
+export function formatTimeShort(value?: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("es-VE", {
+    timeZone: "America/Caracas",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+}

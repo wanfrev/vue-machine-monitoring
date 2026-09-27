@@ -667,7 +667,7 @@ watch([() => props.machine.id, date], () => {
           >
             <span
               class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-              :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+              :class="dark ? 'text-sky-300' : 'text-sky-600'"
             >
               {{ dailyCoins }}
             </span>
@@ -675,7 +675,7 @@ watch([() => props.machine.id, date], () => {
               class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
               :class="dark ? 'text-zinc-500' : 'text-slate-400'"
             >
-              Monedas hoy
+              Detectó la máquina
             </span>
           </div>
           <div
@@ -683,7 +683,7 @@ watch([() => props.machine.id, date], () => {
           >
             <span
               class="text-[13px] sm:text-base font-semibold leading-none whitespace-nowrap"
-              :class="dark ? 'text-zinc-50' : 'text-slate-900'"
+              :class="dark ? 'text-teal-300' : 'text-teal-600'"
             >
               {{ operatorCoins }}
             </span>
@@ -691,7 +691,7 @@ watch([() => props.machine.id, date], () => {
               class="mt-1 h-[24px] w-full max-w-full px-0.5 text-[10px] uppercase tracking-wide leading-tight break-words"
               :class="dark ? 'text-zinc-500' : 'text-slate-400'"
             >
-              Monedas operador
+              Registró la operadora
             </span>
           </div>
         </div>

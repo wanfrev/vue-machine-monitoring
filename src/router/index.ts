@@ -1,99 +1,80 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
-import DashboardView from "../views/DashboardView.vue";
-import MachinesView from "../views/MachinesView.vue";
-import EmployeesView from "../views/EmployeesView.vue";
-import LoginPage from "../views/LoginPage.vue";
-import MachineDetailLayout from "../views/MachineDetailLayout.vue";
-import MachineResumenView from "../views/MachineResumenView.vue";
-import MachineHistorialView from "../views/MachineHistorialView.vue";
-import MachineEstadisticasView from "../views/MachineEstadisticasView.vue";
-import ProfileView from "../views/ProfileView.vue";
-import ReportsView from "../views/ReportsView.vue";
-import ReportsDailyView from "../views/ReportsDailyView.vue";
-import ReportDetailView from "../views/ReportDetailView.vue";
-import EmployeeSalesDetailView from "../views/EmployeeSalesDetailView.vue";
-import EmployeeDailyReportsView from "../views/EmployeeDailyReportsView.vue";
-import DailySalesView from "../views/DailySalesView.vue";
-import FinanceView from "../views/FinanceView.vue";
-import InventoryView from "../views/InventoryView.vue";
-import OperatorReportsHistoryView from "../views/OperatorReportsHistoryView.vue";
 import { isSupervisorJobRole } from "../utils/access";
 
+function isPrivilegedUser(): boolean {
+  const role = localStorage.getItem("role") || "";
+  const jobRole = localStorage.getItem("jobRole") || "";
+  return role === "admin" || isSupervisorJobRole(jobRole);
+}
+
+// Admin y supervisor no usan estas pantallas: sus datos viven en Máquinas y Equipo.
+const redirectPrivilegedTo =
+  (name: string) =>
+  (_to: unknown, _from: unknown, next: (arg?: { name: string }) => void) =>
+    isPrivilegedUser() ? next({ name }) : next();
+
+// Las vistas se cargan de forma diferida (lazy) para que el primer arranque
+// descargue y procese solo lo necesario, no toda la aplicación.
 const routes: Array<RouteRecordRaw> = [
   {
     path: "/login",
     name: "login",
-    component: LoginPage,
+    component: () => import("../views/LoginPage.vue"),
   },
   {
     path: "/",
     name: "dashboard",
-    component: DashboardView,
+    component: () => import("../views/DashboardView.vue"),
     meta: { requiresAuth: true },
   },
   {
     path: "/machines",
     name: "machines",
-    component: MachinesView,
+    component: () => import("../views/MachinesView.vue"),
     meta: { requiresAuth: true },
+    beforeEnter: redirectPrivilegedTo("dashboard"),
   },
   {
     path: "/reports",
     name: "reports",
-    component: ReportsView,
+    component: () => import("../views/ReportsView.vue"),
     meta: { requiresAuth: true },
+    beforeEnter: redirectPrivilegedTo("employees"),
   },
   {
     path: "/reports-historial",
     name: "reports-historial",
-    component: OperatorReportsHistoryView,
+    component: () => import("../views/OperatorReportsHistoryView.vue"),
     meta: { requiresAuth: true },
   },
   {
     path: "/reports-daily",
     name: "reports-daily",
-    component: ReportsDailyView,
+    component: () => import("../views/ReportsDailyView.vue"),
     meta: { requiresAuth: true },
+    beforeEnter: redirectPrivilegedTo("employees"),
   },
   {
     path: "/reports/employee/:employeeId",
     name: "employee-report-detail",
-    component: EmployeeSalesDetailView,
-    meta: { requiresAuth: true },
-  },
-  {
-    path: "/reports-daily/employee/:employeeId",
-    name: "employee-daily-reports",
-    component: EmployeeDailyReportsView,
+    component: () => import("../views/EmployeeReportDetailView.vue"),
     meta: { requiresAuth: true },
   },
   {
     path: "/reports/:reportId?",
     name: "report-detail",
-    component: ReportDetailView,
+    component: () => import("../views/ReportDetailView.vue"),
     meta: { requiresAuth: true },
   },
   {
     path: "/finanzas",
     name: "finance",
-    component: FinanceView,
+    component: () => import("../views/FinanceView.vue"),
     meta: { requiresAuth: true, requiresFinance: true },
   },
   {
-    path: "/inventory",
-    name: "inventory",
-    component: InventoryView,
-    meta: { requiresAuth: true, requiresInventory: true },
-  },
-  {
-    path: "/daily-sales",
-    name: "daily-sales",
-    component: DailySalesView,
-    meta: { requiresAuth: true },
-  },
-  {
     path: "/machines/:id",
-    component: MachineDetailLayout,
+    component: () => import("../views/MachineDetailLayout.vue"),
     meta: { requiresAuth: true },
     props: true,
     children: [
@@ -104,19 +85,7 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: "resumen",
         name: "machine-resumen",
-        component: MachineResumenView,
-        props: true,
-      },
-      {
-        path: "historial",
-        name: "machine-historial",
-        component: MachineHistorialView,
-        props: true,
-      },
-      {
-        path: "estadisticas",
-        name: "machine-estadisticas",
-        component: MachineEstadisticasView,
+        component: () => import("../views/MachineResumenView.vue"),
         props: true,
       },
     ],
@@ -124,13 +93,13 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: "/employees",
     name: "employees",
-    component: EmployeesView,
+    component: () => import("../views/EmployeesView.vue"),
     meta: { requiresAuth: true, requiresManagement: true },
   },
   {
     path: "/profile",
     name: "profile",
-    component: ProfileView,
+    component: () => import("../views/ProfileView.vue"),
     meta: { requiresAuth: true },
   },
 ];
@@ -146,14 +115,6 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !isAuth) {
     next({ name: "login" });
   } else if (to.meta.requiresFinance) {
-    const role = localStorage.getItem("role") || "";
-    const jobRole = localStorage.getItem("jobRole") || "";
-    if (role !== "admin" && !isSupervisorJobRole(jobRole)) {
-      next({ name: "dashboard" });
-    } else {
-      next();
-    }
-  } else if (to.meta.requiresInventory) {
     const role = localStorage.getItem("role") || "";
     const jobRole = localStorage.getItem("jobRole") || "";
     if (role !== "admin" && !isSupervisorJobRole(jobRole)) {

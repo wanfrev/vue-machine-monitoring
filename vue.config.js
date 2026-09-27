@@ -2,6 +2,8 @@ const { defineConfig } = require("@vue/cli-service");
 
 module.exports = defineConfig({
   transpileDependencies: true,
+  // Los .map pesan ~4 MB y se publicaban junto al sitio sin que la app los use.
+  productionSourceMap: false,
   pwa: {
     name: "MachineHub",
     themeColor: "#ffffff",

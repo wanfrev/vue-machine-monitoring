@@ -8,15 +8,24 @@ import { useMachineActions } from "@/composables/useMachineActions";
 import { useDashboardFilters } from "@/composables/useDashboardFilters";
 import { useCurrentUser } from "@/composables/useCurrentUser";
 import { useTheme } from "@/composables/useTheme";
+import { startVisiblePolling } from "@/utils/visiblePolling";
 import { canAccessMachine, filterMachinesForRole } from "@/utils/access";
 import { machineStatusLabel } from "@/utils/machine";
 import { getTodayLocalStr } from "@/utils/date";
-import { getDailySaleEntries, getMyOperatorCoinBalance } from "@/api/client";
+import {
+  getDailySaleEntries,
+  getMyOperatorCoinBalance,
+  setAuthToken,
+} from "@/api/client";
 import type { DashboardFilterKey, Machine, ToastType } from "@/types/dashboard";
 
 type DashboardMode = "admin" | "supervisor" | "operator";
 
 const OPERATOR_REMAINING_COINS_STORAGE_KEY = "operatorRemainingCoins";
+
+// El tiempo real (sockets) trae monedas y encendido/apagado al instante; este
+// refresco periódico es solo una red de seguridad (y actualiza los totales de la operadora).
+const REFRESH_INTERVAL_MS = 30_000;
 
 function getStoredOperatorRemainingCoins(): number {
   try {
@@ -142,6 +151,8 @@ export function useDashboardBaseData(mode: DashboardMode) {
     scopedMachines,
     ensureUsageDataFresh,
     onUnauthorized: () => {
+      // Sesión vencida: limpiar el token; si no, Login nos rebota al Inicio.
+      setAuthToken(null);
       router.push({ name: "login" });
     },
   });
@@ -288,31 +299,40 @@ export function useDashboardBaseData(mode: DashboardMode) {
     }
   }
 
-  let refreshTimer: number | undefined;
+  let stopPolling: (() => void) | undefined;
+  let disposed = false;
   onMounted(async () => {
     window.addEventListener("click", handleGlobalClick, true);
     window.addEventListener("operator-sale-logged", handleOperatorSaleLogged);
-    await loadDashboardData();
-    await loadOperatorEntriesTotal();
-    await loadOperatorRemainingCoins();
 
-    await startRealtime();
+    // El tiempo real arranca de inmediato y las cargas iniciales van en paralelo:
+    // antes todo era secuencial y los eventos que llegaban mientras cargaban se perdían.
+    const realtimeReady = startRealtime();
+    await Promise.all([
+      loadDashboardData(),
+      loadOperatorEntriesTotal(),
+      loadOperatorRemainingCoins(),
+      canViewNotifications.value ? initNotifications() : Promise.resolve(),
+    ]);
+    await realtimeReady;
 
-    if (canViewNotifications.value) {
-      await initNotifications();
+    // Si el usuario ya salió de esta pantalla mientras cargaba, no dejar
+    // un temporizador vivo que siga corriendo en segundo plano.
+    if (disposed) {
+      stopRealtime();
+      return;
     }
 
-    refreshTimer = window.setInterval(() => {
-      loadDashboardData();
+    stopPolling = startVisiblePolling(() => {
+      void loadDashboardData();
       void loadOperatorEntriesTotal();
       void loadOperatorRemainingCoins();
-    }, 15000);
+    }, REFRESH_INTERVAL_MS);
   });
 
   onUnmounted(() => {
-    if (refreshTimer !== undefined) {
-      clearInterval(refreshTimer);
-    }
+    disposed = true;
+    stopPolling?.();
     window.removeEventListener("click", handleGlobalClick, true);
     window.removeEventListener(
       "operator-sale-logged",
@@ -370,5 +390,6 @@ export function useDashboardBaseData(mode: DashboardMode) {
     toggleStatusMenu,
     toggleMaintenance,
     toggleTestMode,
+    loadDashboardData,
   };
 }

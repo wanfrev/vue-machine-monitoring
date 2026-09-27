@@ -4,8 +4,16 @@ import AppSidebar from "@/components/AppSidebar.vue";
 import NewMachine from "@/components/NewMachine.vue";
 import DashboardHeader from "@/components/DashboardHeader.vue";
 import DashboardNotifications from "@/components/DashboardNotifications.vue";
+import DashboardTodaySummary from "@/components/DashboardTodaySummary.vue";
 import DashboardSearchFilters from "@/components/DashboardSearchFilters.vue";
 import MachineCardsGrid from "@/components/MachineCardsGrid.vue";
+import MachineList from "@/components/MachineList.vue";
+import EditCoinValuesModal from "@/components/EditCoinValuesModal.vue";
+import EditExchangeRateModal from "@/components/EditExchangeRateModal.vue";
+import { onMounted, onUnmounted, ref } from "vue";
+import { deleteMachine } from "@/api/client";
+import { useCurrentUser } from "@/composables/useCurrentUser";
+import type { Machine } from "@/types/dashboard";
 import DashboardToast from "@/components/DashboardToast.vue";
 import { useAdminDashboardData } from "@/composables/useAdminDashboardData";
 import { useOperatorDashboardData } from "@/composables/useOperatorDashboardData";
@@ -73,7 +81,42 @@ const {
   toggleStatusMenu,
   toggleMaintenance,
   toggleTestMode,
+  loadDashboardData,
 } = dashboard;
+
+const { capabilities } = useCurrentUser();
+const settingsOpen = ref(false);
+const isEditPricesOpen = ref(false);
+const isEditExchangeRateOpen = ref(false);
+
+function closeSettings(e: MouseEvent) {
+  if (!(e.target as HTMLElement | null)?.closest("[data-header-menu]")) {
+    settingsOpen.value = false;
+  }
+}
+onMounted(() => window.addEventListener("click", closeSettings, true));
+onUnmounted(() => window.removeEventListener("click", closeSettings, true));
+
+function openCreateMachine() {
+  machineToEdit.value = null;
+  newMachineMode.value = "create";
+  newMachineOpen.value = true;
+}
+
+function openEditMachine(machine: Machine) {
+  machineToEdit.value = machine;
+  newMachineMode.value = "edit";
+  newMachineOpen.value = true;
+}
+
+async function handleDeleteMachine(machine: Machine) {
+  const ok = window.confirm(
+    `¿Eliminar la máquina "${machine.name}"? Esta acción no se puede deshacer.`
+  );
+  if (!ok) return;
+  await deleteMachine(machine.id);
+  await loadDashboardData();
+}
 </script>
 
 <template>
@@ -95,11 +138,24 @@ const {
     @update="handleUpdateMachine"
   />
 
+  <EditCoinValuesModal
+    v-if="capabilities.canEditCoinValues"
+    :open="isEditPricesOpen"
+    :dark="isDark()"
+    @close="isEditPricesOpen = false"
+  />
+  <EditExchangeRateModal
+    v-if="capabilities.canEditExchangeRate"
+    :open="isEditExchangeRateOpen"
+    :dark="isDark()"
+    @close="isEditExchangeRateOpen = false"
+  />
+
   <DashboardToast :toast="toast" :dark="isDark()" @close="hideToast" />
 
   <div
     :class="[
-      'min-h-full px-3 py-4 sm:px-8 sm:py-6 space-y-6',
+      'min-h-screen px-3 py-3 sm:px-8 sm:py-6 space-y-3 sm:space-y-4',
       isDark() ? 'bg-zinc-950' : 'bg-slate-100',
     ]"
   >
@@ -113,6 +169,81 @@ const {
       :dark="isDark()"
       @open-sidebar="sidebarOpen = true"
       @refresh="refreshPage"
+    >
+      <template #actions>
+        <div
+          v-if="isAdmin || capabilities.canEditExchangeRate"
+          class="relative"
+          data-header-menu
+        >
+          <button
+            type="button"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-xl border text-lg leading-none sm:h-10 sm:w-10"
+            :class="
+              isDark()
+                ? 'border-zinc-700 bg-zinc-800 text-zinc-300'
+                : 'border-slate-200 bg-white text-slate-600'
+            "
+            aria-label="Ajustes"
+            @click.stop="settingsOpen = !settingsOpen"
+          >
+            ⚙
+          </button>
+          <div
+            v-if="settingsOpen"
+            class="absolute right-0 top-11 z-30 w-56 rounded-xl border py-1 text-sm shadow-xl"
+            :class="
+              isDark()
+                ? 'border-zinc-800 bg-zinc-950 text-zinc-100'
+                : 'border-slate-200 bg-white text-slate-700'
+            "
+          >
+            <button
+              v-if="isAdmin"
+              type="button"
+              class="block w-full px-3 py-2.5 text-left hover:bg-slate-500/10"
+              @click="
+                openCreateMachine();
+                settingsOpen = false;
+              "
+            >
+              + Nueva máquina
+            </button>
+            <button
+              v-if="capabilities.canEditCoinValues"
+              type="button"
+              class="block w-full px-3 py-2.5 text-left hover:bg-slate-500/10"
+              @click="
+                isEditPricesOpen = true;
+                settingsOpen = false;
+              "
+            >
+              Precio de las monedas
+            </button>
+            <button
+              v-if="capabilities.canEditExchangeRate"
+              type="button"
+              class="block w-full px-3 py-2.5 text-left hover:bg-slate-500/10"
+              @click="
+                isEditExchangeRateOpen = true;
+                settingsOpen = false;
+              "
+            >
+              Tasa de cambio
+            </button>
+          </div>
+        </div>
+      </template>
+    </DashboardHeader>
+
+    <DashboardTodaySummary
+      v-if="!isOperator"
+      :machines="filteredMachines"
+      :daily-coins-by-machine="dailyCoinsByMachine"
+      :total-coins-today="totalCoinsToday"
+      :active-machines="activeMachines"
+      :inactive-machines="inactiveMachines"
+      :dark="isDark()"
     />
 
     <div v-if="isOperator" class="mt-1 mb-2 text-left space-y-1 text-[11px]">
@@ -228,6 +359,21 @@ const {
         }
       "
     />
+    <template v-else-if="!isOperator">
+      <MachineList
+        :machines="filteredMachines"
+        :daily-coins-by-machine="dailyCoinsByMachine"
+        :weekly-coins-by-machine="weeklyCoinsByMachine"
+        :first-on-today-by-machine="firstOnTodayByMachine"
+        :is-admin="isAdmin"
+        :dark="isDark()"
+        @select="goToMachine"
+        @edit="openEditMachine"
+        @toggle-maintenance="toggleMaintenance"
+        @toggle-test-mode="toggleTestMode"
+        @delete="handleDeleteMachine"
+      />
+    </template>
     <MachineCardsGrid
       v-else
       :machines="filteredMachines"

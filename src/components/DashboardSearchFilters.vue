@@ -124,9 +124,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="space-y-2">
     <div
-      class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border backdrop-blur-xl px-4 py-3 shadow-sm sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6"
+      class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-2xl border backdrop-blur-xl px-2.5 py-2 shadow-sm sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-3"
       :class="
         isDark
           ? 'bg-zinc-900/70 border-zinc-800'
@@ -261,16 +261,16 @@ onUnmounted(() => {
     </Teleport>
   </section>
 
-  <div class="mb-4 flex items-center gap-2">
+  <div class="flex items-center gap-2">
     <div
-      class="flex flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain pr-2 sm:flex-nowrap"
+      class="flex flex-1 items-center gap-2 overflow-x-auto overscroll-x-contain pr-2 sm:flex-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <button
         v-for="filter in visibleStateFilters"
         :key="filter"
         @click="selectFilter(filter)"
         :class="[
-          'shrink-0 px-3 py-1 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
+          'shrink-0 px-3 py-1.5 rounded-full font-medium text-xs sm:text-sm cursor-pointer transition',
           selectedFilter === filter
             ? isDark
               ? 'bg-white/10 text-white border border-zinc-700/80 hover:bg-white/15'

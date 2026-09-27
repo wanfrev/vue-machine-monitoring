@@ -153,6 +153,44 @@ export async function getMachinePowerLogs(
   }[];
 }
 
+// Ingresos diarios de TODAS las máquinas en una sola petición
+// (reemplaza una llamada a getMachineDailyIncome por máquina).
+export async function getAllMachinesDailyIncome(params: {
+  startDate: string;
+  endDate?: string;
+}) {
+  const res = await api.get("/api/machines/income/daily", { params });
+  return res.data as { machineId: string; date: string; income: number }[];
+}
+
+// Encendido/apagado de TODAS las máquinas en una sola petición, agrupado por máquina
+// (reemplaza una llamada a getMachinePowerLogs por máquina).
+export async function getAllMachinesPowerLogs(params: {
+  startDate: string;
+  endDate?: string;
+}) {
+  const res = await api.get("/api/machines/power-logs", { params });
+  return res.data as Record<
+    string,
+    {
+      event: "Encendido" | "Apagado";
+      ts: string; // fecha y hora
+      dur: number | null; // duración en minutos cuando aplique
+    }[]
+  >;
+}
+
+type HttpErrorLike = { response?: { status?: number } } | null;
+
+// true si el servidor RESPONDIÓ con un error que no es de sesión (404 porque el backend
+// aún no tiene el endpoint agregado, 500 porque falla, etc.). En ese caso conviene caer
+// al modo anterior por máquina. Un error de red (sin respuesta) o de sesión (401/403)
+// no cuenta: repetir N peticiones no ayudaría y se conservan los últimos datos.
+export function isBatchUnavailableError(err: unknown): boolean {
+  const status = (err as HttpErrorLike)?.response?.status;
+  return typeof status === "number" && status !== 401 && status !== 403;
+}
+
 // Obtener eventos recientes desde el backend (máquinas, monedas, pings)
 export async function getIotEvents(
   params: {
