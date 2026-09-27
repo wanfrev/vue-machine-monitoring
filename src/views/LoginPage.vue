@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { login as apiLogin } from "../api/client";
-import { useTheme } from "@/composables/useTheme";
 
 const username = ref("");
 const password = ref("");
 const error = ref("");
-const { isDark: isDarkRef } = useTheme();
-const isDark = () => isDarkRef.value;
+const submitting = ref(false);
 
 async function login() {
   error.value = "";
@@ -15,6 +13,7 @@ async function login() {
     error.value = "Por favor ingresa usuario y contraseña.";
     return;
   }
+  submitting.value = true;
   try {
     const res = await apiLogin(username.value, password.value);
     // Guardar datos básicos del usuario en localStorage
@@ -73,104 +72,62 @@ async function login() {
     const respMsg = (e as { response?: { data?: { message?: string } } })
       ?.response?.data?.message;
     error.value = respMsg || "Credenciales inválidas.";
+  } finally {
+    submitting.value = false;
   }
 }
 </script>
 
 <template>
-  <div class="login-shell" :class="isDark() ? 'is-dark' : 'is-light'">
-    <div class="login-grid">
-      <section class="login-right">
-        <div class="login-right-overlay"></div>
-        <div class="login-right-content">
-          <div class="login-brand">
-            <img
-              src="/img/icons/K11BOX.webp"
-              alt="MachineHub logo"
-              class="h-16 w-16 rounded-full object-cover ring-1 ring-white/20"
-            />
-            <span class="text-sm font-semibold tracking-[0.2em] text-white">
-              K11 BOX
-            </span>
-          </div>
-          <div class="login-right-text">
-            <p class="text-xs uppercase tracking-[0.3em] text-white/70">
-              Monitor
-            </p>
-            <h2 class="mt-4 text-3xl font-semibold text-white">
-              Control total de tu negocio en tiempo real.
-            </h2>
-            <p class="mt-3 text-sm text-white/70">
-              Supervisa rendimiento, ingresos y actividad sin fricciones.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="login-left">
-        <div class="login-inner">
-          <div class="login-logo-row flex items-center gap-3">
-            <img
-              src="/img/icons/K11BOX.webp"
-              alt="MachineHub logo"
-              class="h-10 w-10 rounded-full object-cover ring-1 ring-slate-200"
-            />
-            <span class="text-sm font-semibold text-slate-900">
-              MachineHub
-            </span>
-          </div>
-
-          <div class="mt-10">
-            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">
-              Bienvenido
-            </h1>
-            <p class="mt-2 text-sm text-slate-500">
-              Ingresa tus credenciales para gestionar la flota.
-            </p>
-          </div>
-
-          <form @submit.prevent="login" class="mt-8 space-y-5">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700">
-                Usuario
-              </label>
-              <input
-                v-model="username"
-                type="text"
-                placeholder="Usuario"
-                class="login-input mt-2 h-[52px] w-full rounded-lg border border-slate-200 bg-white px-4 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-100"
-                autocomplete="username"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-700">
-                Contraseña
-              </label>
-              <input
-                v-model="password"
-                type="password"
-                placeholder="••••••••"
-                class="login-input mt-2 h-[52px] w-full rounded-lg border border-slate-200 bg-white px-4 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-100"
-                autocomplete="current-password"
-              />
-            </div>
-
-            <div v-if="error" class="text-red-500 text-sm text-left">
-              {{ error }}
-            </div>
-
-            <div class="pt-2">
-              <button
-                type="submit"
-                class="login-submit h-[52px] w-full rounded-lg text-sm font-semibold transition"
-              >
-                Iniciar sesión
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
+  <div class="login-shell">
+    <div class="login-glow"></div>
+    <div class="login-ropes" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
     </div>
+
+    <main class="login-card">
+      <div class="login-brand">
+        <img src="/img/icons/K11BOX.webp" alt="K11 Box" class="login-logo" />
+        <span class="login-wordmark">K11 BOX</span>
+        <span class="login-underline"></span>
+      </div>
+
+      <h1 class="login-title">Bienvenido</h1>
+      <p class="login-subtitle">Ingresa tus credenciales para continuar.</p>
+
+      <form @submit.prevent="login" class="login-form">
+        <div>
+          <label class="login-label">Usuario</label>
+          <input
+            v-model="username"
+            type="text"
+            placeholder="Usuario"
+            class="login-input"
+            autocomplete="username"
+          />
+        </div>
+        <div>
+          <label class="login-label">Contraseña</label>
+          <input
+            v-model="password"
+            type="password"
+            placeholder="••••••••"
+            class="login-input"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <p v-if="error" class="login-error">{{ error }}</p>
+
+        <button type="submit" class="login-submit" :disabled="submitting">
+          {{ submitting ? "Entrando…" : "Iniciar sesión" }}
+        </button>
+      </form>
+    </main>
+
+    <p class="login-footer">K11 Box · Boxeo &amp; Agilidad</p>
   </div>
 </template>
 
@@ -179,178 +136,197 @@ async function login() {
 
 .login-shell {
   min-height: 100vh;
-  background: #0b0f14;
-  font-family: "Manrope", "Plus Jakarta Sans", "Segoe UI", sans-serif;
-}
-
-.login-grid {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.login-left {
-  background: #ffffff;
-  display: flex;
-  justify-content: center;
-  border-radius: 24px 24px 0 0;
-  margin-top: -32px;
-  box-shadow: 0 -24px 60px rgba(15, 23, 42, 0.18);
-  position: relative;
-  z-index: 1;
-}
-
-.login-shell.is-dark {
-  background: #050608;
-}
-
-.login-shell.is-dark .login-left {
-  background: #0b0f14;
-  box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.35);
-}
-
-.login-shell.is-dark .login-left h1,
-.login-shell.is-dark .login-left span,
-.login-shell.is-dark .login-left label {
-  color: #e2e8f0;
-}
-
-.login-shell.is-dark .login-left p,
-.login-shell.is-dark .login-left button:not(.login-submit),
-.login-shell.is-dark .login-left .text-slate-500,
-.login-shell.is-dark .login-left .text-slate-400 {
-  color: rgba(226, 232, 240, 0.7);
-}
-
-.login-shell.is-dark .login-input {
-  background: #101317;
-  border-color: rgba(148, 163, 184, 0.25);
-  color: #e2e8f0;
-}
-
-.login-shell.is-dark .login-input::placeholder {
-  color: rgba(226, 232, 240, 0.4);
-}
-
-.login-shell.is-dark .login-input:focus {
-  border-color: #cbd5f5;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
-}
-
-.login-inner {
-  width: 100%;
-  max-width: 520px;
-  padding: 40px 24px 56px;
-}
-
-.login-right {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  min-height: 35vh;
-  background: radial-gradient(
-      circle at 20% 20%,
-      rgba(148, 163, 184, 0.25),
-      transparent 40%
-    ),
-    linear-gradient(135deg, #0b0f14 0%, #111318 45%, #1a1f26 100%);
-  overflow: hidden;
-}
-
-.login-right-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(2, 6, 23, 0.25) 0%,
-    rgba(2, 6, 23, 0.7) 100%
-  );
-}
-
-.login-right-content {
-  position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 20px;
-  text-align: center;
-  max-width: 360px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  background: #060505;
+  font-family: "Manrope", "Segoe UI", sans-serif;
 }
 
-.login-submit {
-  background: #0f172a;
-  color: #ffffff;
+.login-glow {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 720px;
+  height: 720px;
+  max-width: 160vw;
+  background: radial-gradient(
+    circle,
+    rgba(220, 38, 38, 0.28) 0%,
+    rgba(220, 38, 38, 0.08) 35%,
+    transparent 65%
+  );
+  pointer-events: none;
 }
 
-.login-submit:hover {
-  background: #0b1220;
+.login-ropes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
 }
 
-.login-shell.is-dark .login-submit {
-  background: #e2e8f0;
-  color: #0b111a;
+.login-ropes span {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(245, 158, 11, 0.35),
+    transparent
+  );
 }
 
-.login-shell.is-dark .login-submit:hover {
-  background: #cbd5f5;
+.login-ropes span:nth-child(1) {
+  top: 18%;
+}
+.login-ropes span:nth-child(2) {
+  top: 46%;
+}
+.login-ropes span:nth-child(3) {
+  top: 74%;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: #0d0c0c;
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-top: 3px solid #dc2626;
+  border-radius: 20px;
+  padding: 40px 28px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
 }
 
 .login-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.login-right-text {
-  display: none;
+.login-logo {
+  height: 64px;
+  width: 64px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid rgba(220, 38, 38, 0.6);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
 }
 
-.login-logo-row {
-  display: none;
+.login-wordmark {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: #f5f5f4;
 }
 
-@media (min-width: 1024px) {
-  .login-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+.login-underline {
+  width: 36px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #dc2626, #f59e0b);
+}
 
-  .login-left {
-    justify-content: flex-start;
-    margin-top: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
+.login-title {
+  margin-top: 24px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  text-align: center;
+}
 
-  .login-inner {
-    padding: 96px 88px;
-  }
+.login-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #a1a1aa;
+  text-align: center;
+}
 
-  .login-right {
-    align-items: flex-end;
-    justify-content: flex-start;
-    padding: 96px 88px;
-    min-height: 100vh;
-  }
+.login-form {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
 
-  .login-brand {
-    align-items: flex-start;
-  }
+.login-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+  margin-bottom: 6px;
+}
 
-  .login-right-content {
-    align-items: flex-start;
-    text-align: left;
-  }
+.login-input {
+  width: 100%;
+  height: 50px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #171615;
+  padding: 0 16px;
+  font-size: 15px;
+  color: #f4f4f5;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
 
-  .login-right-text {
-    display: block;
-  }
+.login-input::placeholder {
+  color: #71717a;
+}
 
-  .login-logo-row {
-    display: flex;
-  }
+.login-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
+}
+
+.login-error {
+  margin: 0;
+  font-size: 13px;
+  color: #f87171;
+  text-align: left;
+}
+
+.login-submit {
+  margin-top: 4px;
+  height: 50px;
+  border-radius: 12px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transition: filter 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.login-submit:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.login-footer {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #52525b;
 }
 </style>

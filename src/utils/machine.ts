@@ -10,6 +10,14 @@ export function machineStatusDotClass(status: string): string {
   return "bg-red-500";
 }
 
+// Version usada solo en pantallas de admin/supervisor (paleta roja/dorada de
+// marca). La de arriba no se toca: la usa tambien la tarjeta de la operadora.
+export function machineStatusDotClassAdmin(status: string): string {
+  if (status === "active") return "bg-emerald-500";
+  if (status === "maintenance") return "bg-orange-500";
+  return "bg-zinc-500";
+}
+
 const COIN_VALUE_BY_TYPE: Record<string, number> = {
   boxeo: 1,
   agilidad: 1,

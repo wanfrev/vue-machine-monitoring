@@ -128,7 +128,7 @@ function isActiveRoute(name: string) {
         >
           <img
             src="/img/icons/K11BOX.webp"
-            alt="MachineHub"
+            alt="K11 Box"
             class="h-full w-full object-cover"
           />
         </div>
@@ -164,10 +164,10 @@ function isActiveRoute(name: string) {
             isActiveRoute('dashboard')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+                : 'border-red-100 bg-red-50/80 text-red-800'
               : isDark
               ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+              : 'border-transparent text-slate-700 hover:border-red-200/80 hover:bg-red-50/70 hover:text-red-800'
           "
           @click="
             $emit('close');
@@ -178,7 +178,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('dashboard')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-red-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <svg
@@ -232,10 +232,10 @@ function isActiveRoute(name: string) {
             isActiveRoute('reports')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+                : 'border-red-100 bg-red-50/80 text-red-800'
               : isDark
               ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+              : 'border-transparent text-slate-700 hover:border-red-200/80 hover:bg-red-50/70 hover:text-red-800'
           "
           @click="
             $emit('close');
@@ -246,7 +246,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('reports')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-red-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <svg
@@ -291,10 +291,10 @@ function isActiveRoute(name: string) {
             isActiveRoute('reports-historial')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+                : 'border-red-100 bg-red-50/80 text-red-800'
               : isDark
               ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+              : 'border-transparent text-slate-700 hover:border-red-200/80 hover:bg-red-50/70 hover:text-red-800'
           "
           @click="
             $emit('close');
@@ -305,7 +305,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('reports-historial')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-red-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <svg
@@ -353,10 +353,10 @@ function isActiveRoute(name: string) {
             isActiveRoute('finance')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+                : 'border-red-100 bg-red-50/80 text-red-800'
               : isDark
               ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+              : 'border-transparent text-slate-700 hover:border-red-200/80 hover:bg-red-50/70 hover:text-red-800'
           "
           @click="
             $emit('close');
@@ -367,7 +367,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('finance')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-red-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <svg
@@ -433,10 +433,10 @@ function isActiveRoute(name: string) {
             isActiveRoute('employees')
               ? isDark
                 ? 'border-zinc-700/70 bg-zinc-900/70 text-zinc-50'
-                : 'border-sky-100 bg-sky-50/80 text-sky-800'
+                : 'border-red-100 bg-red-50/80 text-red-800'
               : isDark
               ? 'border-transparent text-zinc-200 hover:border-zinc-700/60 hover:bg-zinc-900/40 hover:text-zinc-50'
-              : 'border-transparent text-slate-700 hover:border-sky-200/80 hover:bg-sky-50/70 hover:text-sky-800'
+              : 'border-transparent text-slate-700 hover:border-red-200/80 hover:bg-red-50/70 hover:text-red-800'
           "
           @click="
             $emit('close');
@@ -447,7 +447,7 @@ function isActiveRoute(name: string) {
             <span
               v-if="isActiveRoute('employees')"
               class="h-6 w-0.5 rounded-full"
-              :class="isDark ? 'bg-zinc-400' : 'bg-sky-500'"
+              :class="isDark ? 'bg-zinc-400' : 'bg-red-500'"
             ></span>
             <span class="inline-flex items-center gap-2">
               <svg
@@ -615,7 +615,7 @@ function isActiveRoute(name: string) {
           class="text-center text-[11px] mt-3"
           :class="isDark ? 'text-zinc-500' : 'text-slate-400'"
         >
-          © 2025 MachineHub
+          © 2025 K11 Box
         </p>
       </div>
     </aside>

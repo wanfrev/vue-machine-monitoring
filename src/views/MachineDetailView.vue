@@ -570,7 +570,7 @@ const groupings: { k: Grouping; l: string }[] = [
         <div>
           <p
             class="text-lg font-semibold leading-none"
-            :class="isDark() ? 'text-teal-300' : 'text-teal-600'"
+            :class="isDark() ? 'text-amber-300' : 'text-amber-600'"
           >
             {{ todayRegistered }}
           </p>
@@ -584,7 +584,7 @@ const groupings: { k: Grouping; l: string }[] = [
         <div>
           <p
             class="text-lg font-semibold leading-none"
-            :class="isDark() ? 'text-sky-300' : 'text-sky-600'"
+            :class="isDark() ? 'text-zinc-300' : 'text-zinc-600'"
           >
             {{ todayCoins }}
           </p>
@@ -642,7 +642,7 @@ const groupings: { k: Grouping; l: string }[] = [
               grouping === g.k
                 ? isDark()
                   ? 'bg-zinc-100 text-zinc-900'
-                  : 'bg-sky-500 text-white'
+                  : 'bg-red-500 text-white'
                 : isDark()
                 ? 'text-zinc-300'
                 : 'text-slate-600'
@@ -729,8 +729,8 @@ const groupings: { k: Grouping; l: string }[] = [
                   class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                   :class="
                     isDark()
-                      ? 'bg-teal-500/15 text-teal-300'
-                      : 'bg-teal-50 text-teal-700'
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-amber-50 text-amber-700'
                   "
                 >
                   Operadora {{ row.registered }}
@@ -739,8 +739,8 @@ const groupings: { k: Grouping; l: string }[] = [
                   class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                   :class="
                     isDark()
-                      ? 'bg-sky-500/15 text-sky-300'
-                      : 'bg-sky-50 text-sky-700'
+                      ? 'bg-zinc-500/15 text-zinc-300'
+                      : 'bg-zinc-100 text-zinc-600'
                   "
                 >
                   Máquina {{ row.coins }}
@@ -831,7 +831,7 @@ const groupings: { k: Grouping; l: string }[] = [
             <span
               v-if="!p.isSupervisor"
               class="shrink-0 text-xs font-medium"
-              :class="isDark() ? 'text-sky-300' : 'text-sky-600'"
+              :class="isDark() ? 'text-zinc-300' : 'text-zinc-600'"
               >Ver reportes ›</span
             >
           </button>

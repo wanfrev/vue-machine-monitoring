@@ -6,7 +6,7 @@ import { getDailySales } from "@/api/client";
 import { useCoinValues } from "@/composables/useCoinValues";
 import {
   getIncomeFromCoins,
-  machineStatusDotClass,
+  machineStatusDotClassAdmin,
   machineStatusLabel,
 } from "@/utils/machine";
 import {
@@ -158,7 +158,7 @@ onUnmounted(() => {
         >
           <span
             class="h-2.5 w-2.5 shrink-0 rounded-full"
-            :class="machineStatusDotClass(row.machine.status)"
+            :class="machineStatusDotClassAdmin(row.machine.status)"
             :title="machineStatusLabel(row.machine.status)"
           ></span>
 
@@ -167,32 +167,33 @@ onUnmounted(() => {
               {{ row.machine.name }}
               <span
                 v-if="row.machine.test_mode"
-                class="ml-1 rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-500"
+                class="ml-1 rounded bg-zinc-500/15 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400"
                 >PRUEBA</span
               >
+            </p>
+            <p
+              class="truncate text-xs font-medium"
+              :class="
+                row.machine.status === 'active'
+                  ? dark
+                    ? 'text-emerald-400'
+                    : 'text-emerald-600'
+                  : row.machine.status === 'maintenance'
+                  ? dark
+                    ? 'text-orange-300'
+                    : 'text-orange-600'
+                  : dark
+                  ? 'text-zinc-400'
+                  : 'text-zinc-500'
+              "
+            >
+              {{ stateLine(row.machine) }}
             </p>
             <p
               class="truncate text-xs"
               :class="dark ? 'text-zinc-400' : 'text-slate-500'"
             >
-              <span
-                class="font-medium"
-                :class="
-                  row.machine.status === 'active'
-                    ? dark
-                      ? 'text-emerald-400'
-                      : 'text-emerald-600'
-                    : row.machine.status === 'maintenance'
-                    ? dark
-                      ? 'text-amber-300'
-                      : 'text-amber-600'
-                    : dark
-                    ? 'text-rose-400'
-                    : 'text-rose-600'
-                "
-                >{{ stateLine(row.machine) }}</span
-              >
-              · {{ row.machine.location || "Sin ubicación" }}
+              {{ row.machine.location || "Sin ubicación" }}
             </p>
           </div>
 
@@ -213,8 +214,8 @@ onUnmounted(() => {
                 class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                 :class="
                   dark
-                    ? 'bg-teal-500/15 text-teal-300'
-                    : 'bg-teal-50 text-teal-700'
+                    ? 'bg-amber-500/15 text-amber-300'
+                    : 'bg-amber-50 text-amber-700'
                 "
               >
                 Operadora {{ row.registered }}
@@ -222,7 +223,9 @@ onUnmounted(() => {
               <span
                 class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                 :class="
-                  dark ? 'bg-sky-500/15 text-sky-300' : 'bg-sky-50 text-sky-700'
+                  dark
+                    ? 'bg-zinc-500/15 text-zinc-300'
+                    : 'bg-zinc-100 text-zinc-600'
                 "
               >
                 Máquina {{ row.detected }}

@@ -176,7 +176,7 @@ function submit() {
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label class="block text-sm font-semibold mb-1"
               >Nombre de máquina<span
-                :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                :class="isDark ? 'text-red-400' : 'text-red-500'"
                 >*</span
               ></label
             >
@@ -187,7 +187,7 @@ function submit() {
               :class="
                 isDark
                   ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                  : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
               "
             />
           </div>
@@ -195,7 +195,7 @@ function submit() {
             <div>
               <label class="block text-sm font-semibold mb-1"
                 >Tipo/Modelo<span
-                  :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                  :class="isDark ? 'text-red-400' : 'text-red-500'"
                   >*</span
                 ></label
               >
@@ -205,7 +205,7 @@ function submit() {
                 :class="
                   isDark
                     ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 focus:ring-zinc-400/40 focus:border-zinc-500'
-                    : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                    : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
                 "
                 required
               >
@@ -215,7 +215,7 @@ function submit() {
             </div>
             <div>
               <label class="block text-sm font-semibold mb-1"
-                >Serial<span :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                >Serial<span :class="isDark ? 'text-red-400' : 'text-red-500'"
                   >*</span
                 ></label
               >
@@ -234,7 +234,7 @@ function submit() {
           </div>
           <div>
             <label class="block text-sm font-semibold mb-1"
-              >Ubicación<span :class="isDark ? 'text-red-400' : 'text-sky-500'"
+              >Ubicación<span :class="isDark ? 'text-red-400' : 'text-red-500'"
                 >*</span
               ></label
             >
@@ -246,7 +246,7 @@ function submit() {
               :class="
                 isDark
                   ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                  : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                  : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
               "
               required
             />
@@ -280,7 +280,7 @@ function submit() {
               :class="
                 isDark
                   ? 'border border-zinc-700/60 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 focus-visible:ring-zinc-400/40'
-                  : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
+                  : 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500/50'
               "
             >
               {{

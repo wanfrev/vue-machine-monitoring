@@ -192,8 +192,8 @@ const valuePerCoin = computed(() => {
 const statusDotClass = computed(() => {
   const status = String(machine.value?.status || "inactive");
   if (status === "active") return "bg-emerald-500";
-  if (status === "maintenance") return "bg-amber-400";
-  return "bg-rose-500";
+  if (status === "maintenance") return "bg-orange-500";
+  return "bg-zinc-500";
 });
 
 const assignedPeople = computed(() => {
@@ -950,7 +950,7 @@ function fmtAmount(n: number) {
               <span
                 v-if="!person.isSupervisor"
                 class="shrink-0 text-xs font-medium"
-                :class="isDark() ? 'text-sky-300' : 'text-sky-600'"
+                :class="isDark() ? 'text-amber-300' : 'text-amber-600'"
               >
                 Ver reportes ›
               </span>
@@ -1113,7 +1113,7 @@ function fmtAmount(n: number) {
               chartMode === 'day'
                 ? isDark()
                   ? 'bg-zinc-100/10 text-white'
-                  : 'bg-sky-600 text-white'
+                  : 'bg-red-600 text-white'
                 : isDark()
                 ? 'text-zinc-300 hover:bg-zinc-100/10'
                 : 'text-slate-600 hover:bg-white/40'
@@ -1131,7 +1131,7 @@ function fmtAmount(n: number) {
               chartMode === 'hour'
                 ? isDark()
                   ? 'bg-zinc-100/10 text-white'
-                  : 'bg-sky-600 text-white'
+                  : 'bg-red-600 text-white'
                 : isDark()
                 ? 'text-zinc-300 hover:bg-zinc-100/10'
                 : 'text-slate-600 hover:bg-white/40'
@@ -1150,7 +1150,7 @@ function fmtAmount(n: number) {
               chartMode === 'month'
                 ? isDark()
                   ? 'bg-zinc-100/10 text-white'
-                  : 'bg-sky-600 text-white'
+                  : 'bg-red-600 text-white'
                 : isDark()
                 ? 'text-zinc-300 hover:bg-zinc-100/10'
                 : 'text-slate-600 hover:bg-white/40'
@@ -1325,7 +1325,7 @@ function fmtAmount(n: number) {
       class="mt-4 text-sm"
       :class="isDark() ? 'text-zinc-300' : 'text-slate-600'"
     >
-      <span class="inline-block h-3 w-3 rounded-sm bg-emerald-500"></span>
+      <span class="inline-block h-3 w-3 rounded-sm bg-amber-500"></span>
       <span class="ml-2">
         {{
           chartMode === "month"

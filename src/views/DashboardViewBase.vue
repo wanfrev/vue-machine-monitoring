@@ -210,17 +210,6 @@ async function handleDeleteMachine(machine: Machine) {
               + Nueva máquina
             </button>
             <button
-              v-if="capabilities.canEditCoinValues"
-              type="button"
-              class="block w-full px-3 py-2.5 text-left hover:bg-slate-500/10"
-              @click="
-                isEditPricesOpen = true;
-                settingsOpen = false;
-              "
-            >
-              Precio de las monedas
-            </button>
-            <button
               v-if="capabilities.canEditExchangeRate"
               type="button"
               class="block w-full px-3 py-2.5 text-left hover:bg-slate-500/10"
@@ -229,7 +218,18 @@ async function handleDeleteMachine(machine: Machine) {
                 settingsOpen = false;
               "
             >
-              Tasa de cambio
+              Editar tasa
+            </button>
+            <button
+              v-if="capabilities.canEditCoinValues"
+              type="button"
+              class="block w-full px-3 py-2.5 text-left hover:bg-slate-500/10"
+              @click="
+                isEditPricesOpen = true;
+                settingsOpen = false;
+              "
+            >
+              Editar precios
             </button>
           </div>
         </div>

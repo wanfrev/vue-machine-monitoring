@@ -500,7 +500,7 @@ const peopleFilters: { k: PeopleFilter; l: string }[] = [
         >
           <img
             src="/img/icons/K11BOX.webp"
-            alt="MachineHub logo"
+            alt="K11 Box logo"
             class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg"
           />
         </button>
@@ -518,7 +518,7 @@ const peopleFilters: { k: PeopleFilter; l: string }[] = [
       </div>
       <button
         type="button"
-        class="rounded-xl bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500"
+        class="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
         @click="openCreateModal"
       >
         + Nuevo
@@ -550,7 +550,7 @@ const peopleFilters: { k: PeopleFilter; l: string }[] = [
               peopleFilter === f.k
                 ? isDark()
                   ? 'border-zinc-200 bg-zinc-100 text-zinc-900'
-                  : 'border-sky-500 bg-sky-500 text-white'
+                  : 'border-red-500 bg-red-500 text-white'
                 : isDark()
                 ? 'border-zinc-700/60 text-zinc-300'
                 : 'border-slate-200 text-slate-600'
@@ -629,7 +629,7 @@ const peopleFilters: { k: PeopleFilter; l: string }[] = [
                   :class="
                     isSupervisorJobRole(e.jobRole)
                       ? 'bg-violet-500/15 text-violet-500'
-                      : 'bg-sky-500/15 text-sky-500'
+                      : 'bg-zinc-500/15 text-zinc-400'
                   "
                   >{{ getRoleLabel(e) }}</span
                 >
@@ -646,11 +646,11 @@ const peopleFilters: { k: PeopleFilter; l: string }[] = [
                   :class="
                     todayById[e.id]?.reportSent
                       ? isDark()
-                        ? 'bg-emerald-500/15 text-emerald-300'
-                        : 'bg-emerald-50 text-emerald-700'
+                        ? 'bg-amber-500/15 text-amber-300'
+                        : 'bg-amber-50 text-amber-700'
                       : isDark()
-                      ? 'bg-amber-500/15 text-amber-300'
-                      : 'bg-amber-50 text-amber-700'
+                      ? 'bg-orange-500/15 text-orange-300'
+                      : 'bg-orange-50 text-orange-700'
                   "
                 >
                   {{
@@ -673,6 +673,25 @@ const peopleFilters: { k: PeopleFilter; l: string }[] = [
               aria-hidden="true"
               :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
               >›</span
+            >
+          </button>
+
+          <button
+            v-if="canResetOperatorCoins(e)"
+            type="button"
+            class="shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium transition"
+            :class="
+              isDark()
+                ? 'border-zinc-700/60 text-zinc-300 hover:bg-zinc-800'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            "
+            :disabled="isResettingCoins(e.id)"
+            :title="'Recargar monedas a 200'"
+            @click.stop="requestResetOperatorCoins(e)"
+          >
+            🪙 {{ e.operatorCoinBalance ?? 200 }}
+            <span :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+              >↻</span
             >
           </button>
 

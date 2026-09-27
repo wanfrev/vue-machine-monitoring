@@ -80,7 +80,7 @@ function handleRefresh() {
         >
           <img
             src="/img/icons/K11BOX.webp"
-            alt="MachineHub logo"
+            alt="K11 Box logo"
             class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
           />
         </button>
@@ -88,7 +88,7 @@ function handleRefresh() {
           <h1
             class="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight truncate"
           >
-            {{ isOperator ? "MachineHub" : "Máquinas" }}
+            {{ isOperator ? "K11 Box" : "Máquinas" }}
           </h1>
           <p
             class="text-xs truncate"

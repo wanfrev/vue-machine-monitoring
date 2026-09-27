@@ -525,6 +525,8 @@ export async function getInventorySummary(params: {
       coinLossBolivares: number;
       total: number;
       totalUsdEquivalent: number;
+      premioUsdEquivalent: number;
+      netUsdEquivalent: number;
       events: {
         record: number;
         premio: number;
@@ -549,6 +551,8 @@ export async function getInventorySummary(params: {
       coinLossBolivares: number;
       total: number;
       totalUsdEquivalent: number;
+      premioUsdEquivalent: number;
+      netUsdEquivalent: number;
       events: {
         record: number;
         premio: number;

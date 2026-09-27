@@ -207,7 +207,7 @@ function submit() {
               <div>
                 <label class="block text-sm font-semibold mb-1"
                   >Nombre completo<span
-                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    :class="isDark ? 'text-red-400' : 'text-red-500'"
                     >*</span
                   ></label
                 >
@@ -218,7 +218,7 @@ function submit() {
                   :class="
                     isDark
                       ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
                   "
                   required
                 />
@@ -230,7 +230,7 @@ function submit() {
               <div>
                 <label class="block text-sm font-semibold mb-1"
                   >Usuario<span
-                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    :class="isDark ? 'text-red-400' : 'text-red-500'"
                     >*</span
                   ></label
                 >
@@ -241,7 +241,7 @@ function submit() {
                   :class="
                     isDark
                       ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
                   "
                   required
                   :readonly="props.mode === 'edit'"
@@ -252,7 +252,7 @@ function submit() {
                   Contraseña
                   <span
                     v-if="props.mode !== 'edit'"
-                    :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                    :class="isDark ? 'text-red-400' : 'text-red-500'"
                     >*</span
                   >
                 </label>
@@ -263,7 +263,7 @@ function submit() {
                   :class="
                     isDark
                       ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 placeholder-zinc-500 focus:ring-zinc-400/40 focus:border-zinc-500'
-                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
                   "
                   :required="props.mode !== 'edit'"
                   :placeholder="
@@ -279,7 +279,7 @@ function submit() {
             <div class="grid grid-cols-1 gap-4">
               <div>
                 <label class="block text-sm font-semibold mb-1"
-                  >Rol<span :class="isDark ? 'text-red-400' : 'text-sky-500'"
+                  >Rol<span :class="isDark ? 'text-red-400' : 'text-red-500'"
                     >*</span
                   ></label
                 >
@@ -289,7 +289,7 @@ function submit() {
                   :class="
                     isDark
                       ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 focus:ring-zinc-400/40 focus:border-zinc-500'
-                      : 'border-slate-200 bg-white text-slate-700 focus:ring-sky-500/40 focus:border-sky-400'
+                      : 'border-slate-200 bg-white text-slate-700 focus:ring-red-500/40 focus:border-red-400'
                   "
                   required
                 >
@@ -311,7 +311,7 @@ function submit() {
                 :class="
                   isDark
                     ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-200 hover:bg-zinc-100/10'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-sky-400 hover:bg-sky-50/40'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-red-400 hover:bg-red-50/40'
                 "
                 @click="openMachineModal"
               >
@@ -402,7 +402,7 @@ function submit() {
               :class="
                 isDark
                   ? 'border border-zinc-700/60 bg-zinc-100 text-zinc-900 hover:bg-zinc-200 focus-visible:ring-zinc-400/40'
-                  : 'bg-sky-600 text-white hover:bg-sky-700 focus-visible:ring-sky-500/50'
+                  : 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500/50'
               "
             >
               <span class="text-lg ml-0">

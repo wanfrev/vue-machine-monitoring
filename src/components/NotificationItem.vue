@@ -31,8 +31,8 @@ const iconToneClass = computed(() => {
   }
   if (props.notification.type === "daily_report") {
     return isDark.value
-      ? "bg-sky-500/15 text-sky-200"
-      : "bg-sky-100 text-sky-700";
+      ? "bg-orange-500/15 text-orange-200"
+      : "bg-orange-100 text-orange-700";
   }
   return isDark.value
     ? "bg-zinc-800/70 text-zinc-200"

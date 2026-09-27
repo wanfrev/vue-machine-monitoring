@@ -77,8 +77,8 @@ function isActive(item: NavItem) {
           :class="
             isActive(item)
               ? isDark()
-                ? 'bg-sky-500/20 text-sky-300'
-                : 'bg-sky-500/15 text-sky-700'
+                ? 'bg-red-500/20 text-red-300'
+                : 'bg-red-500/15 text-red-700'
               : isDark()
               ? 'text-zinc-400'
               : 'text-slate-500'

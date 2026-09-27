@@ -5,9 +5,9 @@ module.exports = defineConfig({
   // Los .map pesan ~4 MB y se publicaban junto al sitio sin que la app los use.
   productionSourceMap: false,
   pwa: {
-    name: "MachineHub",
-    themeColor: "#ffffff",
-    msTileColor: "#ffffff",
+    name: "K11 Box",
+    themeColor: "#0a0a0a",
+    msTileColor: "#0a0a0a",
     iconPaths: {
       // Usamos los iconos generados a partir de K11BOX
       favicon32: "img/icons/icon-no-padding-192.png",

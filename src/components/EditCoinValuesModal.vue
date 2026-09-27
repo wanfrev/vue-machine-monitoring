@@ -203,7 +203,7 @@ async function save() {
                   :class="
                     isDark
                       ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
-                      : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/40'
+                      : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
                   "
                 />
               </div>
@@ -222,7 +222,7 @@ async function save() {
                   :class="
                     isDark
                       ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
-                      : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/40'
+                      : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
                   "
                 />
               </div>
@@ -241,7 +241,7 @@ async function save() {
                   :class="
                     isDark
                       ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
-                      : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/40'
+                      : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
                   "
                 />
               </div>
@@ -251,7 +251,7 @@ async function save() {
             <p
               v-else-if="ok"
               class="text-sm"
-              :class="isDark ? 'text-emerald-300' : 'text-emerald-700'"
+              :class="isDark ? 'text-amber-300' : 'text-amber-700'"
             >
               {{ ok }}
             </p>

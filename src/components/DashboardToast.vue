@@ -35,8 +35,8 @@ const toastClasses = computed(() => {
   }
   if (t === "daily_report") {
     return isDark.value
-      ? "bg-sky-500/10 border-sky-500/30 text-sky-100"
-      : "bg-sky-50 border-sky-200 text-sky-900";
+      ? "bg-orange-500/10 border-orange-500/30 text-orange-100"
+      : "bg-orange-50 border-orange-200 text-orange-900";
   }
   return isDark.value
     ? "bg-zinc-900/80 border-zinc-700/60 text-white"
@@ -47,7 +47,7 @@ const toastAccentClass = computed(() => {
   const t = props.toast?.type;
   if (t === "machine_on") return "bg-emerald-400";
   if (t === "machine_off") return "bg-rose-400";
-  if (t === "daily_report") return "bg-sky-400";
+  if (t === "daily_report") return "bg-orange-400";
   return isDark.value ? "bg-zinc-500" : "bg-slate-400";
 });
 
@@ -65,8 +65,8 @@ const toastIconClass = computed(() => {
   }
   if (t === "daily_report") {
     return isDark.value
-      ? "bg-sky-500/15 text-sky-200"
-      : "bg-sky-100 text-sky-700";
+      ? "bg-orange-500/15 text-orange-200"
+      : "bg-orange-100 text-orange-700";
   }
   return isDark.value
     ? "bg-zinc-800/80 text-zinc-200"

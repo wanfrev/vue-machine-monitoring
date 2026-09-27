@@ -184,7 +184,7 @@ watch(
           :class="
             isDark()
               ? 'border-zinc-700/60 bg-zinc-950/20 text-zinc-100 hover:bg-zinc-950/30'
-              : 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100/60'
+              : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100/60'
           "
           aria-label="Refrescar"
           title="Refrescar"
@@ -363,7 +363,7 @@ watch(
             isActive('machine-resumen')
               ? isDark()
                 ? 'text-zinc-100 border-b-2 border-zinc-200'
-                : 'text-sky-600 border-b-2 border-sky-500'
+                : 'text-red-600 border-b-2 border-red-500'
               : isDark()
               ? 'border-b-2 border-transparent hover:text-zinc-100 hover:border-zinc-600'
               : 'border-b-2 border-transparent hover:text-slate-900 hover:border-slate-300'
@@ -377,7 +377,7 @@ watch(
     <RouterView />
 
     <footer class="mt-6 text-center text-xs text-slate-400">
-      © 2025 MachineHub – Detalles de máquina
+      © 2025 K11 Box – Detalles de máquina
     </footer>
   </div>
 </template>

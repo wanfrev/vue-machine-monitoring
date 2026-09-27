@@ -35,8 +35,8 @@ export function getNotificationCardClass(
   }
   if (type === "daily_report") {
     return isDark
-      ? "border-sky-500/30 bg-sky-500/10"
-      : "border-sky-200 bg-sky-50/80";
+      ? "border-orange-500/30 bg-orange-500/10"
+      : "border-orange-200 bg-orange-50/80";
   }
   return isDark
     ? "border-zinc-800/70 bg-zinc-900/60"

@@ -171,7 +171,7 @@ async function save() {
                 :class="
                   isDark
                     ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
-                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/40'
+                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
                 "
                 autocomplete="name"
               />
@@ -190,7 +190,7 @@ async function save() {
                 :class="
                   isDark
                     ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
-                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/40'
+                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
                 "
                 autocomplete="username"
               />
@@ -218,7 +218,7 @@ async function save() {
                 :class="
                   isDark
                     ? 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'
-                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                    : 'bg-red-600 text-white hover:bg-red-700'
                 "
                 :disabled="saving"
                 @click="save"

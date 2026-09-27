@@ -131,7 +131,7 @@ function logout() {
           <button
             type="button"
             class="relative inline-flex h-7 w-12 items-center rounded-full transition"
-            :class="isDark() ? 'bg-emerald-400/80' : 'bg-slate-200'"
+            :class="isDark() ? 'bg-red-500/80' : 'bg-slate-200'"
             role="switch"
             :aria-checked="isDark()"
             @click="toggleDarkMode()"

@@ -226,11 +226,11 @@ onUnmounted(() => {
             :class="
               row.reportSent
                 ? dark
-                  ? 'bg-emerald-500/15 text-emerald-300'
-                  : 'bg-emerald-50 text-emerald-700'
+                  ? 'bg-amber-500/15 text-amber-300'
+                  : 'bg-amber-50 text-amber-700'
                 : dark
-                ? 'bg-amber-500/15 text-amber-300'
-                : 'bg-amber-50 text-amber-700'
+                ? 'bg-orange-500/15 text-orange-300'
+                : 'bg-orange-50 text-orange-700'
             "
           >
             {{

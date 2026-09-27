@@ -53,7 +53,7 @@ function createMachine() {
         >
           <img
             src="/img/icons/K11BOX.webp"
-            alt="MachineHub logo"
+            alt="K11 Box logo"
             class="h-7 w-7 sm:h-8 sm:w-8 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
           />
         </button>

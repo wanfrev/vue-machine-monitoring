@@ -139,7 +139,7 @@ async function save() {
             <p
               v-else-if="ok"
               class="mt-2 text-sm"
-              :class="isDark ? 'text-emerald-300' : 'text-emerald-700'"
+              :class="isDark ? 'text-amber-300' : 'text-amber-700'"
             >
               {{ ok }}
             </p>

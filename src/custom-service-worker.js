@@ -50,7 +50,7 @@ self.addEventListener("push", function (event) {
   };
 
   const show = async (payload) => {
-    const title = payload.title || "MachineHub";
+    const title = payload.title || "K11 Box";
     const eventType =
       (payload.data && (payload.data.eventType || payload.data.type)) || null;
     const vibrate =
