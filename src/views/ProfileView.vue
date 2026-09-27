@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { setAuthToken } from "../api/client";
 import { useTheme } from "@/composables/useTheme";
 import EditProfileModal from "@/components/EditProfileModal.vue";
 import { useCurrentUser } from "@/composables/useCurrentUser";
+import { useServiceWorkerUpdate } from "@/composables/useServiceWorkerUpdate";
 
 const router = useRouter();
 const { isDark: isDarkRef, toggleDarkMode } = useTheme();
@@ -28,8 +29,9 @@ const initials = computed(() => {
 
 const isEditProfileOpen = ref(false);
 
-const showUpdateCard = ref(false);
-let swRegistration: ServiceWorkerRegistration | null = null;
+// El aviso de "nueva versión" ahora es un banner global (ver App.vue); aquí
+// solo se reutiliza el mismo estado por si se quiere un botón de respaldo.
+const { showUpdateCard, applyUpdate } = useServiceWorkerUpdate();
 
 function openEditProfile() {
   isEditProfileOpen.value = true;
@@ -43,53 +45,6 @@ function logout() {
   setAuthToken(null);
   router.push({ name: "login" });
 }
-
-function applyUpdate() {
-  if (swRegistration && swRegistration.waiting) {
-    // Ask the waiting SW to skipWaiting, then reload on controllerchange
-    swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
-  }
-}
-
-function onSwUpdated(ev: Event) {
-  const custom = ev as CustomEvent<ServiceWorkerRegistration>;
-  swRegistration = custom.detail;
-  showUpdateCard.value = true;
-}
-
-function onControllerChange() {
-  window.location.reload();
-}
-
-async function checkWaitingSw() {
-  if (!("serviceWorker" in navigator)) return;
-  try {
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (registration && registration.waiting) {
-      swRegistration = registration;
-      showUpdateCard.value = true;
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-onMounted(() => {
-  window.addEventListener("swUpdated", onSwUpdated);
-  navigator.serviceWorker?.addEventListener(
-    "controllerchange",
-    onControllerChange
-  );
-  checkWaitingSw();
-});
-
-onUnmounted(() => {
-  window.removeEventListener("swUpdated", onSwUpdated);
-  navigator.serviceWorker?.removeEventListener(
-    "controllerchange",
-    onControllerChange
-  );
-});
 </script>
 
 <template>

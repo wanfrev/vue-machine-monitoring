@@ -2,6 +2,7 @@
 import { ref, provide, onMounted, onUnmounted, watch, computed } from "vue";
 import { useRoute } from "vue-router";
 import AppBottomNav from "@/components/AppBottomNav.vue";
+import UpdateAvailableBanner from "@/components/UpdateAvailableBanner.vue";
 import { resolveRoleKind } from "@/utils/access";
 
 const route = useRoute();
@@ -64,5 +65,6 @@ watch(darkMode, (value) => {
   >
     <router-view />
     <AppBottomNav v-if="showFloatingNav" />
+    <UpdateAvailableBanner />
   </div>
 </template>

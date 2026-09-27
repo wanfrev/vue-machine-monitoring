@@ -53,6 +53,10 @@ fi
 cd "$APP_DIR"
 [ -d .git ] || die "$APP_DIR no es un repositorio git"
 
+# yarn.lock cambia solo (win32<->linux en dependencias opcionales) cada vez
+# que se corre yarn en este servidor; es ruido inofensivo, npm ci ni lo lee.
+git diff --quiet -- yarn.lock 2>/dev/null || git checkout -- yarn.lock
+
 if ! git diff --quiet || ! git diff --cached --quiet; then
   die "Hay cambios sin commit en el servidor. Revisa con: git -C $APP_DIR status"
 fi
