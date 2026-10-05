@@ -17,6 +17,9 @@ const error = ref<string | null>(null);
 
 const name = ref("");
 const username = ref("");
+const currentPassword = ref("");
+const newPassword = ref("");
+const confirmPassword = ref("");
 
 function getApiErrorMessage(e: unknown): string | null {
   const msg = (e as { response?: { data?: { message?: string } } })?.response
@@ -46,6 +49,9 @@ watch(
     } else {
       error.value = null;
     }
+    currentPassword.value = "";
+    newPassword.value = "";
+    confirmPassword.value = "";
   }
 );
 
@@ -68,11 +74,36 @@ async function save() {
     return;
   }
 
+  const wantsPasswordChange =
+    newPassword.value !== "" ||
+    confirmPassword.value !== "" ||
+    currentPassword.value !== "";
+  if (wantsPasswordChange) {
+    if (!currentPassword.value) {
+      error.value = "Escribe tu contraseña actual para cambiarla.";
+      return;
+    }
+    if (newPassword.value.length < 6) {
+      error.value = "La contraseña nueva debe tener al menos 6 caracteres.";
+      return;
+    }
+    if (newPassword.value !== confirmPassword.value) {
+      error.value = "La confirmación no coincide con la contraseña nueva.";
+      return;
+    }
+  }
+
   saving.value = true;
   try {
     const updated = await apiUpdateMe({
       name: nextName,
       username: nextUsername,
+      ...(wantsPasswordChange
+        ? {
+            currentPassword: currentPassword.value,
+            newPassword: newPassword.value,
+          }
+        : {}),
     });
 
     localStorage.setItem("userName", updated?.name || updated?.username);
@@ -130,7 +161,7 @@ async function save() {
               class="mt-0.5 text-xs"
               :class="isDark ? 'text-zinc-400' : 'text-slate-500'"
             >
-              Cambia tu nombre y usuario
+              Cambia tu nombre, usuario o contraseña
             </p>
           </div>
           <button
@@ -193,6 +224,60 @@ async function save() {
                     : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
                 "
                 autocomplete="username"
+              />
+            </div>
+
+            <div
+              class="border-t pt-3"
+              :class="isDark ? 'border-zinc-800/70' : 'border-slate-200'"
+            >
+              <p
+                class="text-xs font-semibold"
+                :class="isDark ? 'text-zinc-200' : 'text-slate-700'"
+              >
+                Cambiar contraseña
+              </p>
+              <p
+                class="mt-0.5 text-[11px]"
+                :class="isDark ? 'text-zinc-500' : 'text-slate-400'"
+              >
+                Déjalo en blanco si no quieres cambiarla.
+              </p>
+              <input
+                v-model="currentPassword"
+                type="password"
+                placeholder="Contraseña actual"
+                class="mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none"
+                :class="
+                  isDark
+                    ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
+                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
+                "
+                autocomplete="current-password"
+              />
+              <input
+                v-model="newPassword"
+                type="password"
+                placeholder="Contraseña nueva (mínimo 6)"
+                class="mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none"
+                :class="
+                  isDark
+                    ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
+                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
+                "
+                autocomplete="new-password"
+              />
+              <input
+                v-model="confirmPassword"
+                type="password"
+                placeholder="Repite la contraseña nueva"
+                class="mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none"
+                :class="
+                  isDark
+                    ? 'border-zinc-800/70 bg-zinc-950/20 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400/40'
+                    : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-red-500/40'
+                "
+                autocomplete="new-password"
               />
             </div>
 

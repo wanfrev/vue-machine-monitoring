@@ -456,10 +456,19 @@ export async function getMe() {
   };
 }
 
-export async function updateMe(payload: { name?: string; username?: string }) {
+export async function updateMe(payload: {
+  name?: string;
+  username?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}) {
   const body: any = {};
   if (typeof payload.name === "string") body.name = payload.name;
   if (typeof payload.username === "string") body.username = payload.username;
+  if (payload.newPassword) {
+    body.currentPassword = payload.currentPassword ?? "";
+    body.newPassword = payload.newPassword;
+  }
   const res = await api.put("/api/users/me", body);
   return res.data;
 }
