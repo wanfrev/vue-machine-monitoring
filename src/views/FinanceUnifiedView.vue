@@ -7,8 +7,10 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import type { ChartDataset } from "chart.js";
 import {
+  getAllMachinesDailyIncome,
+  getDailySaleEntries,
+  getDailySales,
   getInventorySummary,
-  getMachineDailyIncome,
   getMachines,
   getUsers,
 } from "@/api/client";
@@ -27,7 +29,9 @@ type MachineRow = {
   status?: string;
 };
 
-type DayCoins = { date: string; coins: number };
+// machineId -> (fecha YYYY-MM-DD -> monedas)
+type CoinsByDay = Map<string, Map<string, number>>;
+type Mermas = { lost: number; returned: number };
 
 type ReportEvents = {
   record: number;
@@ -36,15 +40,12 @@ type ReportEvents = {
   devueltas: number;
 };
 
-// Cierre de caja reportado por la operadora (employee_daily_reports, via
-// /api/inventory): esta es la fuente "oficial" de ingreso. Las monedas de la
-// tabla `coins` (detectadas por la maquina) se muestran aparte, solo como
-// verificacion.
-type ReportMachineRow = {
+// Cierre de caja que envia la operadora (employee_daily_reports, via
+// /api/inventory): es lo que realmente se cobro (pago movil, bolivares,
+// dolares) menos premios. Va aparte de lo que se registro y de lo que detecto
+// la maquina.
+type CashRow = {
   availableCoins: number;
-  soldCoins: number;
-  lostCoins: number;
-  returnedCoins: number;
   pagoMovil: number;
   dolares: number;
   bolivares: number;
@@ -55,8 +56,6 @@ type ReportMachineRow = {
   events: ReportEvents;
 };
 
-type ReportSummary = ReportMachineRow;
-
 const ZERO_EVENTS: ReportEvents = {
   record: 0,
   premio: 0,
@@ -64,11 +63,8 @@ const ZERO_EVENTS: ReportEvents = {
   devueltas: 0,
 };
 
-const ZERO_REPORT: ReportSummary = {
+const ZERO_CASH: CashRow = {
   availableCoins: 0,
-  soldCoins: 0,
-  lostCoins: 0,
-  returnedCoins: 0,
   pagoMovil: 0,
   dolares: 0,
   bolivares: 0,
@@ -80,7 +76,7 @@ const ZERO_REPORT: ReportSummary = {
 };
 
 type Tab = "maquinas" | "evolucion" | "supervisores";
-type Preset = "hoy" | "semana" | "mes" | "custom";
+type Preset = "ayer" | "hoy" | "semana" | "mes" | "custom";
 
 const { isDark: isDarkRef } = useTheme();
 const isDark = () => isDarkRef.value;
@@ -92,9 +88,11 @@ const router = useRouter();
 const sidebarOpen = ref(false);
 const loading = ref(false);
 const machines = ref<MachineRow[]>([]);
-const coinsByMachine = ref<Map<string, DayCoins[]>>(new Map());
-const reportsSummary = ref<ReportSummary>(ZERO_REPORT);
-const reportsByMachine = ref<Map<string, ReportMachineRow>>(new Map());
+const detectedByMachine = ref<CoinsByDay>(new Map());
+const registeredByMachine = ref<CoinsByDay>(new Map());
+const mermasByMachine = ref<Map<string, Mermas>>(new Map());
+const cashSummary = ref<CashRow>(ZERO_CASH);
+const cashByMachine = ref<Map<string, CashRow>>(new Map());
 const supervisors = ref<{ id: number; name: string; machineIds: string[] }[]>(
   []
 );
@@ -110,24 +108,29 @@ function toggleExpanded(machineId: string) {
 }
 
 const activeTab = ref<Tab>("maquinas");
-const preset = ref<Preset>("hoy");
+const preset = ref<Preset>("ayer");
 const chartMachineId = ref("all");
 
-const todayStr = () => formatLocalYmd(new Date());
-const startDate = ref(todayStr());
-const endDate = ref(todayStr());
+function daysAgoStr(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return formatLocalYmd(d);
+}
+
+const startDate = ref(daysAgoStr(1));
+const endDate = ref(daysAgoStr(1));
 
 function applyPreset(p: Preset) {
   preset.value = p;
-  const today = todayStr();
-  if (p === "hoy") {
-    startDate.value = today;
-    endDate.value = today;
+  if (p === "ayer") {
+    startDate.value = daysAgoStr(1);
+    endDate.value = daysAgoStr(1);
+  } else if (p === "hoy") {
+    startDate.value = daysAgoStr(0);
+    endDate.value = daysAgoStr(0);
   } else if (p === "semana") {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    startDate.value = formatLocalYmd(d);
-    endDate.value = today;
+    startDate.value = daysAgoStr(6);
+    endDate.value = daysAgoStr(0);
   } else if (p === "mes") {
     const r = getMonthToDateRange();
     startDate.value = r.start;
@@ -144,72 +147,140 @@ function onCustomEnd(v: string) {
   endDate.value = v;
 }
 
-function dayCount(start: string, end: string): number {
-  const a = new Date(`${start}T00:00:00`).getTime();
-  const b = new Date(`${end}T00:00:00`).getTime();
-  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 1;
-  return Math.round((b - a) / 86400000) + 1;
-}
-
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function toIncome(m: MachineRow, coins: number): number {
+function toUsd(m: MachineRow, coins: number): number {
   coinValues.value;
   return round2(getIncomeFromCoins(coins, m.name, m.type));
 }
 
-function sumCoins(rows: DayCoins[] | undefined): number {
-  return (rows || []).reduce((s, r) => s + r.coins, 0);
+function sumDays(days: Map<string, number> | undefined): number {
+  let s = 0;
+  for (const v of days?.values() || []) s += v;
+  return s;
 }
 
-const machineRows = computed(() =>
-  machines.value
-    .map((m) => {
-      const coins = sumCoins(coinsByMachine.value.get(m.id));
-      const report = reportsByMachine.value.get(m.id);
-      return {
-        machine: m,
-        coins,
-        available: report?.availableCoins || 0,
-        reportedCoins: report?.soldCoins || 0,
-        lost: report?.lostCoins || 0,
-        returned: report?.returnedCoins || 0,
-        pagoMovil: round2(report?.pagoMovil || 0),
-        dolares: round2(report?.dolares || 0),
-        bolivares: round2(report?.bolivares || 0),
-        premioBs: round2(report?.premio || 0),
-        grossUsd: round2(report?.totalUsdEquivalent || 0),
-        netUsd: round2(report?.netUsdEquivalent || 0),
-        premioUsd: round2(report?.premioUsdEquivalent || 0),
-        events: report?.events || ZERO_EVENTS,
-      };
-    })
-    .sort((a, b) => b.netUsd - a.netUsd || b.coins - a.coins)
+function signedUsd(n: number): string {
+  if (n === 0) return "$ 0";
+  return n > 0 ? `+$ ${n}` : `-$ ${Math.abs(n)}`;
+}
+
+function diffLabel(diffCoins: number): string {
+  if (diffCoins === 0) return "Cuadra";
+  return diffCoins < 0
+    ? `Faltan ${Math.abs(diffCoins)} por registrar`
+    : `${diffCoins} registradas de más`;
+}
+
+const machineRows = computed(() => {
+  const rows = machines.value.map((m) => {
+    const det = detectedByMachine.value.get(m.id);
+    const reg = registeredByMachine.value.get(m.id);
+    const detectedCoins = sumDays(det);
+    const registeredCoins = sumDays(reg);
+    const detectedUsd = toUsd(m, detectedCoins);
+    const registeredUsd = toUsd(m, registeredCoins);
+    const diffCoins = registeredCoins - detectedCoins;
+
+    const dates = new Set<string>([
+      ...(det?.keys() || []),
+      ...(reg?.keys() || []),
+    ]);
+    const days = [...dates]
+      .sort()
+      .reverse()
+      .map((date) => {
+        const d = det?.get(date) || 0;
+        const r = reg?.get(date) || 0;
+        return { date, detected: d, registered: r, diff: r - d };
+      });
+
+    const cash = cashByMachine.value.get(m.id) || ZERO_CASH;
+    const mermas = mermasByMachine.value.get(m.id) || { lost: 0, returned: 0 };
+    return {
+      machine: m,
+      detectedCoins,
+      registeredCoins,
+      detectedUsd,
+      registeredUsd,
+      diffCoins,
+      diffUsd: round2(registeredUsd - detectedUsd),
+      days,
+      lost: mermas.lost,
+      returned: mermas.returned,
+      available: cash.availableCoins,
+      pagoMovil: round2(cash.pagoMovil),
+      bolivares: round2(cash.bolivares),
+      dolares: round2(cash.dolares),
+      premioBs: round2(cash.premio),
+      premioUsd: round2(cash.premioUsdEquivalent),
+      grossUsd: round2(cash.totalUsdEquivalent),
+      netUsd: round2(cash.netUsdEquivalent),
+      events: cash.events,
+    };
+  });
+  return rows.sort(
+    (a, b) =>
+      Math.max(b.registeredUsd, b.detectedUsd) -
+        Math.max(a.registeredUsd, a.detectedUsd) ||
+      Math.abs(b.diffCoins) - Math.abs(a.diffCoins)
+  );
+});
+
+const maxUsd = computed(() =>
+  Math.max(
+    0,
+    ...machineRows.value.map((r) => Math.max(r.registeredUsd, r.detectedUsd))
+  )
 );
 
-const totalCoins = computed(() =>
-  machineRows.value.reduce((s, r) => s + r.coins, 0)
-);
-const totalNetUsd = computed(() =>
-  round2(reportsSummary.value.netUsdEquivalent)
-);
-const totalPremioUsd = computed(() =>
-  round2(reportsSummary.value.premioUsdEquivalent)
-);
-const avgNetPerDay = computed(() =>
-  round2(totalNetUsd.value / dayCount(startDate.value, endDate.value))
-);
-const bestMachine = computed(() => {
-  const top = machineRows.value[0];
-  return top && top.netUsd > 0 ? top.machine.name : "—";
+function barWidth(usd: number): string {
+  return maxUsd.value > 0
+    ? `${Math.min(100, (usd / maxUsd.value) * 100)}%`
+    : "0%";
+}
+
+const totals = computed(() => {
+  const t = {
+    registeredCoins: 0,
+    detectedCoins: 0,
+    registeredUsd: 0,
+    detectedUsd: 0,
+    lost: 0,
+    returned: 0,
+  };
+  for (const r of machineRows.value) {
+    t.registeredCoins += r.registeredCoins;
+    t.detectedCoins += r.detectedCoins;
+    t.registeredUsd += r.registeredUsd;
+    t.detectedUsd += r.detectedUsd;
+    t.lost += r.lost;
+    t.returned += r.returned;
+  }
+  return {
+    ...t,
+    registeredUsd: round2(t.registeredUsd),
+    detectedUsd: round2(t.detectedUsd),
+    diffCoins: t.registeredCoins - t.detectedCoins,
+    diffUsd: round2(t.registeredUsd - t.detectedUsd),
+  };
 });
-const hasAnyActivity = computed(() =>
-  machineRows.value.some(
-    (r) =>
-      r.reportedCoins > 0 || r.pagoMovil > 0 || r.dolares > 0 || r.bolivares > 0
-  )
+
+const cashNetUsd = computed(() => round2(cashSummary.value.netUsdEquivalent));
+const cashGrossUsd = computed(() =>
+  round2(cashSummary.value.totalUsdEquivalent)
+);
+const cashPremioUsd = computed(() =>
+  round2(cashSummary.value.premioUsdEquivalent)
+);
+const availableTotal = computed(() => cashSummary.value.availableCoins);
+const hasAnyCash = computed(
+  () =>
+    cashSummary.value.totalUsdEquivalent > 0 ||
+    cashSummary.value.premio > 0 ||
+    cashSummary.value.netUsdEquivalent !== 0
 );
 
 const supervisorRows = computed(() =>
@@ -218,16 +289,24 @@ const supervisorRows = computed(() =>
       const rows = machineRows.value.filter((r) =>
         s.machineIds.includes(r.machine.id)
       );
+      const registeredUsd = round2(
+        rows.reduce((sum, r) => sum + r.registeredUsd, 0)
+      );
+      const detectedUsd = round2(
+        rows.reduce((sum, r) => sum + r.detectedUsd, 0)
+      );
       return {
         id: s.id,
         name: s.name,
-        machineCount: rows.length,
         machineNames: rows.map((r) => r.machine.name),
-        coins: rows.reduce((sum, r) => sum + r.coins, 0),
+        registeredUsd,
+        detectedUsd,
+        diffUsd: round2(registeredUsd - detectedUsd),
+        diffCoins: rows.reduce((sum, r) => sum + r.diffCoins, 0),
         netUsd: round2(rows.reduce((sum, r) => sum + r.netUsd, 0)),
       };
     })
-    .sort((a, b) => b.netUsd - a.netUsd)
+    .sort((a, b) => b.registeredUsd - a.registeredUsd)
 );
 
 const chartRows = computed(() => {
@@ -238,35 +317,48 @@ const chartRows = computed(() => {
     days.push(formatLocalYmd(cur));
     cur.setDate(cur.getDate() + 1);
   }
-  const totals = new Map<string, number>();
+  const reg = new Map<string, number>();
+  const det = new Map<string, number>();
   for (const m of machines.value) {
     if (chartMachineId.value !== "all" && m.id !== chartMachineId.value) {
       continue;
     }
-    for (const row of coinsByMachine.value.get(m.id) || []) {
-      totals.set(
-        row.date,
-        (totals.get(row.date) || 0) + toIncome(m, row.coins)
-      );
+    for (const [date, coins] of registeredByMachine.value.get(m.id) || []) {
+      reg.set(date, (reg.get(date) || 0) + toUsd(m, coins));
+    }
+    for (const [date, coins] of detectedByMachine.value.get(m.id) || []) {
+      det.set(date, (det.get(date) || 0) + toUsd(m, coins));
     }
   }
-  return days.map((date) => ({ date, income: totals.get(date) || 0 }));
+  return days.map((date) => ({
+    date,
+    registered: round2(reg.get(date) || 0),
+    detected: round2(det.get(date) || 0),
+  }));
 });
 
 const chartData = computed(() => {
-  const dataset: ChartDataset<"bar", number[]> = {
-    label: "Monedas detectadas x precio ($) - verificacion",
-    data: chartRows.value.map((r) => r.income),
+  const operadora: ChartDataset<"bar", number[]> = {
+    label: "Registró la operadora ($)",
+    data: chartRows.value.map((r) => r.registered),
+    borderRadius: 6,
+    backgroundColor: "rgba(245, 158, 11, 0.45)",
+    borderColor: "#f59e0b",
+    borderWidth: 1,
+  };
+  const maquina: ChartDataset<"bar", number[]> = {
+    label: "Detectó la máquina ($)",
+    data: chartRows.value.map((r) => r.detected),
     borderRadius: 6,
     backgroundColor: isDark()
-      ? "rgba(56, 189, 248, 0.35)"
-      : "rgba(2, 132, 199, 0.35)",
-    borderColor: isDark() ? "#38bdf8" : "#0284c7",
+      ? "rgba(161, 161, 170, 0.45)"
+      : "rgba(100, 116, 139, 0.45)",
+    borderColor: isDark() ? "#a1a1aa" : "#64748b",
     borderWidth: 1,
   };
   return {
     labels: chartRows.value.map((r) => r.date.slice(5)),
-    datasets: [dataset],
+    datasets: [operadora, maquina],
   };
 });
 
@@ -277,7 +369,10 @@ const chartOptions = computed(() => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+        display: true,
+        labels: { color: tick, font: { size: 11 } },
+      },
       tooltip: { mode: "index", intersect: false },
     },
     scales: {
@@ -290,96 +385,122 @@ const chartOptions = computed(() => {
   };
 });
 
-let loadToken = 0;
-
-async function loadIncome() {
-  if (!startDate.value || !endDate.value || startDate.value > endDate.value) {
-    return;
-  }
-  const token = ++loadToken;
-  loading.value = true;
-  const next = new Map<string, DayCoins[]>();
-  await Promise.all(
-    machines.value.map(async (m) => {
-      try {
-        const data = await getMachineDailyIncome(m.id, {
-          startDate: startDate.value,
-          endDate: endDate.value,
-        });
-        next.set(
-          m.id,
-          (Array.isArray(data) ? data : []).map((row) => ({
-            date: String(row?.date || "").slice(0, 10),
-            coins: Number(row?.income ?? 0) || 0,
-          }))
-        );
-      } catch {
-        next.set(m.id, []);
-      }
-    })
-  );
-  if (token !== loadToken) return;
-  coinsByMachine.value = next;
-  loading.value = false;
+function dayKey(v: unknown): string {
+  return String(v ?? "").slice(0, 10);
 }
 
-async function loadReports() {
-  if (!startDate.value || !endDate.value || startDate.value > endDate.value) {
-    return;
+function addCoins(
+  target: CoinsByDay,
+  machineId: string,
+  date: string,
+  coins: number
+) {
+  if (!machineId || !date || !Number.isFinite(coins)) return;
+  let days = target.get(machineId);
+  if (!days) {
+    days = new Map();
+    target.set(machineId, days);
   }
+  days.set(date, (days.get(date) || 0) + coins);
+}
+
+let loadToken = 0;
+
+async function loadComparison(token: number) {
+  const params = { startDate: startDate.value, endDate: endDate.value };
+  const [detected, sales, entries] = await Promise.all([
+    getAllMachinesDailyIncome(params).catch(() => []),
+    getDailySales(params).catch(() => []),
+    getDailySaleEntries(params).catch(() => []),
+  ]);
+  if (token !== loadToken) return;
+
+  const det: CoinsByDay = new Map();
+  for (const r of Array.isArray(detected) ? detected : []) {
+    addCoins(det, String(r.machineId), dayKey(r.date), Number(r.income) || 0);
+  }
+  const reg: CoinsByDay = new Map();
+  for (const r of Array.isArray(sales) ? sales : []) {
+    addCoins(
+      reg,
+      String(r?.machineId ?? ""),
+      dayKey(r?.date),
+      Number(r?.coins) || 0
+    );
+  }
+  const mermas = new Map<string, Mermas>();
+  for (const r of Array.isArray(entries) ? entries : []) {
+    const id = String(r?.machineId ?? "");
+    if (!id) continue;
+    const cur = mermas.get(id) || { lost: 0, returned: 0 };
+    cur.lost += Math.max(0, Number(r?.lost) || 0);
+    cur.returned += Math.max(0, Number(r?.returned) || 0);
+    mermas.set(id, cur);
+  }
+  detectedByMachine.value = det;
+  registeredByMachine.value = reg;
+  mermasByMachine.value = mermas;
+}
+
+function toCash(src: {
+  availableCoins?: number;
+  pagoMovil?: number;
+  dolares?: number;
+  bolivares?: number;
+  premio?: number;
+  totalUsdEquivalent?: number;
+  premioUsdEquivalent?: number;
+  netUsdEquivalent?: number;
+  events?: Partial<ReportEvents>;
+}): CashRow {
+  return {
+    availableCoins: Number(src.availableCoins || 0),
+    pagoMovil: Number(src.pagoMovil || 0),
+    dolares: Number(src.dolares || 0),
+    bolivares: Number(src.bolivares || 0),
+    premio: Number(src.premio || 0),
+    totalUsdEquivalent: Number(src.totalUsdEquivalent || 0),
+    premioUsdEquivalent: Number(src.premioUsdEquivalent || 0),
+    netUsdEquivalent: Number(src.netUsdEquivalent || 0),
+    events: {
+      record: Number(src.events?.record || 0),
+      premio: Number(src.events?.premio || 0),
+      perdidas: Number(src.events?.perdidas || 0),
+      devueltas: Number(src.events?.devueltas || 0),
+    },
+  };
+}
+
+async function loadCash(token: number) {
   try {
     const data = await getInventorySummary({
       period: "custom",
       startDate: startDate.value,
       endDate: endDate.value,
     });
+    if (token !== loadToken) return;
     exchangeRate.value = Number(data.exchangeRate || 0);
-    reportsSummary.value = {
-      availableCoins: Number(data.summary?.availableCoins || 0),
-      soldCoins: Number(data.summary?.soldCoins || 0),
-      lostCoins: Number(data.summary?.lostCoins || 0),
-      returnedCoins: Number(data.summary?.returnedCoins || 0),
-      pagoMovil: Number(data.summary?.pagoMovil || 0),
-      dolares: Number(data.summary?.dolares || 0),
-      bolivares: Number(data.summary?.bolivares || 0),
-      premio: Number(data.summary?.premio || 0),
-      totalUsdEquivalent: Number(data.summary?.totalUsdEquivalent || 0),
-      premioUsdEquivalent: Number(data.summary?.premioUsdEquivalent || 0),
-      netUsdEquivalent: Number(data.summary?.netUsdEquivalent || 0),
-      events: {
-        record: Number(data.summary?.events?.record || 0),
-        premio: Number(data.summary?.events?.premio || 0),
-        perdidas: Number(data.summary?.events?.perdidas || 0),
-        devueltas: Number(data.summary?.events?.devueltas || 0),
-      },
-    };
-    const map = new Map<string, ReportMachineRow>();
+    cashSummary.value = toCash(data.summary || {});
+    const map = new Map<string, CashRow>();
     for (const row of data.machines || []) {
-      map.set(String(row.machineId), {
-        availableCoins: Number(row.availableCoins || 0),
-        soldCoins: Number(row.soldCoins || 0),
-        lostCoins: Number(row.lostCoins || 0),
-        returnedCoins: Number(row.returnedCoins || 0),
-        pagoMovil: Number(row.pagoMovil || 0),
-        dolares: Number(row.dolares || 0),
-        bolivares: Number(row.bolivares || 0),
-        premio: Number(row.premio || 0),
-        totalUsdEquivalent: Number(row.totalUsdEquivalent || 0),
-        premioUsdEquivalent: Number(row.premioUsdEquivalent || 0),
-        netUsdEquivalent: Number(row.netUsdEquivalent || 0),
-        events: {
-          record: Number(row.events?.record || 0),
-          premio: Number(row.events?.premio || 0),
-          perdidas: Number(row.events?.perdidas || 0),
-          devueltas: Number(row.events?.devueltas || 0),
-        },
-      });
+      map.set(String(row.machineId), toCash(row));
     }
-    reportsByMachine.value = map;
+    cashByMachine.value = map;
   } catch {
-    reportsSummary.value = ZERO_REPORT;
-    reportsByMachine.value = new Map();
+    if (token !== loadToken) return;
+    cashSummary.value = ZERO_CASH;
+    cashByMachine.value = new Map();
   }
+}
+
+async function loadAll() {
+  if (!startDate.value || !endDate.value || startDate.value > endDate.value) {
+    return;
+  }
+  const token = ++loadToken;
+  loading.value = true;
+  await Promise.all([loadComparison(token), loadCash(token)]);
+  if (token === loadToken) loading.value = false;
 }
 
 async function loadBase() {
@@ -433,6 +554,7 @@ const tabs = computed(() => {
 });
 
 const presets: { key: Preset; label: string }[] = [
+  { key: "ayer", label: "Ayer" },
   { key: "hoy", label: "Hoy" },
   { key: "semana", label: "7 días" },
   { key: "mes", label: "Este mes" },
@@ -441,12 +563,11 @@ const presets: { key: Preset; label: string }[] = [
 
 onMounted(async () => {
   await loadBase();
-  await Promise.all([loadIncome(), loadReports()]);
+  await loadAll();
 });
 
 watch([startDate, endDate], () => {
-  void loadIncome();
-  void loadReports();
+  void loadAll();
 });
 </script>
 
@@ -462,12 +583,12 @@ watch([startDate, endDate], () => {
     :open="isEditExchangeRateOpen"
     :dark="isDark()"
     @close="isEditExchangeRateOpen = false"
-    @saved="loadReports"
+    @saved="loadAll"
   />
 
   <div
     :class="[
-      'min-h-screen px-3 py-4 sm:px-6 lg:px-8 space-y-4',
+      'min-h-screen px-3 py-4 pb-28 sm:px-6 lg:px-8 space-y-4',
       isDark() ? 'bg-zinc-950 text-white' : 'bg-slate-100 text-slate-900',
     ]"
   >
@@ -498,11 +619,11 @@ watch([startDate, endDate], () => {
             Finanzas
           </h1>
           <p
-            class="text-xs truncate"
+            class="text-xs"
             :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
           >
-            Ingreso neto = reporte de cierre (pago móvil + dólares + bolívares)
-            − premios
+            Lo que registró la operadora vs. lo que detectó la máquina, y la
+            caja del cierre diario
           </p>
         </div>
       </div>
@@ -510,12 +631,7 @@ watch([startDate, endDate], () => {
       <button
         v-if="capabilities.canEditExchangeRate"
         type="button"
-        class="shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition"
-        :class="
-          isDark()
-            ? 'bg-red-600 text-white hover:bg-red-500'
-            : 'bg-red-600 text-white hover:bg-red-700'
-        "
+        class="shrink-0 rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500"
         @click="isEditExchangeRateOpen = true"
       >
         Editar tasa
@@ -566,13 +682,6 @@ watch([startDate, endDate], () => {
 
     <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div
-        v-for="tile in [
-          { v: `$ ${totalNetUsd}`, l: 'Ingreso neto del período' },
-          { v: `$ ${totalPremioUsd}`, l: 'Premios pagados' },
-          { v: String(totalCoins), l: 'Monedas detectadas (máquina)' },
-          { v: `$ ${avgNetPerDay}`, l: 'Promedio neto por día' },
-        ]"
-        :key="tile.l"
         class="rounded-2xl border px-3 py-2.5"
         :class="
           isDark()
@@ -580,14 +689,115 @@ watch([startDate, endDate], () => {
             : 'bg-white/60 border-slate-200/70'
         "
       >
-        <p class="text-xl sm:text-2xl font-semibold truncate">{{ tile.v }}</p>
         <p
-          class="text-xs"
+          class="text-xl sm:text-2xl font-semibold truncate"
+          :class="isDark() ? 'text-amber-300' : 'text-amber-600'"
+        >
+          $ {{ totals.registeredUsd }}
+        </p>
+        <p class="text-xs font-medium">Registró la operadora</p>
+        <p
+          class="text-[11px]"
           :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
         >
-          {{ tile.l }}
+          {{ totals.registeredCoins }} monedas
         </p>
       </div>
+      <div
+        class="rounded-2xl border px-3 py-2.5"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70'
+            : 'bg-white/60 border-slate-200/70'
+        "
+      >
+        <p
+          class="text-xl sm:text-2xl font-semibold truncate"
+          :class="isDark() ? 'text-zinc-200' : 'text-zinc-600'"
+        >
+          $ {{ totals.detectedUsd }}
+        </p>
+        <p class="text-xs font-medium">Detectó la máquina</p>
+        <p
+          class="text-[11px]"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          {{ totals.detectedCoins }} monedas
+        </p>
+      </div>
+      <div
+        class="rounded-2xl border px-3 py-2.5"
+        :class="[
+          totals.diffCoins !== 0
+            ? isDark()
+              ? 'bg-orange-500/10 border-orange-500/30'
+              : 'bg-orange-50 border-orange-200'
+            : isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70'
+            : 'bg-white/60 border-slate-200/70',
+        ]"
+      >
+        <p
+          class="text-xl sm:text-2xl font-semibold truncate"
+          :class="
+            totals.diffCoins !== 0
+              ? isDark()
+                ? 'text-orange-300'
+                : 'text-orange-600'
+              : ''
+          "
+        >
+          {{ signedUsd(totals.diffUsd) }}
+        </p>
+        <p class="text-xs font-medium">Diferencia</p>
+        <p
+          class="text-[11px]"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          {{ diffLabel(totals.diffCoins) }}
+        </p>
+      </div>
+      <div
+        class="rounded-2xl border px-3 py-2.5"
+        :class="
+          isDark()
+            ? 'bg-zinc-900/70 border-zinc-800/70'
+            : 'bg-white/60 border-slate-200/70'
+        "
+      >
+        <p class="text-xl sm:text-2xl font-semibold truncate">
+          $ {{ cashNetUsd }}
+        </p>
+        <p class="text-xs font-medium">Caja neta (cierre diario)</p>
+        <p
+          class="text-[11px]"
+          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+        >
+          bruto $ {{ cashGrossUsd }} − premios $ {{ cashPremioUsd }}
+        </p>
+      </div>
+    </section>
+
+    <section
+      class="flex flex-wrap gap-x-4 gap-y-1 rounded-2xl border px-4 py-2 text-xs"
+      :class="
+        isDark()
+          ? 'bg-zinc-900/70 border-zinc-800/70 text-zinc-400'
+          : 'bg-white/60 border-slate-200/70 text-slate-500'
+      "
+    >
+      <span>
+        Pérdidas: <strong>{{ totals.lost }}</strong>
+      </span>
+      <span>
+        Devueltas: <strong>{{ totals.returned }}</strong>
+      </span>
+      <span>
+        Monedas disponibles (operadoras): <strong>{{ availableTotal }}</strong>
+      </span>
+      <span class="opacity-80">
+        Pérdidas y devueltas no se suman como ingreso.
+      </span>
     </section>
 
     <section
@@ -632,13 +842,7 @@ watch([startDate, endDate], () => {
 
       <div v-else-if="activeTab === 'maquinas'" class="pt-3">
         <p
-          class="pb-2 text-xs"
-          :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-        >
-          Máquina que más vendió: <strong>{{ bestMachine }}</strong>
-        </p>
-        <p
-          v-if="!hasAnyActivity"
+          v-if="!hasAnyCash"
           class="mb-3 rounded-xl border px-3 py-2 text-xs"
           :class="
             isDark()
@@ -646,8 +850,9 @@ watch([startDate, endDate], () => {
               : 'border-orange-200 bg-orange-50 text-orange-700'
           "
         >
-          Ninguna operadora ha enviado el cierre diario para este período
-          todavía, por eso los montos están en $0.
+          Ninguna operadora ha enviado el cierre diario de este período, por eso
+          la caja neta está en $0. Lo registrado por las operadoras y lo
+          detectado por las máquinas sí se muestra.
         </p>
         <p
           v-if="machineRows.length === 0"
@@ -667,54 +872,68 @@ watch([startDate, endDate], () => {
               @click="toggleExpanded(row.machine.id)"
             >
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold">
-                  {{ row.machine.name }}
-                </p>
+                <div class="flex items-center gap-2 min-w-0">
+                  <p class="truncate text-sm font-semibold">
+                    {{ row.machine.name }}
+                  </p>
+                  <span
+                    class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    :class="
+                      row.diffCoins === 0
+                        ? isDark()
+                          ? 'bg-zinc-500/15 text-zinc-300'
+                          : 'bg-zinc-100 text-zinc-600'
+                        : isDark()
+                        ? 'bg-orange-500/15 text-orange-300'
+                        : 'bg-orange-50 text-orange-700'
+                    "
+                  >
+                    {{ diffLabel(row.diffCoins) }}
+                  </span>
+                </div>
                 <p
                   class="truncate text-xs"
                   :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
                 >
                   {{ row.machine.location || "Sin ubicación" }}
                 </p>
-                <div
-                  class="mt-1 h-1.5 w-full overflow-hidden rounded-full"
-                  :class="isDark() ? 'bg-zinc-800' : 'bg-slate-200'"
-                >
-                  <div
-                    class="h-full rounded-full bg-red-500"
-                    :style="{
-                      width:
-                        totalNetUsd > 0
-                          ? `${Math.min(
-                              100,
-                              (row.netUsd / totalNetUsd) * 100
-                            )}%`
-                          : '0%',
-                    }"
-                  ></div>
+                <div class="mt-1.5 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="h-1.5 flex-1 overflow-hidden rounded-full"
+                      :class="isDark() ? 'bg-zinc-800' : 'bg-slate-200'"
+                    >
+                      <div
+                        class="h-full rounded-full bg-amber-500"
+                        :style="{ width: barWidth(row.registeredUsd) }"
+                      ></div>
+                    </div>
+                    <span
+                      class="w-24 shrink-0 text-right text-[11px] font-medium"
+                      :class="isDark() ? 'text-amber-300' : 'text-amber-700'"
+                    >
+                      Operadora $ {{ row.registeredUsd }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="h-1.5 flex-1 overflow-hidden rounded-full"
+                      :class="isDark() ? 'bg-zinc-800' : 'bg-slate-200'"
+                    >
+                      <div
+                        class="h-full rounded-full"
+                        :class="isDark() ? 'bg-zinc-400' : 'bg-slate-500'"
+                        :style="{ width: barWidth(row.detectedUsd) }"
+                      ></div>
+                    </div>
+                    <span
+                      class="w-24 shrink-0 text-right text-[11px] font-medium"
+                      :class="isDark() ? 'text-zinc-300' : 'text-zinc-600'"
+                    >
+                      Máquina $ {{ row.detectedUsd }}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div class="text-right shrink-0">
-                <p class="text-base font-semibold">$ {{ row.netUsd }}</p>
-                <p
-                  class="text-xs"
-                  :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
-                >
-                  {{ row.coins }} máquina · {{ row.reportedCoins }} declaradas
-                </p>
-                <p
-                  v-if="row.lost > 0 || row.returned > 0 || row.premioUsd > 0"
-                  class="text-xs"
-                  :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
-                >
-                  <span v-if="row.premioUsd > 0"
-                    >Premio $ {{ row.premioUsd }}</span
-                  >
-                  <span v-if="row.lost > 0"> · {{ row.lost }} perdidas</span>
-                  <span v-if="row.returned > 0">
-                    · {{ row.returned }} devueltas</span
-                  >
-                </p>
               </div>
               <span
                 aria-hidden="true"
@@ -729,26 +948,137 @@ watch([startDate, endDate], () => {
 
             <div
               v-if="expandedMachineIds.has(row.machine.id)"
-              class="mb-3 space-y-2 rounded-xl border p-3 text-xs"
+              class="mb-3 space-y-3 rounded-xl border p-3 text-xs"
               :class="
                 isDark()
                   ? 'border-zinc-800/70 bg-zinc-950/20'
                   : 'border-slate-200 bg-white/60'
               "
             >
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Disponibles (operadora)
-                  </p>
-                  <p class="font-semibold">{{ row.available }}</p>
+              <div>
+                <p class="mb-1 font-semibold">Operadora vs. máquina</p>
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Registró la operadora
+                    </p>
+                    <p class="font-semibold">
+                      {{ row.registeredCoins }} monedas
+                    </p>
+                    <p class="font-semibold">$ {{ row.registeredUsd }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Detectó la máquina
+                    </p>
+                    <p class="font-semibold">{{ row.detectedCoins }} monedas</p>
+                    <p class="font-semibold">$ {{ row.detectedUsd }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Diferencia
+                    </p>
+                    <p
+                      class="font-semibold"
+                      :class="row.diffCoins !== 0 ? 'text-orange-500' : ''"
+                    >
+                      {{ row.diffCoins > 0 ? "+" : "" }}{{ row.diffCoins }}
+                      monedas
+                    </p>
+                    <p
+                      class="font-semibold"
+                      :class="row.diffCoins !== 0 ? 'text-orange-500' : ''"
+                    >
+                      {{ signedUsd(row.diffUsd) }}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Vendidas (declaradas)
-                  </p>
-                  <p class="font-semibold">{{ row.reportedCoins }}</p>
+                <p
+                  class="mt-1"
+                  :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                >
+                  Diferencia = registrado por la operadora − detectado por la
+                  máquina.
+                </p>
+              </div>
+
+              <div v-if="row.days.length > 0">
+                <p class="mb-1 font-semibold">Por día (monedas)</p>
+                <table class="w-full text-left">
+                  <thead>
+                    <tr :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      <th class="py-0.5 font-medium">Fecha</th>
+                      <th class="py-0.5 text-right font-medium">Operadora</th>
+                      <th class="py-0.5 text-right font-medium">Máquina</th>
+                      <th class="py-0.5 text-right font-medium">Dif.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="d in row.days" :key="d.date">
+                      <td class="py-0.5">{{ d.date.slice(5) }}</td>
+                      <td class="py-0.5 text-right">{{ d.registered }}</td>
+                      <td class="py-0.5 text-right">{{ d.detected }}</td>
+                      <td
+                        class="py-0.5 text-right font-semibold"
+                        :class="d.diff !== 0 ? 'text-orange-500' : ''"
+                      >
+                        {{ d.diff > 0 ? "+" : "" }}{{ d.diff }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div>
+                <p class="mb-1 font-semibold">Caja (cierre diario)</p>
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Pago móvil
+                    </p>
+                    <p class="font-semibold">Bs {{ row.pagoMovil }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Bolívares efectivo
+                    </p>
+                    <p class="font-semibold">Bs {{ row.bolivares }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Dólares
+                    </p>
+                    <p class="font-semibold">$ {{ row.dolares }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Premio
+                    </p>
+                    <p class="font-semibold">Bs {{ row.premioBs }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Bruto
+                    </p>
+                    <p class="font-semibold">$ {{ row.grossUsd }}</p>
+                  </div>
+                  <div>
+                    <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
+                      Neto
+                    </p>
+                    <p class="font-semibold">$ {{ row.netUsd }}</p>
+                  </div>
                 </div>
+                <p
+                  class="mt-1"
+                  :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
+                >
+                  Si la operadora atiende varias máquinas, su cierre se reparte
+                  en proporción a las monedas vendidas en cada una.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2">
                 <div>
                   <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
                     Perdidas
@@ -771,44 +1101,11 @@ watch([startDate, endDate], () => {
                     {{ row.returned }}
                   </p>
                 </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <div>
                   <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Pago móvil
+                    Disponibles (operadora)
                   </p>
-                  <p class="font-semibold">Bs {{ row.pagoMovil }}</p>
-                </div>
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Bolívares efectivo
-                  </p>
-                  <p class="font-semibold">Bs {{ row.bolivares }}</p>
-                </div>
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Dólares
-                  </p>
-                  <p class="font-semibold">$ {{ row.dolares }}</p>
-                </div>
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Premio
-                  </p>
-                  <p class="font-semibold">Bs {{ row.premioBs }}</p>
-                </div>
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Bruto
-                  </p>
-                  <p class="font-semibold">$ {{ row.grossUsd }}</p>
-                </div>
-                <div>
-                  <p :class="isDark() ? 'text-zinc-500' : 'text-slate-400'">
-                    Neto
-                  </p>
-                  <p class="font-semibold">$ {{ row.netUsd }}</p>
+                  <p class="font-semibold">{{ row.available }}</p>
                 </div>
               </div>
 
@@ -860,13 +1157,6 @@ watch([startDate, endDate], () => {
             </option>
           </select>
         </label>
-        <p
-          class="mb-2 text-xs"
-          :class="isDark() ? 'text-zinc-500' : 'text-slate-400'"
-        >
-          Verificación por monedas detectadas en la máquina (no es el ingreso
-          neto reportado arriba).
-        </p>
         <div class="h-64">
           <BarChart :chart-data="chartData" :chart-options="chartOptions" />
         </div>
@@ -898,13 +1188,26 @@ watch([startDate, endDate], () => {
                 {{ s.machineNames.join(" · ") || "Sin máquinas" }}
               </p>
             </div>
-            <div class="text-right shrink-0">
-              <p class="text-base font-semibold">$ {{ s.netUsd }}</p>
+            <div class="text-right shrink-0 text-xs">
               <p
-                class="text-xs"
-                :class="isDark() ? 'text-zinc-400' : 'text-slate-500'"
+                class="font-semibold"
+                :class="isDark() ? 'text-amber-300' : 'text-amber-700'"
               >
-                {{ s.coins }} monedas (máquina)
+                Operadora $ {{ s.registeredUsd }}
+              </p>
+              <p :class="isDark() ? 'text-zinc-300' : 'text-zinc-600'">
+                Máquina $ {{ s.detectedUsd }}
+              </p>
+              <p
+                :class="
+                  s.diffCoins !== 0
+                    ? 'font-semibold text-orange-500'
+                    : isDark()
+                    ? 'text-zinc-500'
+                    : 'text-slate-400'
+                "
+              >
+                Dif. {{ signedUsd(s.diffUsd) }} · caja neta $ {{ s.netUsd }}
               </p>
             </div>
           </li>
